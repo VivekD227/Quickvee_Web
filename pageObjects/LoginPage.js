@@ -24,10 +24,6 @@ class LoginPage {
 
     this.incorrectMessage = page.locator(".MuiAlert-message");
 
-    /** Visibility toggle next to password (Material / common patterns) */
-    this.passwordVisibilityToggle = page.getByRole("button", {
-      name: /toggle password visibility|show password|hide password/i,
-    });
   }
 
   async login(store, user, pwd) {
@@ -72,27 +68,6 @@ class LoginPage {
     await this.logo.isVisible();
   }
 
-  /** Current `<input>` type for the password field (`password` or `text`). */
-  async getPasswordInputType() {
-    return await this.password.evaluate((el) => el.type);
-  }
-
-  /**
-   * Clicks the show/hide password control beside the password field.
-   */
-  async togglePasswordVisibility() {
-    const namedToggle = this.passwordVisibilityToggle;
-    if ((await namedToggle.count()) > 0) {
-      await namedToggle.first().click();
-      return;
-    }
-    await this.password
-      .locator("xpath=ancestor::div[position()<=5]")
-      .getByRole("button")
-      .first()
-      .click();
-  }
-
   async inputMessageDisplay() {
     await this.incorrectMessage.isVisible();
   }
@@ -112,6 +87,11 @@ class LoginPage {
   async pwdErrorDisplay() {
     await expect(this.pwdError).toBeVisible();
   }
+
+  async forgotPasswordBtnClick(){
+    await this.forgotPassword.click();
+  }
+
 }
 
 module.exports = { LoginPage };

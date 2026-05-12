@@ -1,32 +1,11 @@
 import { test, expect } from "@playwright/test";
 import { LoginPage } from "../pageObjects/LoginPage";
 import { Dashboard } from "../pageObjects/Dashboard";
-import { loginResponse } from "../utilities/loginHelper";
+import { loginResponse } from "../utilities/apiHelper/loginHelper";
 
 const VALID_STORE = "chain";
 const MERCHANT_EMAIL = "vivek.dubey521@gmail.com";
 const MERCHANT_PASSWORD = "Quickvee123!";
-
-// /** Stays on login URL and shows an inline/HTML5 validation failure or API error banner. */
-// async function expectStayOnLoginWithFailure(page, loginpage) {
-//   await expect(page).toHaveURL(/merchants\/login/);
-
-//   const bannerVisible = await loginpage.incorrectMessage
-//     .isVisible()
-//     .catch(() => false);
-//   const inputErrorCount = await loginpage.errorMessage.count();
-//   const storeInvalid = await loginpage.storeName.evaluate((el) => !el.validity.valid);
-//   const userInvalid = await loginpage.username.evaluate((el) => !el.validity.valid);
-//   const passInvalid = await loginpage.password.evaluate((el) => !el.validity.valid);
-
-//   expect(
-//     bannerVisible ||
-//       inputErrorCount > 0 ||
-//       storeInvalid ||
-//       userInvalid ||
-//       passInvalid
-//   ).toBeTruthy();
-// }
 
 test.describe("Login Module", () => {
   /** Avoid two full logins hitting production in parallel; allow slow API responses. */
