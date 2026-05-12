@@ -16,7 +16,11 @@ class LoginPage {
 
     this.forgotPassword = page.locator(".forgot-password");
 
-    this.errorMessage = page.locator(".input-error");
+    this.storeError = page.getByText("Store Name is required");
+
+    this.userError = page.getByText("Username is required");
+
+    this.pwdError = page.getByText("Password is required");
 
     this.incorrectMessage = page.locator(".MuiAlert-message");
 
@@ -88,13 +92,25 @@ class LoginPage {
       .first()
       .click();
   }
-  
-  async inputMessageDisplay(){
+
+  async inputMessageDisplay() {
     await this.incorrectMessage.isVisible();
   }
 
   async inputMessageText(error) {
     await expect(this.incorrectMessage).toContainText(error);
+  }
+
+  async storeErrorDisplay() {
+    await expect(this.storeError).toBeVisible();
+  }
+
+  async userErrorDisplay() {
+    await expect(this.userError).toBeVisible();
+  }
+
+  async pwdErrorDisplay() {
+    await expect(this.pwdError).toBeVisible();
   }
 }
 

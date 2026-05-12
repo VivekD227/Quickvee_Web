@@ -7,29 +7,28 @@ const VALID_STORE = "chain";
 const MERCHANT_EMAIL = "vivek.dubey521@gmail.com";
 const MERCHANT_PASSWORD = "Quickvee123!";
 
-/** Stays on login URL and shows an inline/HTML5 validation failure or API error banner. */
-async function expectStayOnLoginWithFailure(page, loginpage) {
-  await expect(page).toHaveURL(/merchants\/login/);
+// /** Stays on login URL and shows an inline/HTML5 validation failure or API error banner. */
+// async function expectStayOnLoginWithFailure(page, loginpage) {
+//   await expect(page).toHaveURL(/merchants\/login/);
 
-  const bannerVisible = await loginpage.incorrectMessage
-    .isVisible()
-    .catch(() => false);
-  const inputErrorCount = await loginpage.errorMessage.count();
-  const storeInvalid = await loginpage.storeName.evaluate((el) => !el.validity.valid);
-  const userInvalid = await loginpage.username.evaluate((el) => !el.validity.valid);
-  const passInvalid = await loginpage.password.evaluate((el) => !el.validity.valid);
+//   const bannerVisible = await loginpage.incorrectMessage
+//     .isVisible()
+//     .catch(() => false);
+//   const inputErrorCount = await loginpage.errorMessage.count();
+//   const storeInvalid = await loginpage.storeName.evaluate((el) => !el.validity.valid);
+//   const userInvalid = await loginpage.username.evaluate((el) => !el.validity.valid);
+//   const passInvalid = await loginpage.password.evaluate((el) => !el.validity.valid);
 
-  expect(
-    bannerVisible ||
-      inputErrorCount > 0 ||
-      storeInvalid ||
-      userInvalid ||
-      passInvalid
-  ).toBeTruthy();
-}
+//   expect(
+//     bannerVisible ||
+//       inputErrorCount > 0 ||
+//       storeInvalid ||
+//       userInvalid ||
+//       passInvalid
+//   ).toBeTruthy();
+// }
 
 test.describe("Login Module", () => {
-
   /** Avoid two full logins hitting production in parallel; allow slow API responses. */
   test.describe.configure({ mode: "serial", timeout: 60_000 });
 
@@ -37,7 +36,6 @@ test.describe("Login Module", () => {
   let dashboard;
 
   test.beforeEach(async ({ page }) => {
-
     await page.goto("https://quickvee.com/merchants/login");
 
     loginpage = new LoginPage(page);
@@ -47,8 +45,13 @@ test.describe("Login Module", () => {
   });
 
   test("Merchant Login", async ({ page }) => {
-
-    const responseBody = await loginResponse(page, loginpage, "chain", "vivek.dubey521@gmail.com", "Quickvee123!")
+    const responseBody = await loginResponse(
+      page,
+      loginpage,
+      "chain",
+      "vivek.dubey521@gmail.com",
+      "Quickvee123!",
+    );
 
     expect(responseBody.login_type).toBe("merchant");
     await dashboard.storenameDisplay();
@@ -57,8 +60,13 @@ test.describe("Login Module", () => {
   });
 
   test("Employee Login", async ({ page }) => {
-
-    const responseBody = await loginResponse(page, loginpage, "chain", "vivek@gmail.com", "Vivek@123");
+    const responseBody = await loginResponse(
+      page,
+      loginpage,
+      "chain",
+      "vivek@gmail.com",
+      "Vivek@123",
+    );
 
     expect(responseBody.login_type).toBe("manager");
     await dashboard.storenameDisplay();
@@ -67,45 +75,62 @@ test.describe("Login Module", () => {
   });
 
   test("Incorrect Password", async ({ page }) => {
-    await loginpage.login(VALID_STORE, MERCHANT_EMAIL, "Quickvee123");
+    //await loginpage.login(VALID_STORE, MERCHANT_EMAIL, "Quickvee123");
+
+    const response = await loginResponse(
+      page,
+      loginpage,
+      "chain",
+      "vivek.dubey521@gmail.com",
+      "Quickvee@123",
+    );
+    let msg = "Incorrect Username & Password";
+
+    expect(response.status).toBeFalsy();
+    expect(response.msg).toBe(msg);
     await loginpage.inputMessageDisplay();
-    await loginpage.inputMessageText("Incorrect Username & Password");
+    await loginpage.inputMessageText(msg);
   });
 
   test("loginWithInvalidUsername", async ({ page }) => {
     await loginpage.login(
       VALID_STORE,
-      "not-a-real-user@invalid.local",
-      MERCHANT_PASSWORD
+      "vivek.dubey521gmail.com",
+      MERCHANT_PASSWORD,
     );
     await loginpage.inputMessageDisplay();
     await loginpage.inputMessageText("Incorrect Username & Password");
   });
 
   test("loginWithInvalidStoreName", async ({ page }) => {
-    await loginpage.login(
-      "nonexistent-store-xyz",
-      MERCHANT_EMAIL,
-      MERCHANT_PASSWORD
-    );
+    await loginpage.login("chains", MERCHANT_EMAIL, MERCHANT_PASSWORD);
     await loginpage.inputMessageDisplay();
     await loginpage.inputMessageText("Incorrect Username & Password");
   });
 
   test("loginWithEmptyFields", async ({ page }) => {
     await loginpage.clickLogin();
-    await expectStayOnLoginWithFailure(page, loginpage);
+    await loginpage.storeErrorDisplay();
+    await loginpage.userErrorDisplay();
+    await loginpage.pwdErrorDisplay();
+    expect(page).toHaveURL("https://quickvee.com/merchants/login");
   });
 
   test("loginWithOnlyUsernameEntered", async ({ page }) => {
     await loginpage.fillUsername(MERCHANT_EMAIL);
     await loginpage.clickLogin();
-    await expectStayOnLoginWithFailure(page, loginpage);
+    await loginpage.pwdErrorDisplay();
+    await loginpage.storeErrorDisplay();
+
+    expect(page).toHaveURL("https://quickvee.com/merchants/login");
   });
 
   test("loginWithOnlyPasswordEntered", async ({ page }) => {
     await loginpage.fillPassword(MERCHANT_PASSWORD);
     await loginpage.clickLogin();
-    await expectStayOnLoginWithFailure(page, loginpage);
+    await loginpage.storeErrorDisplay();
+    await loginpage.userErrorDisplay();
+
+    expect(page).toHaveURL("https://quickvee.com/merchants/login");
   });
 });
