@@ -19,9 +19,13 @@ test.describe("DashBoard Module", () => {
 
   test("Check UI", async ({ page }) => {
     let sName = "Chain Smoker";
+    let vName = "View Online Store";
     await dashboard.storenameDisplay();
     await dashboard.storeNameText(sName);
+    await dashboard.viewStoreDisplay();
+    await dashboard.viewStoreDisplay();
+
     await dashboard.menuClick();
-    await page.pause();
+  
   });
 });

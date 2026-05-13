@@ -8,7 +8,6 @@ const MERCHANT_EMAIL = "vivek.dubey521@gmail.com";
 const MERCHANT_PASSWORD = "Quickvee123!";
 
 test.describe("Login Module", () => {
-  /** Avoid two full logins hitting production in parallel; allow slow API responses. */
   test.describe.configure({ mode: "serial", timeout: 60_000 });
 
   let loginpage;
@@ -54,7 +53,6 @@ test.describe("Login Module", () => {
   });
 
   test("Incorrect Password", async ({ page }) => {
-    //await loginpage.login(VALID_STORE, MERCHANT_EMAIL, "Quickvee123");
 
     const response = await loginResponse(
       page,

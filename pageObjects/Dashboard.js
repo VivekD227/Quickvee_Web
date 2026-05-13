@@ -10,9 +10,9 @@ class Dashboard {
 
     this.logoutBtn = page.getByText("Logout");
 
-    this.quickveeLogo = page.getByRole("img", {
-      name: "Logo",
-    });
+    this.quickveeLogo = page.getByRole("img", { name: "Logo" });
+
+    this.viewStore = page.getByText("View Online Store");
 
     this.sidebar = page.locator(
       "//div[@class='flex items-center justify-between md:px-4 mx-2']//*[name()='svg']",
@@ -34,7 +34,16 @@ class Dashboard {
   }
 
   async logoDisplayed() {
-    await expect(this.quickveeLogo).toBeVisible();
+  await this.page.waitForLoadState("networkidle");
+  await expect(this.quickveeLogo).toBeVisible();
+}
+
+  async viewStoreDisplay(){
+    await expect(this.viewStore).toBeVisible();
+  }
+
+  async viewStoreText(text){
+    await expect(this.viewStore).toHaveText(text);
   }
 
   async profileBtnClick() {
