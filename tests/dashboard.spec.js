@@ -26,6 +26,5 @@ test.describe("DashBoard Module", () => {
     await dashboard.viewStoreDisplay();
 
     await dashboard.menuClick();
-  
   });
 });
