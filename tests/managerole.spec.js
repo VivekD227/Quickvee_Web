@@ -19,13 +19,14 @@ test.describe("Manage Role Module", () => {
     await page.goto("https://quickvee.com/merchants/login");
     await loginpage.login("chain", "vivek.dubey521@gmail.com", "Quickvee123!");
     await dashboard.logoDisplayed();
-  });
-
-  test("Manage", async ({ page }) => {
     await dashboard.menuClick();
     await dashboard.employeeClick();
     await dashboard.manage_employeeClick();
     await employeemanagement.manageRoleClick();
+  });
+
+  test("Manage", async ({ page }) => {
+    
     await managerole.getmanageemptext("Manage Employee Roles");
     await managerole.getcreateText(
       "Create and customize roles with specific permissions",
@@ -35,6 +36,14 @@ test.describe("Manage Role Module", () => {
       "Choose a role from the list or create a new one",
     );
 
-    await managerole.getRoleCount();
+    await managerole.matchRow();
+    await page.waitForTimeout(3000);
+    await managerole.verifyDefaultName();
+    await managerole.defaultCheck();
+    await managerole.editBtnCountCheck();
+  });
+
+  test("Add New Role", async ({page}) =>{
+      await managerole.createNewRoleBtnClick();
   });
 });
