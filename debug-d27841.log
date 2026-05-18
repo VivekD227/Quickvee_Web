@@ -1,0 +1,2 @@
+{"sessionId":"d27841","runId":"post-fix","hypothesisId":"H1-H5","location":"ManageRole.js:checkPermissionCount:entry","message":"locator probe","data":{"roleName":"Manager","expectedCount":133,"rowCount":0,"legacyNameBoxCount":0,"permInRow":0,"permInLegacyNameBox":0},"timestamp":1779121402087}
+{"sessionId":"d27841","runId":"post-fix","hypothesisId":"H1-H4","location":"ManageRole.js:checkPermissionCount:exit","message":"permission verified","data":{"roleName":"Manager","permissionText":"133 Permissions","editHeader":"Permissions (133)"},"timestamp":1779121404866}

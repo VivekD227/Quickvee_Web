@@ -34,7 +34,7 @@ class Dashboard {
   }
 
   async logoDisplayed() {
-  await this.page.waitForLoadState("networkidle");
+  this.page.waitForTimeout(3000);
   await expect(this.quickveeLogo).toBeVisible();
 }
 
