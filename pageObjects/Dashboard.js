@@ -6,7 +6,7 @@ class Dashboard {
 
     this.store = page.locator(".admin_medium").first();
 
-    this.profileBtn = page.locator('img[src*="Down"]').nth(1);
+    this.profileBtn = page.locator('#basic-button:visible')
 
     this.logoutBtn = page.getByText("Logout");
 

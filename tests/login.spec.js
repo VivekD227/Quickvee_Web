@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { LoginPage } from "../pageObjects/LoginPage";
 import { Dashboard } from "../pageObjects/Dashboard";
 import { loginResponse } from "../utilities/apiHelper/loginHelper";
+import { setMerchantID } from "../utilities/helper/sessionData";
 
 const VALID_STORE = "chain";
 const MERCHANT_EMAIL = "vivek.dubey521@gmail.com";
@@ -26,12 +27,15 @@ test.describe("Login Module", () => {
     const responseBody = await loginResponse(
       page,
       loginpage,
-      "chain",
-      "vivek.dubey521@gmail.com",
-      "Quickvee123!",
+      "automation",
+      "vivekd@gmail.com",
+      "Vivek@123",
     );
 
     expect(responseBody.login_type).toBe("merchant");
+    const mid = responseBody.data.merchant_id;
+    setMerchantID(mid);
+    console.log(mid);
     await dashboard.storenameDisplay();
     await dashboard.profileBtnClick();
     await dashboard.logoutBtnClick();

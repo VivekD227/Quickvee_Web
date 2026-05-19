@@ -1,6 +1,8 @@
 const { expect } = require("@playwright/test");
 
+
 class LoginPage {
+
   constructor(page) {
     this.page = page;
 
@@ -24,6 +26,7 @@ class LoginPage {
 
     this.incorrectMessage = page.locator(".MuiAlert-message");
 
+ 
   }
 
   async login(store, user, pwd) {
