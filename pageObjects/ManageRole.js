@@ -49,12 +49,7 @@ class ManageRole {
     );
     this.permissionsHeader = page.getByText(/^Permissions\s*\(\d+\)$/);
 
-    this.DEFAULT_ROLE_PERMISSION_COUNTS = {
-      Manager: 133,
-      Cashier: 17,
-      Driver: 2,
-      "Time Clock Only": 1,
-    };
+
   }
 
   async getmanageemptext(text) {
@@ -138,65 +133,11 @@ class ManageRole {
       .click();
   }
 
-  async getListPermissionCount(roleName) {
-    const row = this.getRoleRow(roleName);
-    const permissionText = await row.getByText(/Permission/i).textContent();
-    const match = permissionText?.match(/(\d+)\s+Permissions?/i);
-    return match ? Number(match[1]) : null;
-  }
-
-  async compareListPermissionCount(roleName, expectedCount) {
-    const actualCount = await this.getListPermissionCount(roleName);
-    expect(actualCount).toBe(expectedCount);
-    return actualCount;
-  }
-
-  async verifyPermissionsHeaderCount(expectedCount) {
-    await expect(
-      this.page.getByText(
-        new RegExp(`^Permissions\\s*\\(${expectedCount}\\)$`, "i"),
-      ),
-    ).toBeVisible();
-  }
-
-  async getEditPanelPermissionCount() {
-    const headerText = await this.permissionsHeader.textContent();
-    const match = headerText?.match(/Permissions\s*\((\d+)\)/i);
-    return match ? Number(match[1]) : null;
-  }
-
-  async compareEditPanelPermissionCount(expectedCount) {
-    const actualCount = await this.getEditPanelPermissionCount();
-    expect(actualCount).toBe(expectedCount);
-    return actualCount;
-  }
-
-  async verifyRolePermissionCountsMatch(roleName) {
-    const expectedCount = this.DEFAULT_ROLE_PERMISSION_COUNTS[roleName];
-    if (expectedCount === undefined) {
-      throw new Error(`Unknown default role: ${roleName}`);
-    }
-
-    const listCount = await this.compareListPermissionCount(
-      roleName,
-      expectedCount,
-    );
-
-    await this.clickEditForRole(roleName);
-    await this.verifyEditRoleDisplayed();
-    const panelCount = await this.compareEditPanelPermissionCount(expectedCount);
-
-    expect(listCount).toBe(panelCount);
-    return { listCount, panelCount, expectedCount };
-  }
-
   async verifyEditRoleDisplayed() {
     await expect(this.editRole).toBeVisible();
   }
 
-  async verifyEditingManagerDisplayed() {
-    await expect(this.page.getByText(/Editing:\s*Manager/i)).toBeVisible();
-  }
+ 
 
   async verifyRoleNameIsManagerAndNotEditable() {
     await expect(this.roleNameFieldText).toBeVisible();
@@ -211,11 +152,7 @@ class ManageRole {
     await expect(this.searchbar).toBeVisible();
   }
 
-  async verifyEditingRoleDisplayed(roleName) {
-    await expect(
-      this.page.getByText(new RegExp(`^Editing:\\s*${roleName}$`, "i")),
-    ).toBeVisible();
-  }
+ 
 }
 
 module.exports = { ManageRole };

@@ -34,7 +34,7 @@ class Dashboard {
   }
 
   async logoDisplayed() {
-  this.page.waitForTimeout(3000);
+  await this.page.waitForTimeout(10000);
   await expect(this.quickveeLogo).toBeVisible();
 }
 

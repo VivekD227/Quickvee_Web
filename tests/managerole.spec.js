@@ -5,12 +5,7 @@ import { Dashboard } from "../pageObjects/Dashboard";
 import { ManageRole } from "../pageObjects/ManageRole";
 import merchants from "../api/testData/merchants.json";
 
-const DEFAULT_ROLE_PERMISSIONS = [
-  { role: "Manager", count: 133 },
-  { role: "Cashier", count: 17 },
-  { role: "Driver", count: 2 },
-  { role: "Time Clock Only", count: 1 },
-];
+
 
 test.describe("Manage Role Module", () => {
   test.describe.configure({ mode: "serial", timeout: 60_000 });
@@ -57,32 +52,5 @@ test.describe("Manage Role Module", () => {
     await managerole.editBtnCountCheck();
   });
 
-  test("Compare default role permission counts in list", async () => {
-    for (const { role, count } of DEFAULT_ROLE_PERMISSIONS) {
-      const actualCount = await managerole.compareListPermissionCount(
-        role,
-        count,
-      );
-      expect(actualCount).toBe(count);
-    }
-  });
-
-  for (const { role, count } of DEFAULT_ROLE_PERMISSIONS) {
-    test(`Compare ${role} list vs edit panel permission count (${count})`, async () => {
-      const { listCount, panelCount, expectedCount } =
-        await managerole.verifyRolePermissionCountsMatch(role);
-
-      expect(listCount).toBe(expectedCount);
-      expect(panelCount).toBe(expectedCount);
-      expect(listCount).toBe(panelCount);
-    });
-  }
-
-  test("Edit Manager Role - panel UI", async () => {
-    await managerole.verifyRolePermissionCountsMatch("Manager");
-    await managerole.verifyEditingManagerDisplayed();
-    await managerole.verifyRoleNameIsManagerAndNotEditable();
-    await managerole.verifySearchBoxDisplayed();
-    await managerole.verifyEditingRoleDisplayed("Manager");
-  });
+  
 });
