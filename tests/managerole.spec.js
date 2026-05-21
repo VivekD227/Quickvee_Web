@@ -23,7 +23,7 @@ test.describe("Manage Role Module", () => {
     employeemanagement = new EmployeeManagement(page);
     managerole = new ManageRole(page);
 
-    await page.goto("https://quickvee.us/merchants/login");
+    await page.goto("https://quickvee.com/merchants/login");
     await getMerchantID(page, loginpage);
     await dashboard.logoDisplayed();
     await dashboard.menuClick();
@@ -57,16 +57,37 @@ test.describe("Manage Role Module", () => {
       preset_id,
       email,
     );
-    const status = responseBody.status;
     const permissionsArray = responseBody.data[0].permissions.split(",");
 
     const apiPermissionCount = permissionsArray.length;
     console.log(apiPermissionCount);
-    const uiPermissionCount = await managerole.permissionValue();
+    let uiPermissionCount = await managerole.permissionValue();
 
     expect(uiPermissionCount).toBe(apiPermissionCount);
+    const checkper = await managerole.checkedPermissionsCount();
+    expect(uiPermissionCount).toBe(checkper);
+
     //console.log(permissionCount);
     await managerole.verifyEditRoleDisplayed();
     await managerole.verifySearchBoxDisplayed();
+    const checkedPermissions = await managerole.allCheckedValue();
+    expect(permissionsArray.sort())
+      .toEqual(checkedPermissions.sort());
+
+    const allPermissionCount = await managerole.allPermissionCount();
+
+    expect(allPermissionCount).toBe(160);
+    await managerole.checkEmployeeDeleteForever();
+    expect(await managerole.employeeDeleteForever.isChecked()).toBe(true);
+    const updatedCheckedCount =
+      await managerole.checkedPermissionsCount();
+    expect(updatedCheckedCount)
+      .toBe(uiPermissionCount + 1);
+    console.log(updatedCheckedCount);
+
+    console.log(uiPermissionCount + 1);
+    await page.waitForTimeout(10000);
+    await managerole.saveBtnClick();
+    await managerole.mainPagePermissionCount("Manager");
   });
 });

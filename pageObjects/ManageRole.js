@@ -48,6 +48,15 @@ class ManageRole {
       "Search permissions by name or category...",
     );
     this.permissionCountText = page.getByText(/Permissions \(\d+\)/);
+    this.perCount = page.locator(
+      'input[name="permission[]"]:checked'
+    );
+
+    this.allPermission = page.locator('input[name="permission[]"]');
+    this.employeeDeleteForever =
+      page.locator('input[value="EDF"]');
+
+    this.saveBtn = page.getByText('Save All Changes', { exact: true });
   }
 
   async getmanageemptext(text) {
@@ -156,6 +165,55 @@ class ManageRole {
     const count = text.match(/\d+/)?.[0];
     console.log(count);
     return Number(count);
+  }
+
+  async checkedPermissionsCount() {
+    return await this.perCount.count();
+  }
+
+  async allCheckedValue() {
+    const checkedPermissions = this.perCount;
+
+    const values = await checkedPermissions.evaluateAll(elements =>
+      elements.map(el => el.value)
+    );
+    return values;
+
+    console.log(values);
+  }
+
+  async allPermissionCount() {
+    return await this.allPermission.count();
+  }
+
+  async checkEmployeeDeleteForever() {
+    const checkbox = this.page.getByRole("checkbox", {
+      name: "Employee Delete Forever",
+    });
+    const permissionRow = this.page
+      .locator("div")
+      .filter({ has: checkbox })
+      .filter({ hasText: /^Employee Delete Forever$/ })
+      .first();
+
+    await permissionRow.scrollIntoViewIfNeeded();
+    await permissionRow.click();
+  }
+
+  async saveBtnClick() {
+    await this.saveBtn.click();
+  }
+
+  async mainPagePermissionCount(RoleName) {
+    const managerPermissions = this.page
+      .locator("div.MuiBox-root.css-1jt8yge")
+      .filter({
+        has: this.page.getByText(RoleName),
+      })
+      .getByText(/\d+\s+Permissions?/);
+    const text = await managerPermissions.textContent();
+    console.log(text);
+    return text;
   }
 }
 
