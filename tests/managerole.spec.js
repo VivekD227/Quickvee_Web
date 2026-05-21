@@ -4,41 +4,27 @@ import { LoginPage } from "../pageObjects/LoginPage";
 import { Dashboard } from "../pageObjects/Dashboard";
 import { ManageRole } from "../pageObjects/ManageRole";
 import merchants from "../api/testData/merchants.json";
-import { loginResponse } from "../utilities/apiHelper/loginHelper";
-import { setMerchantID } from "../utilities/helper/sessionData";
 import { getMerchantID } from "../utilities/helper/loginAndStoreMerchantID";
+import { getPreset } from "../utilities/apiHelper/getPermissionPreset";
+
 test.describe("Manage Role Module", () => {
   test.describe.configure({ mode: "serial", timeout: 60_000 });
   let loginpage;
   let dashboard;
   let employeemanagement;
   let managerole;
-  let sName;
-  let uName;
-  let pwd;
+  let m_id;
+  let preset_id;
+  let email;
 
   test.beforeEach(async ({ page }) => {
     loginpage = new LoginPage(page);
     dashboard = new Dashboard(page);
     employeemanagement = new EmployeeManagement(page);
     managerole = new ManageRole(page);
-    sName = merchants.validUser.storename;
-    uName = merchants.validUser.username;
-    pwd = merchants.validUser.password;
 
-    await page.goto("https://quickvee.com/merchants/login");
-     const responseBody = await loginResponse(
-          page,
-          loginpage,
-          sName,
-          uName,
-          pwd,
-        );
-    
-        expect(responseBody.login_type).toBe("merchant");
-        const mid = responseBody.data.merchant_id;
-        setMerchantID(mid);
-        console.log(mid);
+    await page.goto("https://quickvee.us/merchants/login");
+    await getMerchantID(page, loginpage);
     await dashboard.logoDisplayed();
     await dashboard.menuClick();
     await dashboard.employeeClick();
@@ -47,6 +33,8 @@ test.describe("Manage Role Module", () => {
   });
 
   test("Manage", async ({ page }) => {
+    // preset_id = "303";
+    // email = merchants.validUser.username;
     await managerole.getmanageemptext("Manage Employee Roles");
     await managerole.getcreateText(
       "Create and customize roles with specific permissions",
@@ -61,9 +49,24 @@ test.describe("Manage Role Module", () => {
     await managerole.verifyDefaultName();
     await managerole.defaultCheck();
     await managerole.editBtnCountCheck();
-    await managerole.clickEditForRole();
-    await managerole.verifyEditRoleDisplayed();
-  });
+    const responseBody = await getPreset(
+      page,
+      managerole,
+      "Manager",
+      m_id,
+      preset_id,
+      email,
+    );
+    const status = responseBody.status;
+    const permissionsArray = responseBody.data[0].permissions.split(",");
 
-  
+    const apiPermissionCount = permissionsArray.length;
+    console.log(apiPermissionCount);
+    const uiPermissionCount = await managerole.permissionValue();
+
+    expect(uiPermissionCount).toBe(apiPermissionCount);
+    //console.log(permissionCount);
+    await managerole.verifyEditRoleDisplayed();
+    await managerole.verifySearchBoxDisplayed();
+  });
 });

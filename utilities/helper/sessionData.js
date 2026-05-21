@@ -1,5 +1,5 @@
 export let merchant_id = null;
 
-export function setMerchantID(id){
-    merchant_id = id;
+export function setMerchantID(id) {
+  merchant_id = id;
 }

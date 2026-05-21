@@ -47,9 +47,7 @@ class ManageRole {
     this.searchbar = page.getByPlaceholder(
       "Search permissions by name or category...",
     );
-    this.permissionsHeader = page.getByText(/^Permissions\s*\(\d+\)$/);
-
-
+    this.permissionCountText = page.getByText(/Permissions \(\d+\)/);
   }
 
   async getmanageemptext(text) {
@@ -121,13 +119,15 @@ class ManageRole {
 
   getRoleRow(roleName) {
     const roleList = this.rolesModal.locator("div.MuiBox-root.css-b38j4r");
-    const nameBox = roleList.locator(".css-dl8xe1").filter({ hasText: roleName });
+    const nameBox = roleList
+      .locator(".css-dl8xe1")
+      .filter({ hasText: roleName });
     return nameBox.locator(
       'xpath=ancestor::*[.//img[@alt="edit-role-icon"]][1]',
     );
   }
 
-  async clickEditForRole(roleName = "Manager") {
+  async clickEditForRole(roleName) {
     await this.getRoleRow(roleName)
       .getByRole("img", { name: "edit-role-icon" })
       .click();
@@ -136,8 +136,6 @@ class ManageRole {
   async verifyEditRoleDisplayed() {
     await expect(this.editRole).toBeVisible();
   }
-
- 
 
   async verifyRoleNameIsManagerAndNotEditable() {
     await expect(this.roleNameFieldText).toBeVisible();
@@ -152,7 +150,13 @@ class ManageRole {
     await expect(this.searchbar).toBeVisible();
   }
 
- 
+  async permissionValue() {
+    const text = await this.page.getByText(/Permissions \(\d+\)/).textContent();
+
+    const count = text.match(/\d+/)?.[0];
+    console.log(count);
+    return Number(count);
+  }
 }
 
 module.exports = { ManageRole };
