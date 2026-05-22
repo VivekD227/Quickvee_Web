@@ -3,27 +3,26 @@ import { EmployeeManagement } from "../pageObjects/EmployeeManagement";
 import { LoginPage } from "../pageObjects/LoginPage";
 import { Dashboard } from "../pageObjects/Dashboard";
 import { ManageRole } from "../pageObjects/ManageRole";
-import merchants from "../api/testData/merchants.json";
 import { getMerchantID } from "../utilities/helper/loginAndStoreMerchantID";
 import { getPreset } from "../utilities/apiHelper/getPermissionPreset";
 
+const ROLES = ["Manager", "Cashier", "Driver", "Time Clock Only"];
+const TOTAL_PERMISSIONS = 160;
+
 test.describe("Manage Role Module", () => {
-  test.describe.configure({ mode: "serial", timeout: 60_000 });
+  test.describe.configure({ mode: "serial", timeout: 90_000 });
+
+  let context;
+  let page;
   let loginpage;
   let dashboard;
   let employeemanagement;
   let managerole;
-  let responseBody;
-  let permissionsArray;
-  let apiPermissionCount;
-  let uiPermissionCount;
-  let checkper;
-  let checkedPermissions;
-  let allPermissionCount;
-  let updatedCheckedCount;
-  let finalPerCount;
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeAll(async ({ browser }) => {
+    context = await browser.newContext();
+    page = await context.newPage();
+
     loginpage = new LoginPage(page);
     dashboard = new Dashboard(page);
     employeemanagement = new EmployeeManagement(page);
@@ -38,9 +37,11 @@ test.describe("Manage Role Module", () => {
     await employeemanagement.manageRoleClick();
   });
 
-  test("Manage", async ({ page }) => {
-    // preset_id = "303";
-    // email = merchants.validUser.username;
+  test.afterAll(async () => {
+    await context?.close();
+  });
+
+  test("Verify Manage Role page layout", async () => {
     await managerole.getmanageemptext("Manage Employee Roles");
     await managerole.getcreateText(
       "Create and customize roles with specific permissions",
@@ -55,69 +56,80 @@ test.describe("Manage Role Module", () => {
     await managerole.verifyDefaultName();
     await managerole.defaultCheck();
     await managerole.editBtnCountCheck();
-    responseBody = await getPreset(page, managerole, "Manager");
-    permissionsArray = responseBody.data[0].permissions.split(",");
-
-    apiPermissionCount = permissionsArray.length;
-    console.log(apiPermissionCount);
-    uiPermissionCount = await managerole.permissionValue();
-
-    expect(uiPermissionCount).toBe(apiPermissionCount);
-    checkper = await managerole.checkedPermissionsCount();
-    expect(uiPermissionCount).toBe(checkper);
-
-    //console.log(permissionCount);
-    await managerole.verifyEditRoleDisplayed();
-    await managerole.verifySearchBoxDisplayed();
-    checkedPermissions = await managerole.allCheckedValue();
-    expect(permissionsArray.sort()).toEqual(checkedPermissions.sort());
-
-    allPermissionCount = await managerole.allPermissionCount();
-
-    expect(allPermissionCount).toBe(160);
-    await managerole.checkEmployeeDeleteForever();
-    updatedCheckedCount = await managerole.checkedPermissionsCount();
-    expect(updatedCheckedCount).toBe(uiPermissionCount + 1);
-    console.log(updatedCheckedCount);
-
-    console.log(uiPermissionCount + 1);
-    await managerole.saveBtnClick();
-    await page.waitForTimeout(3000);
-    await managerole.updateDialogDisplay();
-    finalPerCount = await managerole.mainPagePermissionCount("Manager");
-    expect(finalPerCount).toBe(updatedCheckedCount);
-
-    //-----------------------
-    responseBody = await getPreset(page, managerole, "Manager");
-    permissionsArray = responseBody.data[0].permissions.split(",");
-
-    apiPermissionCount = permissionsArray.length;
-    console.log(apiPermissionCount);
-    uiPermissionCount = await managerole.permissionValue();
-
-    expect(uiPermissionCount).toBe(apiPermissionCount);
-    checkper = await managerole.checkedPermissionsCount();
-    expect(uiPermissionCount).toBe(checkper);
-
-    //console.log(permissionCount);
-    await managerole.verifyEditRoleDisplayed();
-    await managerole.verifySearchBoxDisplayed();
-    checkedPermissions = await managerole.allCheckedValue();
-    expect(permissionsArray.sort()).toEqual(checkedPermissions.sort());
-
-    allPermissionCount = await managerole.allPermissionCount();
-
-    expect(allPermissionCount).toBe(160);
-    await managerole.uncheckEmployeeDeleteForever();
-    updatedCheckedCount = await managerole.checkedPermissionsCount();
-    expect(updatedCheckedCount).toBe(uiPermissionCount - 1);
-    console.log(updatedCheckedCount);
-
-    console.log(uiPermissionCount - 1);
-    await managerole.saveBtnClick();
-    await page.waitForTimeout(3000);
-    await managerole.updateDialogDisplay();
-    finalPerCount = await managerole.mainPagePermissionCount("Manager");
-    expect(finalPerCount).toBe(updatedCheckedCount);
   });
+
+  for (const roleName of ROLES) {
+    test(`Verify and update permissions for ${roleName}`, async () => {
+      let responseBody;
+      let permissionsArray;
+      let apiPermissionCount;
+      let uiPermissionCount;
+      let checkper;
+      let checkedPermissions;
+      let allPermissionCount;
+      let updatedCheckedCount;
+      let finalPerCount;
+
+      responseBody = await getPreset(page, managerole, roleName);
+      permissionsArray = responseBody.data[0].permissions.split(",");
+
+      apiPermissionCount = permissionsArray.length;
+      console.log(`${roleName} API permission count:`, apiPermissionCount);
+      uiPermissionCount = await managerole.permissionValue();
+
+      expect(uiPermissionCount).toBe(apiPermissionCount);
+      checkper = await managerole.checkedPermissionsCount();
+      expect(uiPermissionCount).toBe(checkper);
+
+      await managerole.verifyEditRoleDisplayed();
+      await managerole.verifySearchBoxDisplayed();
+      checkedPermissions = await managerole.allCheckedValue();
+      expect(permissionsArray.sort()).toEqual(checkedPermissions.sort());
+
+      allPermissionCount = await managerole.allPermissionCount();
+      expect(allPermissionCount).toBe(TOTAL_PERMISSIONS);
+
+      await managerole.checkEmployeeDeleteForever();
+      updatedCheckedCount = await managerole.checkedPermissionsCount();
+      expect(updatedCheckedCount).toBe(uiPermissionCount + 1);
+
+      await managerole.saveBtnClick();
+      await page.waitForTimeout(3000);
+      await managerole.updateDialogDisplay();
+      finalPerCount = await managerole.mainPagePermissionCount(roleName);
+      expect(finalPerCount).toBe(updatedCheckedCount);
+
+      responseBody = await getPreset(page, managerole, roleName);
+      permissionsArray = responseBody.data[0].permissions.split(",");
+
+      apiPermissionCount = permissionsArray.length;
+      console.log(
+        `${roleName} API permission count after save:`,
+        apiPermissionCount,
+      );
+      uiPermissionCount = await managerole.permissionValue();
+
+      expect(uiPermissionCount).toBe(apiPermissionCount);
+      checkper = await managerole.checkedPermissionsCount();
+      expect(uiPermissionCount).toBe(checkper);
+
+      await managerole.verifyEditRoleDisplayed();
+      await managerole.verifySearchBoxDisplayed();
+      checkedPermissions = await managerole.allCheckedValue();
+      expect(permissionsArray.sort()).toEqual(checkedPermissions.sort());
+
+      allPermissionCount = await managerole.allPermissionCount();
+      expect(allPermissionCount).toBe(TOTAL_PERMISSIONS);
+
+      await managerole.uncheckEmployeeDeleteForever();
+      updatedCheckedCount = await managerole.checkedPermissionsCount();
+      expect(updatedCheckedCount).toBe(uiPermissionCount - 1);
+
+      await managerole.saveBtnClick();
+      await page.waitForTimeout(3000);
+      await managerole.updateDialogDisplay();
+      finalPerCount = await managerole.mainPagePermissionCount(roleName);
+      expect(finalPerCount).toBe(updatedCheckedCount);
+    });
+  }
 });
