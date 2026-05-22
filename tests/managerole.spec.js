@@ -13,9 +13,15 @@ test.describe("Manage Role Module", () => {
   let dashboard;
   let employeemanagement;
   let managerole;
-  let m_id;
-  let preset_id;
-  let email;
+  let responseBody;
+  let permissionsArray;
+  let apiPermissionCount;
+  let uiPermissionCount;
+  let checkper;
+  let checkedPermissions;
+  let allPermissionCount;
+  let updatedCheckedCount;
+  let finalPerCount;
 
   test.beforeEach(async ({ page }) => {
     loginpage = new LoginPage(page);
@@ -49,45 +55,69 @@ test.describe("Manage Role Module", () => {
     await managerole.verifyDefaultName();
     await managerole.defaultCheck();
     await managerole.editBtnCountCheck();
-    const responseBody = await getPreset(
-      page,
-      managerole,
-      "Manager",
-      m_id,
-      preset_id,
-      email,
-    );
-    const permissionsArray = responseBody.data[0].permissions.split(",");
+    responseBody = await getPreset(page, managerole, "Manager");
+    permissionsArray = responseBody.data[0].permissions.split(",");
 
-    const apiPermissionCount = permissionsArray.length;
+    apiPermissionCount = permissionsArray.length;
     console.log(apiPermissionCount);
-    let uiPermissionCount = await managerole.permissionValue();
+    uiPermissionCount = await managerole.permissionValue();
 
     expect(uiPermissionCount).toBe(apiPermissionCount);
-    const checkper = await managerole.checkedPermissionsCount();
+    checkper = await managerole.checkedPermissionsCount();
     expect(uiPermissionCount).toBe(checkper);
 
     //console.log(permissionCount);
     await managerole.verifyEditRoleDisplayed();
     await managerole.verifySearchBoxDisplayed();
-    const checkedPermissions = await managerole.allCheckedValue();
-    expect(permissionsArray.sort())
-      .toEqual(checkedPermissions.sort());
+    checkedPermissions = await managerole.allCheckedValue();
+    expect(permissionsArray.sort()).toEqual(checkedPermissions.sort());
 
-    const allPermissionCount = await managerole.allPermissionCount();
+    allPermissionCount = await managerole.allPermissionCount();
 
     expect(allPermissionCount).toBe(160);
     await managerole.checkEmployeeDeleteForever();
-    expect(await managerole.employeeDeleteForever.isChecked()).toBe(true);
-    const updatedCheckedCount =
-      await managerole.checkedPermissionsCount();
-    expect(updatedCheckedCount)
-      .toBe(uiPermissionCount + 1);
+    updatedCheckedCount = await managerole.checkedPermissionsCount();
+    expect(updatedCheckedCount).toBe(uiPermissionCount + 1);
     console.log(updatedCheckedCount);
 
     console.log(uiPermissionCount + 1);
-    await page.waitForTimeout(10000);
     await managerole.saveBtnClick();
-    await managerole.mainPagePermissionCount("Manager");
+    await page.waitForTimeout(3000);
+    await managerole.updateDialogDisplay();
+    finalPerCount = await managerole.mainPagePermissionCount("Manager");
+    expect(finalPerCount).toBe(updatedCheckedCount);
+
+    //-----------------------
+    responseBody = await getPreset(page, managerole, "Manager");
+    permissionsArray = responseBody.data[0].permissions.split(",");
+
+    apiPermissionCount = permissionsArray.length;
+    console.log(apiPermissionCount);
+    uiPermissionCount = await managerole.permissionValue();
+
+    expect(uiPermissionCount).toBe(apiPermissionCount);
+    checkper = await managerole.checkedPermissionsCount();
+    expect(uiPermissionCount).toBe(checkper);
+
+    //console.log(permissionCount);
+    await managerole.verifyEditRoleDisplayed();
+    await managerole.verifySearchBoxDisplayed();
+    checkedPermissions = await managerole.allCheckedValue();
+    expect(permissionsArray.sort()).toEqual(checkedPermissions.sort());
+
+    allPermissionCount = await managerole.allPermissionCount();
+
+    expect(allPermissionCount).toBe(160);
+    await managerole.uncheckEmployeeDeleteForever();
+    updatedCheckedCount = await managerole.checkedPermissionsCount();
+    expect(updatedCheckedCount).toBe(uiPermissionCount - 1);
+    console.log(updatedCheckedCount);
+
+    console.log(uiPermissionCount - 1);
+    await managerole.saveBtnClick();
+    await page.waitForTimeout(3000);
+    await managerole.updateDialogDisplay();
+    finalPerCount = await managerole.mainPagePermissionCount("Manager");
+    expect(finalPerCount).toBe(updatedCheckedCount);
   });
 });

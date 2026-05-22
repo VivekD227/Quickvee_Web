@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 
-export async function getPreset(page, managerole, role, mid, preset_id, email) {
+export async function getPreset(page, managerole, role) {
   const [response] = await Promise.all([
     page.waitForResponse(
       (res) =>

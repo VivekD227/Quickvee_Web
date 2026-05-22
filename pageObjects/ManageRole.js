@@ -48,15 +48,14 @@ class ManageRole {
       "Search permissions by name or category...",
     );
     this.permissionCountText = page.getByText(/Permissions \(\d+\)/);
-    this.perCount = page.locator(
-      'input[name="permission[]"]:checked'
-    );
+    this.perCount = page.locator('input[name="permission[]"]:checked');
 
     this.allPermission = page.locator('input[name="permission[]"]');
-    this.employeeDeleteForever =
-      page.locator('input[value="EDF"]');
 
-    this.saveBtn = page.getByText('Save All Changes', { exact: true });
+    this.saveBtn = page.getByRole("button", {
+      name: "Save All Changes",
+    });
+    this.updateDialog = page.getByText("Updated Successfully");
   }
 
   async getmanageemptext(text) {
@@ -104,13 +103,24 @@ class ManageRole {
   }
 
   async verifyDefaultName() {
-    const roleName = ["Manager", "Cashier", "Driver", "Time Clock Only"];
-    const actualRoles = await this.presentRole.allTextContents();
-    for (const role of roleName) {
+    const roleNames = ["Manager", "Cashier", "Driver", "Time Clock Only"];
+
+    // Wait for roles to load
+    await expect(this.page.getByText(/Roles \(\d+\)/)).not.toHaveText(
+      "Roles (0)",
+    );
+
+    // Better locator
+    const actualRoles = await this.page
+      .locator(".css-dl8xe1")
+      .allTextContents();
+
+    console.log(actualRoles);
+
+    for (const role of roleNames) {
       expect(actualRoles).toContain(role);
     }
   }
-
   async defaultCheck() {
     const count = await this.defaultText.count();
     await expect(count).toBe(4);
@@ -174,8 +184,8 @@ class ManageRole {
   async allCheckedValue() {
     const checkedPermissions = this.perCount;
 
-    const values = await checkedPermissions.evaluateAll(elements =>
-      elements.map(el => el.value)
+    const values = await checkedPermissions.evaluateAll((elements) =>
+      elements.map((el) => el.value),
     );
     return values;
 
@@ -187,21 +197,41 @@ class ManageRole {
   }
 
   async checkEmployeeDeleteForever() {
+    const permission = this.page.getByText("Employee Delete Forever", {
+      exact: true,
+    });
+
+    await permission.scrollIntoViewIfNeeded();
+    await permission.click();
+
+    await this.page.waitForTimeout(2000);
+  }
+
+  async uncheckEmployeeDeleteForever() {
+    const permission = this.page.getByText("Employee Delete Forever", {
+      exact: true,
+    });
+
     const checkbox = this.page.getByRole("checkbox", {
       name: "Employee Delete Forever",
     });
-    const permissionRow = this.page
-      .locator("div")
-      .filter({ has: checkbox })
-      .filter({ hasText: /^Employee Delete Forever$/ })
-      .first();
 
-    await permissionRow.scrollIntoViewIfNeeded();
-    await permissionRow.click();
+    await permission.scrollIntoViewIfNeeded();
+
+    // uncheck only if already checked
+    if (await checkbox.isChecked()) {
+      await permission.click();
+    }
+
+    await expect(checkbox).not.toBeChecked();
   }
 
   async saveBtnClick() {
-    await this.saveBtn.click();
+    const saveBtn = this.page
+      .locator('button:has-text("Save All Changes")')
+      .last();
+
+    await saveBtn.click();
   }
 
   async mainPagePermissionCount(RoleName) {
@@ -211,9 +241,15 @@ class ManageRole {
         has: this.page.getByText(RoleName),
       })
       .getByText(/\d+\s+Permissions?/);
+
     const text = await managerPermissions.textContent();
-    console.log(text);
-    return text;
+    const count = text.match(/\d+/)?.[0];
+    console.log(count);
+    return Number(count);
+  }
+
+  async updateDialogDisplay() {
+    await expect(this.updateDialog).toBeVisible();
   }
 }
 
