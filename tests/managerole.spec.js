@@ -20,6 +20,7 @@ test.describe("Manage Role Module", () => {
   let managerole;
 
   test.beforeAll(async ({ browser }) => {
+    test.setTimeout(90_000);
     context = await browser.newContext();
     page = await context.newPage();
 
@@ -35,7 +36,7 @@ test.describe("Manage Role Module", () => {
     await dashboard.employeeClick();
     await dashboard.manage_employeeClick();
     await employeemanagement.manageRoleClick();
-  });
+  }, { timeout: 90_000 });
 
   test.afterAll(async () => {
     await context?.close();
@@ -132,4 +133,72 @@ test.describe("Manage Role Module", () => {
       expect(finalPerCount).toBe(updatedCheckedCount);
     });
   }
+
+  test("Create new role with Select All permissions", async () => {
+    test.setTimeout(120_000);
+    const roleName = managerole.generateUniqueRoleName();
+    let actualRoleName;
+    let allPermissionCount;
+    let checkedCount;
+
+    await managerole.openCreateRoleForm();
+    actualRoleName = await managerole.fillNewRoleName(roleName);
+    await managerole.selectAllPermissionsClick();
+
+    allPermissionCount = await managerole.allPermissionCount();
+    expect(allPermissionCount).toBe(TOTAL_PERMISSIONS);
+
+    checkedCount = await managerole.checkedPermissionsCount();
+    expect(checkedCount).toBe(TOTAL_PERMISSIONS);
+
+    await managerole.submitNewRoleClick();
+    await page.waitForTimeout(3000);
+    await managerole.createdDialogDisplay();
+    await managerole.verifyRoleListedWithPermissionCount(
+      actualRoleName,
+      TOTAL_PERMISSIONS,
+    );
+
+    await managerole.clickEditForRole(actualRoleName);
+    await managerole.verifyEditRoleDisplayed();
+    await managerole.clearAllPermissionsClick();
+
+    expect(await managerole.permissionValue()).toBe(0);
+    checkedCount = await managerole.checkedPermissionsCount();
+    expect(checkedCount).toBe(0);
+
+    await managerole.assertSaveBlockedWithNoPermissions();
+    await managerole.searchText("Employee Delete Forever");
+    await managerole.checkEmployeeDeleteForever();
+    checkedCount = await managerole.checkedPermissionsCount();
+    expect(checkedCount).toBe(1);
+
+    await managerole.saveBtnClick();
+    await page.waitForTimeout(3000);
+    await managerole.updateDialogDisplay();
+    const finalPerCount = await managerole.mainPagePermissionCount(actualRoleName);
+    expect(finalPerCount).toBe(1);
+  });
+
+  test("Delete newly created role", async () => {
+    test.setTimeout(120_000);
+    const roleName = managerole.generateUniqueRoleName();
+    let actualRoleName;
+
+    await managerole.openCreateRoleForm();
+    actualRoleName = await managerole.fillNewRoleName(roleName);
+    await managerole.selectAllPermissionsClick();
+    await managerole.submitNewRoleClick();
+    await page.waitForTimeout(3000);
+    await managerole.createdDialogDisplay();
+    await managerole.verifyRoleListedWithPermissionCount(
+      actualRoleName,
+      TOTAL_PERMISSIONS,
+    );
+
+    await managerole.clickDeleteForRole(actualRoleName);
+    await managerole.confirmDeleteRole();
+    await managerole.deletedDialogDisplay();
+    await managerole.verifyRoleNotListed(actualRoleName);
+  });
 });

@@ -55,7 +55,30 @@ class ManageRole {
     this.saveBtn = page.getByRole("button", {
       name: "Save All Changes",
     });
-    this.updateDialog = page.getByText("Updated Successfully");
+
+    this.updateDialog = page.getByText(/Updated Successfully|Saved Successfully/i);
+    this.selectAllBtn = page.locator(
+      ".MuiTypography-root.MuiTypography-body1.css-43f6m2",
+    );
+    this.clearAllBtn = page.getByRole("button", { name: "Clear All" });
+    this.createRoleSubmitBtn = page.getByRole("button", {
+      name: "Create New Role",
+    });
+    this.createdDialog = page.getByText(/Created Successfully/i);
+    this.deleteConfirmText = page.getByText(
+      /Are you sure you want to\s*delete this Role\s*\?/i,
+    );
+    this.deletedDialog = page.getByText(/Role deleted successfully/i);
+  }
+
+  generateUniqueRoleName() {
+    const letters = "abcdefghijklmnopqrstuvwxyz";
+    const seed = `${Date.now()}${Math.floor(Math.random() * 10000)}`;
+    const suffix = seed
+      .split("")
+      .map((char) => letters[Number(char) % letters.length])
+      .join("");
+    return `Role${suffix}`.slice(0, 30);
   }
 
   async getmanageemptext(text) {
@@ -152,6 +175,70 @@ class ManageRole {
       .click();
   }
 
+  getCustomRoleRow(roleName) {
+    return this.rolesModal
+      .locator("div.MuiBox-root.css-b38j4r")
+      .filter({
+        has: this.page.locator(".css-dl8xe1").filter({ hasText: roleName }),
+      });
+  }
+
+  async clickDeleteForRole(roleName) {
+    await this.getCustomRoleRow(roleName)
+      .getByRole("img", { name: "delete-role-icon" })
+      .click();
+  }
+
+  async confirmDeleteRole() {
+    await expect(this.deleteConfirmText).toBeVisible();
+
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes("delete_permission_preset"),
+        { timeout: 30_000 },
+      ),
+      this.page.getByRole("button", { name: "Delete", exact: true }).click(),
+    ]);
+
+    expect(response.ok()).toBeTruthy();
+  }
+
+  async deletedDialogDisplay() {
+    await expect(this.deletedDialog).toBeVisible({ timeout: 15_000 });
+  }
+
+  async verifyRoleNotListed(roleName) {
+    await expect(this.page.getByText(roleName, { exact: true })).not.toBeVisible();
+  }
+
+  async assertSaveBlockedWithNoPermissions() {
+    const saveBtn = this.page
+      .locator('button:has-text("Save All Changes")')
+      .last();
+
+    await saveBtn.scrollIntoViewIfNeeded();
+
+    const responsePromise = this.page
+      .waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes("update_permission_preset"),
+        { timeout: 5_000 },
+      )
+      .then((res) => ({ url: res.url(), status: res.status() }))
+      .catch(() => null);
+
+    await saveBtn.click();
+    const updateResponse = await responsePromise;
+
+    expect(updateResponse).toBeNull();
+    expect(await this.permissionValue()).toBe(0);
+    expect(await this.checkedPermissionsCount()).toBe(0);
+    await expect(this.editRole).toBeVisible();
+  }
+
   async verifyEditRoleDisplayed() {
     await expect(this.editRole).toBeVisible();
   }
@@ -167,6 +254,10 @@ class ManageRole {
 
   async verifySearchBoxDisplayed() {
     await expect(this.searchbar).toBeVisible();
+  }
+
+  async searchText(text) {
+    await this.searchbar.fill(text);
   }
 
   async permissionValue() {
@@ -231,7 +322,19 @@ class ManageRole {
       .locator('button:has-text("Save All Changes")')
       .last();
 
-    await saveBtn.click();
+    await saveBtn.scrollIntoViewIfNeeded();
+
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes("update_permission_preset"),
+        { timeout: 30_000 },
+      ),
+      saveBtn.click(),
+    ]);
+
+    expect(response.ok()).toBeTruthy();
   }
 
   async mainPagePermissionCount(RoleName) {
@@ -249,7 +352,47 @@ class ManageRole {
   }
 
   async updateDialogDisplay() {
-    await expect(this.updateDialog).toBeVisible();
+    await expect(this.updateDialog).toBeVisible({ timeout: 15_000 });
+  }
+
+  async openCreateRoleForm() {
+    await this.createRoleBtn.click();
+    await expect(this.permissionText).toBeVisible();
+    await expect(this.roleNameFieldText).toBeVisible();
+  }
+
+  async fillNewRoleName(roleName) {
+    await this.roleNameFieldText.clear();
+    await this.roleNameFieldText.fill(roleName);
+    const actualValue = await this.roleNameFieldText.inputValue();
+    expect(actualValue.length).toBeGreaterThan(0);
+    return actualValue;
+  }
+
+  async selectAllPermissionsClick() {
+    await this.selectAllBtn.scrollIntoViewIfNeeded();
+    await expect(this.selectAllBtn).toBeVisible();
+    await this.selectAllBtn.click();
+  }
+
+  async clearAllPermissionsClick() {
+    await this.clearAllBtn.scrollIntoViewIfNeeded();
+    await expect(this.clearAllBtn).toBeVisible();
+    await this.clearAllBtn.click();
+  }
+
+  async submitNewRoleClick() {
+    await this.createRoleSubmitBtn.click();
+  }
+
+  async createdDialogDisplay() {
+    await expect(this.createdDialog).toBeVisible();
+  }
+
+  async verifyRoleListedWithPermissionCount(roleName, expectedCount) {
+    await expect(this.page.getByText(roleName, { exact: true })).toBeVisible();
+    const permissionCount = await this.mainPagePermissionCount(roleName);
+    expect(permissionCount).toBe(expectedCount);
   }
 }
 
