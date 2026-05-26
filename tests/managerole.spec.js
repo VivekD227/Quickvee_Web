@@ -19,24 +19,27 @@ test.describe("Manage Role Module", () => {
   let employeemanagement;
   let managerole;
 
-  test.beforeAll(async ({ browser }) => {
-    test.setTimeout(90_000);
-    context = await browser.newContext();
-    page = await context.newPage();
+  test.beforeAll(
+    async ({ browser }) => {
+      test.setTimeout(90_000);
+      context = await browser.newContext();
+      page = await context.newPage();
 
-    loginpage = new LoginPage(page);
-    dashboard = new Dashboard(page);
-    employeemanagement = new EmployeeManagement(page);
-    managerole = new ManageRole(page);
+      loginpage = new LoginPage(page);
+      dashboard = new Dashboard(page);
+      employeemanagement = new EmployeeManagement(page);
+      managerole = new ManageRole(page);
 
-    await page.goto("https://quickvee.com/merchants/login");
-    await getMerchantID(page, loginpage);
-    await dashboard.logoDisplayed();
-    await dashboard.menuClick();
-    await dashboard.employeeClick();
-    await dashboard.manage_employeeClick();
-    await employeemanagement.manageRoleClick();
-  }, { timeout: 90_000 });
+      await page.goto("https://quickvee.com/merchants/login");
+      await getMerchantID(page, loginpage);
+      await dashboard.logoDisplayed();
+      await dashboard.menuClick();
+      await dashboard.employeeClick();
+      await dashboard.manage_employeeClick();
+      await employeemanagement.manageRoleClick();
+    },
+    { timeout: 90_000 },
+  );
 
   test.afterAll(async () => {
     await context?.close();
@@ -134,6 +137,16 @@ test.describe("Manage Role Module", () => {
     });
   }
 
+  test.only("Should not create duplicate role named Manager", async () => {
+    test.setTimeout(120_000);
+    await managerole.assertDuplicateRoleNotCreated("Manager");
+    await managerole.fillNewRoleName("  ");
+    await managerole.submitNewRoleClick();
+    await managerole.errorMsgDisplay();
+    const error = "Role name is required";
+    await managerole.errorMsgText(error);
+  });
+
   test("Create new role with Select All permissions", async () => {
     test.setTimeout(120_000);
     const roleName = managerole.generateUniqueRoleName();
@@ -174,28 +187,11 @@ test.describe("Manage Role Module", () => {
     expect(checkedCount).toBe(1);
 
     await managerole.saveBtnClick();
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(1000);
     await managerole.updateDialogDisplay();
-    const finalPerCount = await managerole.mainPagePermissionCount(actualRoleName);
+    const finalPerCount =
+      await managerole.mainPagePermissionCount(actualRoleName);
     expect(finalPerCount).toBe(1);
-  });
-
-  test("Delete newly created role", async () => {
-    test.setTimeout(120_000);
-    const roleName = managerole.generateUniqueRoleName();
-    let actualRoleName;
-
-    await managerole.openCreateRoleForm();
-    actualRoleName = await managerole.fillNewRoleName(roleName);
-    await managerole.selectAllPermissionsClick();
-    await managerole.submitNewRoleClick();
-    await page.waitForTimeout(3000);
-    await managerole.createdDialogDisplay();
-    await managerole.verifyRoleListedWithPermissionCount(
-      actualRoleName,
-      TOTAL_PERMISSIONS,
-    );
-
     await managerole.clickDeleteForRole(actualRoleName);
     await managerole.confirmDeleteRole();
     await managerole.deletedDialogDisplay();

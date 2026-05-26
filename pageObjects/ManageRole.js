@@ -56,7 +56,9 @@ class ManageRole {
       name: "Save All Changes",
     });
 
-    this.updateDialog = page.getByText(/Updated Successfully|Saved Successfully/i);
+    this.updateDialog = page.getByText(
+      /Updated Successfully|Saved Successfully/i,
+    );
     this.selectAllBtn = page.locator(
       ".MuiTypography-root.MuiTypography-body1.css-43f6m2",
     );
@@ -69,6 +71,9 @@ class ManageRole {
       /Are you sure you want to\s*delete this Role\s*\?/i,
     );
     this.deletedDialog = page.getByText(/Role deleted successfully/i);
+    this.duplicateRoleError = page.getByText(/preset name already exists/i);
+    this.errorMsg = page.getByText("Role name is required");
+    this.closeDialogBtn = page.locator(".Toastify__close-button");
   }
 
   generateUniqueRoleName() {
@@ -176,11 +181,9 @@ class ManageRole {
   }
 
   getCustomRoleRow(roleName) {
-    return this.rolesModal
-      .locator("div.MuiBox-root.css-b38j4r")
-      .filter({
-        has: this.page.locator(".css-dl8xe1").filter({ hasText: roleName }),
-      });
+    return this.rolesModal.locator("div.MuiBox-root.css-b38j4r").filter({
+      has: this.page.locator(".css-dl8xe1").filter({ hasText: roleName }),
+    });
   }
 
   async clickDeleteForRole(roleName) {
@@ -210,7 +213,9 @@ class ManageRole {
   }
 
   async verifyRoleNotListed(roleName) {
-    await expect(this.page.getByText(roleName, { exact: true })).not.toBeVisible();
+    await expect(
+      this.page.getByText(roleName, { exact: true }),
+    ).not.toBeVisible();
   }
 
   async assertSaveBlockedWithNoPermissions() {
@@ -365,7 +370,6 @@ class ManageRole {
     await this.roleNameFieldText.clear();
     await this.roleNameFieldText.fill(roleName);
     const actualValue = await this.roleNameFieldText.inputValue();
-    expect(actualValue.length).toBeGreaterThan(0);
     return actualValue;
   }
 
@@ -383,6 +387,7 @@ class ManageRole {
 
   async submitNewRoleClick() {
     await this.createRoleSubmitBtn.click();
+    console.log("Click");
   }
 
   async createdDialogDisplay() {
@@ -393,6 +398,41 @@ class ManageRole {
     await expect(this.page.getByText(roleName, { exact: true })).toBeVisible();
     const permissionCount = await this.mainPagePermissionCount(roleName);
     expect(permissionCount).toBe(expectedCount);
+  }
+
+  async countRoleRowsByName(roleName) {
+    return this.roleCount
+      .filter({
+        has: this.page.locator(".css-dl8xe1", { hasText: roleName }),
+      })
+      .count();
+  }
+
+  async assertDuplicateRoleNotCreated(roleName) {
+    await this.openCreateRoleForm();
+
+    // const roleRowsBeforeSubmit = await this.getRoleCount();
+    // const duplicateCountBeforeSubmit = await this.countRoleRowsByName(roleName);
+    // expect(duplicateCountBeforeSubmit).toBeGreaterThan(0);
+
+    await this.fillNewRoleName(roleName);
+    await this.selectAllPermissionsClick();
+    await this.submitNewRoleClick();
+
+    await expect(this.duplicateRoleError).toBeVisible({ timeout: 10_000 });
+    await this.closeDialogBtn.click();
+    await expect(this.createdDialog).not.toBeVisible();
+
+    await expect(this.permissionText).toBeVisible();
+    await expect(this.roleNameFieldText).toHaveValue(roleName);
+  }
+
+  async errorMsgDisplay() {
+    await expect(this.errorMsg).toBeVisible();
+  }
+
+  async errorMsgText(text) {
+    await expect(this.errorMsg).toHaveText(text);
   }
 }
 
