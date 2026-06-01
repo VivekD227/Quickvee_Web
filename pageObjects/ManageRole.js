@@ -8,8 +8,9 @@ class ManageRole {
       "Create and customize roles with specific permissions",
     );
     this.closeModuleBtn = page.locator(".quic-btn-cancle");
-    this.createRoleBtn = page.getByText("Create Role");
-    this.roleCount = page.locator("div.MuiBox-root.css-1jt8yge");
+    this.createRoleBtn = page.getByRole("button", {
+      name: /Create Role/i,
+    }); this.roleCount = page.locator("div.MuiBox-root.css-1jt8yge");
     this.selectRole_text = page.getByText("Select a role to edit");
     this.chooseRole_text = page.getByText(
       "Choose a role from the list or create a new one",
@@ -192,6 +193,13 @@ class ManageRole {
       .click();
   }
 
+  async verifyDeleteButtonNotDisplayedForRole(roleName) {
+    const roleRow = this.getRoleRow(roleName);
+    await expect(
+      roleRow.getByRole("img", { name: "delete-role-icon" }),
+    ).toHaveCount(0);
+  }
+
   async confirmDeleteRole() {
     await expect(this.deleteConfirmText).toBeVisible();
 
@@ -206,6 +214,16 @@ class ManageRole {
     ]);
 
     expect(response.ok()).toBeTruthy();
+  }
+
+  async cancelDeleteRole() {
+    await expect(this.deleteConfirmText).toBeVisible();
+    await this.page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(this.deleteConfirmText).not.toBeVisible();
+  }
+
+  async verifyRoleListed(roleName) {
+    await expect(this.page.getByText(roleName, { exact: true })).toBeVisible();
   }
 
   async deletedDialogDisplay() {
@@ -361,7 +379,18 @@ class ManageRole {
   }
 
   async openCreateRoleForm() {
-    await this.createRoleBtn.click();
+
+    // const [response] = await Promise.all([
+    //   this.page.waitForResponse(
+    //     (res) =>
+    //       res.request().method() === "POST" &&
+    //       res.url().includes("/Store_setting_react_api/permission_list"),
+    //   ),
+    //   await this.createRoleBtn.click()
+
+    // ]);
+    await this.createRoleBtn.click()
+
     await expect(this.permissionText).toBeVisible();
     await expect(this.roleNameFieldText).toBeVisible();
   }
@@ -384,10 +413,22 @@ class ManageRole {
     await expect(this.clearAllBtn).toBeVisible();
     await this.clearAllBtn.click();
   }
+  async submitNewRoleAPICheck() {
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes("/permission/create_permission_preset"),
+        { timeout: 30_000 },
+      ),
+      this.createRoleSubmitBtn.click(),
+    ]);
+
+    expect(response.ok()).toBeTruthy();
+  }
 
   async submitNewRoleClick() {
     await this.createRoleSubmitBtn.click();
-    console.log("Click");
   }
 
   async createdDialogDisplay() {

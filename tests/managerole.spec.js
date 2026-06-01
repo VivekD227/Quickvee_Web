@@ -6,6 +6,7 @@ import { ManageRole } from "../pageObjects/ManageRole";
 import { getMerchantID } from "../utilities/helper/loginAndStoreMerchantID";
 import { getPreset } from "../utilities/apiHelper/getPermissionPreset";
 
+
 const ROLES = ["Manager", "Cashier", "Driver", "Time Clock Only"];
 const TOTAL_PERMISSIONS = 160;
 
@@ -76,7 +77,6 @@ test.describe("Manage Role Module", () => {
 
       responseBody = await getPreset(page, managerole, roleName);
       permissionsArray = responseBody.data[0].permissions.split(",");
-
       apiPermissionCount = permissionsArray.length;
       console.log(`${roleName} API permission count:`, apiPermissionCount);
       uiPermissionCount = await managerole.permissionValue();
@@ -106,6 +106,7 @@ test.describe("Manage Role Module", () => {
       responseBody = await getPreset(page, managerole, roleName);
       permissionsArray = responseBody.data[0].permissions.split(",");
 
+      //await managerole.clickEditForRole(roleName);
       apiPermissionCount = permissionsArray.length;
       console.log(
         `${roleName} API permission count after save:`,
@@ -137,7 +138,7 @@ test.describe("Manage Role Module", () => {
     });
   }
 
-  test.only("Should not create duplicate role named Manager", async () => {
+  test("Should not create duplicate role named Manager", async () => {
     test.setTimeout(120_000);
     await managerole.assertDuplicateRoleNotCreated("Manager");
     await managerole.fillNewRoleName("  ");
@@ -145,6 +146,41 @@ test.describe("Manage Role Module", () => {
     await managerole.errorMsgDisplay();
     const error = "Role name is required";
     await managerole.errorMsgText(error);
+  });
+
+    test("Edit custom role name, save, and cancel delete", async () => {
+    test.setTimeout(120_000);
+    const initialRoleName = managerole.generateUniqueRoleName();
+    const updatedRoleName = managerole.generateUniqueRoleName();
+
+    await managerole.openCreateRoleForm();
+    const actualRoleName = await managerole.fillNewRoleName(initialRoleName);
+    await managerole.searchText("Employee Delete Forever");
+    await managerole.checkEmployeeDeleteForever();
+
+    await managerole.submitNewRoleAPICheck();
+    await managerole.createdDialogDisplay();
+    await managerole.verifyRoleListed(actualRoleName);
+
+    await managerole.clickEditForRole(actualRoleName);
+    await managerole.verifyEditRoleDisplayed();
+    const renamedRole = await managerole.fillNewRoleName(updatedRoleName);
+
+    await managerole.saveBtnClick();
+    await managerole.updateDialogDisplay();
+    await managerole.verifyRoleListed(renamedRole);
+    await expect(
+      page.getByText(actualRoleName, { exact: true }),
+    ).not.toBeVisible();
+
+    await managerole.clickDeleteForRole(renamedRole);
+    await managerole.cancelDeleteRole();
+    await managerole.verifyRoleListed(renamedRole);
+
+    await managerole.clickDeleteForRole(renamedRole);
+    await managerole.confirmDeleteRole();
+    await managerole.deletedDialogDisplay();
+    await managerole.verifyRoleNotListed(renamedRole);
   });
 
   test("Create new role with Select All permissions", async () => {
@@ -164,8 +200,7 @@ test.describe("Manage Role Module", () => {
     checkedCount = await managerole.checkedPermissionsCount();
     expect(checkedCount).toBe(TOTAL_PERMISSIONS);
 
-    await managerole.submitNewRoleClick();
-    await page.waitForTimeout(3000);
+    await managerole.submitNewRoleAPICheck();
     await managerole.createdDialogDisplay();
     await managerole.verifyRoleListedWithPermissionCount(
       actualRoleName,
@@ -191,10 +226,17 @@ test.describe("Manage Role Module", () => {
     await managerole.updateDialogDisplay();
     const finalPerCount =
       await managerole.mainPagePermissionCount(actualRoleName);
+    await page.waitForTimeout(1000);
     expect(finalPerCount).toBe(1);
     await managerole.clickDeleteForRole(actualRoleName);
     await managerole.confirmDeleteRole();
     await managerole.deletedDialogDisplay();
     await managerole.verifyRoleNotListed(actualRoleName);
+  });
+
+  test("Default roles should not display delete button", async () => {
+    for (const roleName of ROLES) {
+      await managerole.verifyDeleteButtonNotDisplayedForRole(roleName);
+    }
   });
 });
