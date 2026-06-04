@@ -64,6 +64,18 @@ class AddEmployee {
     this.submitAddEmployeeButton = this.modal.getByRole("button", {
       name: "Add Employee",
     });
+    this.cancelButton = this.modal.getByRole("button", { name: "Cancel" });
+
+    this.firstNameAlphabetError = this.modal.getByText(
+      "First Name can only contain alphabet",
+    );
+    this.invalidEmailError = this.modal.getByText("Enter valid email address");
+    this.duplicateEmailError = this.modal.getByText("Email Id Already Exist");
+    this.passwordPolicyError = this.modal.getByText(
+      /password must|password should|at least|uppercase|lowercase|special character|invalid password/i,
+    );
+
+    this.validPasswordSample = "Vivek@123";
 
     // Store dropdown popover content (rendered in a portal at body level,
     // outside the modal): a search box + "menuitem" options.
@@ -296,6 +308,10 @@ class AddEmployee {
     await this.setPasswordValue(password);
   }
 
+  async submitbuttonClick() {
+    this.submitAddEmployeeButton.click();
+  }
+
   async submitAddEmployeeAndVerifyApi() {
     const [response] = await Promise.all([
       this.page.waitForResponse(
@@ -304,7 +320,6 @@ class AddEmployee {
           res.url().includes("Store_setting_react_api/addEdit_employee"),
         { timeout: 30_000 },
       ),
-      this.submitAddEmployeeButton.click(),
     ]);
 
     expect(response.ok()).toBeTruthy();
@@ -320,12 +335,126 @@ class AddEmployee {
 
   async addEmployeeWithMandatoryFields(employeeData) {
     await this.fillMandatoryEmployeeFields(employeeData);
+    await this.submitbuttonClick();
     return this.submitAddEmployeeAndVerifyApi();
   }
 
   async cancel() {
-    await this.modal.getByRole("button", { name: "Cancel" }).click();
+    await this.cancelButton.click();
     await expect(this.addEmployeeText).toBeHidden();
+  }
+
+  async blurFirstName() {
+    await this.setFirstName.blur();
+  }
+
+  async blurEmail() {
+    await this.setEmail.blur();
+  }
+
+  async blurPhone() {
+    await this.setPhone.blur();
+  }
+
+  async blurPassword() {
+    await this.setPassword.blur();
+  }
+
+  async expectFirstNameAlphabetErrorVisible() {
+    await expect(this.firstNameAlphabetError).toBeVisible({ timeout: 5_000 });
+  }
+
+  async expectFirstNameAlphabetErrorHidden() {
+    await expect(this.firstNameAlphabetError).toBeHidden({ timeout: 5_000 });
+  }
+
+  async expectInvalidEmailErrorVisible() {
+    await expect(this.invalidEmailError).toBeVisible({ timeout: 5_000 });
+  }
+
+  async expectInvalidEmailErrorHidden() {
+    await expect(this.invalidEmailError).toBeHidden({ timeout: 5_000 });
+  }
+
+  async expectDuplicateEmailErrorVisible() {
+    await expect(this.duplicateEmailError).toBeVisible({ timeout: 10_000 });
+  }
+
+  async expectPasswordPolicyErrorVisible() {
+    await expect(this.passwordPolicyError).toBeVisible({ timeout: 5_000 });
+  }
+
+  async expectPasswordPolicyErrorHidden() {
+    await expect(this.passwordPolicyError).toBeHidden({ timeout: 5_000 });
+  }
+
+  async verifyFormFieldsAreEmpty() {
+    await expect(this.setFirstName).toHaveValue("");
+    await expect(this.setLastName).toHaveValue("");
+    await expect(this.setEmail).toHaveValue("");
+    await expect(this.setPhone).toHaveValue("");
+    await expect(this.setEmpPin).toHaveValue("");
+    await expect(this.setPassword).toHaveValue("");
+  }
+
+  async fillEmailAndGetValidationBody(email) {
+    await this.setEmail.clear();
+
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes("UserController/check_admin_employee_email"),
+        { timeout: 10_000 },
+      ),
+      this.setEmail.fill(email),
+    ]);
+
+    expect(response.ok()).toBeTruthy();
+    return response.json();
+  }
+
+  async fillAllRequiredFields({
+    firstName,
+    lastName = "Employee",
+    email,
+    pin,
+    role,
+    store,
+    password,
+    phone,
+  }) {
+    await this.setFirstNameValue(firstName);
+    await this.setLastNameValue(lastName);
+    await this.fillEmailAndGetValidationBody(email);
+    await this.setEmpPinValue(pin);
+    await this.selectRoleByName(role);
+    await this.selectStore(store);
+    await this.setPasswordValue(password);
+    if (phone) {
+      await this.setPhoneValue(phone);
+    }
+  }
+
+  async submitAndWaitForAddEmployeeApi() {
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes("Store_setting_react_api/addEdit_employee"),
+        { timeout: 30_000 },
+      ),
+      this.submitAddEmployeeButton.click(),
+    ]);
+    return response;
+  }
+
+  async expectAddEmployeeApiSuccess(response) {
+    expect(response.ok()).toBeTruthy();
+    const body = await response.json();
+    expect(body.status).toBeTruthy();
+    await expect(this.addEmployeeText).toBeHidden({ timeout: 15_000 });
+    return body;
   }
 
   async verifyAllRequiredFieldsDisplayed() {
