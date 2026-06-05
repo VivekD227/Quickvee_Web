@@ -461,23 +461,24 @@ test.describe("Add Employee Module", () => {
 
     test("Phone number must be exactly 10 digits", async () => {
       await addemployee.setPhone.clear();
-      await addemployee.setPhone.pressSequentially("12345678901", { delay: 50 });
-      expect((await addemployee.setPhone.inputValue()).replace(/\D/g, "")).toHaveLength(
-        10,
-      );
+      await addemployee.setPhone.pressSequentially("12345678901", {
+        delay: 50,
+      });
+      expect(
+        (await addemployee.setPhone.inputValue()).replace(/\D/g, ""),
+      ).toHaveLength(10);
 
       await addemployee.setPhone.clear();
       await addemployee.setPhone.pressSequentially("9876543210", { delay: 50 });
-      expect((await addemployee.setPhone.inputValue()).replace(/\D/g, "")).toHaveLength(
-        10,
-      );
+      expect(
+        (await addemployee.setPhone.inputValue()).replace(/\D/g, ""),
+      ).toHaveLength(10);
 
       await addemployee.setPhone.clear();
       await addemployee.setPhone.pressSequentially("12345", { delay: 50 });
-      const shortPhoneDigits = (await addemployee.setPhone.inputValue()).replace(
-        /\D/g,
-        "",
-      );
+      const shortPhoneDigits = (
+        await addemployee.setPhone.inputValue()
+      ).replace(/\D/g, "");
       expect(shortPhoneDigits.length).toBeLessThan(10);
     });
 
