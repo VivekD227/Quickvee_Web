@@ -1,0 +1,4 @@
+{"sessionId":"a4018a","location":"login.spec.js:36","message":"assertion targets","data":{"responseBodyLoginType":"merchant","apiResponseLoginType":"merchant","methodRefType":"function"},"timestamp":1780819813441,"hypothesisId":"A,B,C,D"}
+{"sessionId":"a4018a","location":"login.spec.js:36","message":"assertion targets","data":{"responseBodyLoginType":"merchant","apiResponseLoginType":"merchant","methodRefType":"function"},"timestamp":1780819909290,"hypothesisId":"A,B,C,D"}
+{"sessionId":"a4018a","location":"login.spec.js:35","message":"assertion targets","data":{"responseBodyLoginType":"merchant","methodRefType":"function"},"timestamp":1780819978587,"runId":"post-fix","hypothesisId":"A,B,D"}
+{"sessionId":"a4018a","location":"login.spec.js:35","message":"assertion targets","data":{"responseBodyLoginType":"merchant","methodRefType":"function"},"timestamp":1780820025628,"runId":"post-fix","hypothesisId":"A,B,D"}

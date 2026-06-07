@@ -3,7 +3,8 @@ import { LoginPage } from "../pageObjects/LoginPage";
 import { Dashboard } from "../pageObjects/Dashboard";
 import { loginResponse } from "../utilities/apiHelper/loginHelper";
 import { setMerchantID } from "../utilities/helper/sessionData";
-
+import sessionDataStorage from "../utilities/helper/sessionDataStorage";
+import merchants from "../api/testData/merchants.json";
 const VALID_STORE = "chain";
 const MERCHANT_EMAIL = "vivek.dubey521@gmail.com";
 const MERCHANT_PASSWORD = "Quickvee123!";
@@ -27,15 +28,17 @@ test.describe("Login Module", () => {
     const responseBody = await loginResponse(
       page,
       loginpage,
-      "automation",
-      "vivekd@gmail.com",
-      "Vivek@123",
+      merchants.merchantLogin.storename,
+      merchants.merchantLogin.username,
+      merchants.merchantLogin.password,
     );
 
-    expect(responseBody.login_type).toBe("merchant");
-    const mid = responseBody.data.merchant_id;
-    setMerchantID(mid);
-    console.log(mid);
+    const respo = await loginpage.successAPILoginMerchant();
+    await expect(respo.login_type).toBe("merchant");
+    console.log(respo.login_type);
+    const mid = sessionDataStorage.get("merchantId");
+    console.log("Merchant ID from sessionDataStorage:", mid);
+
     await dashboard.storenameDisplay();
     await dashboard.profileBtnClick();
     await dashboard.logoutBtnClick();
@@ -45,12 +48,14 @@ test.describe("Login Module", () => {
     const responseBody = await loginResponse(
       page,
       loginpage,
-      "chain",
-      "vivek@gmail.com",
-      "Vivek@123",
+      merchants.employeeLogin.storename,
+      merchants.employeeLogin.username,
+      merchants.employeeLogin.password,
     );
 
-    expect(responseBody.login_type).toBe("manager");
+    const respo = await loginpage.createSessionAPIEmployee();
+    await expect(respo.login_type).toBe("manager");
+    console.log(respo.login_type);
     await dashboard.storenameDisplay();
     await dashboard.profileBtnClick();
     await dashboard.logoutBtnClick();

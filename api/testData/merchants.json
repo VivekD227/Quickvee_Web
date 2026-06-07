@@ -1,8 +1,15 @@
 {
-  "validUser": {
+  "merchantLogin": {
     "username": "vivekd@gmail.com",
     "password": "Vivek@123",
     "storename": "automation",
     "otp": ""
-  }
+  },
+  "employeeLogin": {
+    "username": "vivek@gmail.com",
+    "password": "Vivek@123",
+    "storename": "chain",
+    "otp": ""
+  },
+  "url": "https://api-ci.quickvee.us/LoginApiReact/create_session"
 }

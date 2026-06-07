@@ -1,9 +1,13 @@
 const { expect } = require("@playwright/test");
-
+import { loginPayload } from "../api/payloads/merchantLoginPayload";
+import { APIClients } from "../api/clients/APIClients";
+const merchants = require("../api/testData/merchants.json");
+const sessionDataStorage = require("../utilities/helper/sessionDataStorage");
 
 class LoginPage {
 
   constructor(page) {
+
     this.page = page;
 
     this.logo = page.getByRole("img", { name: "Quickvee" });
@@ -26,7 +30,6 @@ class LoginPage {
 
     this.incorrectMessage = page.locator(".MuiAlert-message");
 
- 
   }
 
   async login(store, user, pwd) {
@@ -91,8 +94,58 @@ class LoginPage {
     await expect(this.pwdError).toBeVisible();
   }
 
-  async forgotPasswordBtnClick(){
+  async forgotPasswordBtnClick() {
     await this.forgotPassword.click();
+  }
+
+  async createSessionAPIMerchant() {
+    const apiClients = new APIClients(this.page.request);
+    const payload = loginPayload(
+      merchants.merchantLogin.username,
+      merchants.merchantLogin.password,
+      merchants.merchantLogin.storename,
+      merchants.merchantLogin.otp
+    );
+
+    const url = merchants.url;
+    const responseAPI = await apiClients.post(url, payload);
+    return responseAPI;
+  }
+
+  async createSessionAPIEmployee() {
+    const apiClients = new APIClients(this.page.request);
+    const payload = loginPayload(
+      merchants.employeeLogin.username,
+      merchants.employeeLogin.password,
+      merchants.employeeLogin.storename,
+      merchants.employeeLogin.otp
+    );
+
+    const url = merchants.url;
+    const responseAPI = await apiClients.post(url, payload);
+    expect(responseAPI.ok()).toBeTruthy();
+    expect(responseAPI.status()).toBe(200);
+    const responseBodyAPI = await responseAPI.json();
+    return responseBodyAPI;
+  }
+
+  async successAPILoginMerchant() {
+    const responseAPI = await this.createSessionAPIMerchant();
+    expect(responseAPI.ok()).toBeTruthy();
+    expect(responseAPI.status()).toBe(200);
+    const responseBodyAPI = await responseAPI.json();
+
+    expect(responseBodyAPI.status).toBe(true);
+    expect(responseBodyAPI.login_type).toBe("merchant");
+    // console.log(responseBodyAPI);
+    sessionDataStorage.set("loginType", responseBodyAPI.login_type);
+    sessionDataStorage.set("token", responseBodyAPI.token);
+    sessionDataStorage.set("tokenId", responseBodyAPI.token_id);
+    sessionDataStorage.set("merchantId", responseBodyAPI.data.merchant_id);
+    sessionDataStorage.set("name", responseBodyAPI.data.name);
+    sessionDataStorage.set("email", responseBodyAPI.data.email);
+    //console.log(responseBodyAPI);
+    return responseBodyAPI;
   }
 
 }
