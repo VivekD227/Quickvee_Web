@@ -155,6 +155,19 @@ class ManageRole {
     await expect(count).toBe(4);
   }
 
+  async getAllRoleNames() {
+    await expect(this.page.getByText(/Roles \(\d+\)/)).not.toHaveText(
+      "Roles (0)",
+    );
+    const names = await this.rolesModal.locator(".css-dl8xe1").allTextContents();
+    return names.map((name) => name.trim()).filter(Boolean);
+  }
+
+  async closeRolesModule() {
+    await this.page.keyboard.press("Escape");
+    await expect(this.manageemptext).toBeHidden();
+  }
+
   async editBtnCountCheck() {
     const edit_count = await this.editBtnCount.count();
     const rowCount = await this.getRoleCount();
