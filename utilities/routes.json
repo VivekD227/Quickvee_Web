@@ -1,0 +1,8 @@
+{
+  "main_URL": {
+    "live_URL": "https://quickvee.com/merchants/login"
+  },
+  "API_URL": {
+    "login": "https://api-ci.quickvee.us/LoginApiReact/create_session"
+  }
+}

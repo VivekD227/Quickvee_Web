@@ -11,5 +11,10 @@
     "storename": "chain",
     "otp": ""
   },
-  "url": "https://api-ci.quickvee.us/LoginApiReact/create_session"
+  "incorrect_Login": {
+    "username": "vivek.dubey521@gmail.com",
+    "password": "Quickvee@123",
+    "storename": "chain",
+    "otp": ""
+  }
 }

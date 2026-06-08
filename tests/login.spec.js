@@ -5,6 +5,8 @@ import { loginResponse } from "../utilities/apiHelper/loginHelper";
 import { setMerchantID } from "../utilities/helper/sessionData";
 import sessionDataStorage from "../utilities/helper/sessionDataStorage";
 import merchants from "../api/testData/merchants.json";
+import routes from "../utilities/routes.json";
+
 const VALID_STORE = "chain";
 const MERCHANT_EMAIL = "vivek.dubey521@gmail.com";
 const MERCHANT_PASSWORD = "Quickvee123!";
@@ -16,7 +18,8 @@ test.describe("Login Module", () => {
   let dashboard;
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("https://quickvee.com/merchants/login");
+    const url = routes.main_URL.live_URL;
+    await page.goto(url);
 
     loginpage = new LoginPage(page);
     dashboard = new Dashboard(page);
@@ -33,12 +36,12 @@ test.describe("Login Module", () => {
       merchants.merchantLogin.password,
     );
 
-    const respo = await loginpage.successAPILoginMerchant();
-    await expect(respo.login_type).toBe("merchant");
-    console.log(respo.login_type);
-    const mid = sessionDataStorage.get("merchantId");
-    console.log("Merchant ID from sessionDataStorage:", mid);
-
+    //const respo = await loginpage.successAPILoginMerchant();
+    await expect(responseBody.login_type).toBe("merchant");
+    console.log(responseBody.login_type);
+    // const mid = await sessionDataStorage.get("merchantId");
+    // console.log("Merchant ID from sessionDataStorage:", mid);
+    // console.log(sessionDataStorage.get("token"));
     await dashboard.storenameDisplay();
     await dashboard.profileBtnClick();
     await dashboard.logoutBtnClick();
@@ -65,14 +68,16 @@ test.describe("Login Module", () => {
     const response = await loginResponse(
       page,
       loginpage,
-      "chain",
-      "vivek.dubey521@gmail.com",
-      "Quickvee@123",
+      merchants.incorrect_Login.storename,
+      merchants.incorrect_Login.username,
+      merchants.incorrect_Login.password,
     );
     let msg = "Incorrect Username & Password";
-
-    expect(response.status).toBeFalsy();
-    expect(response.msg).toBe(msg);
+    const APIresponse = await loginpage.incorrectLoginAPI();
+    await expect(APIresponse.status).toBeFalsy();
+    await expect(APIresponse.msg).toBe(msg);
+    // expect(response.status).toBeFalsy();
+    // expect(response.msg).toBe(msg);
     await loginpage.inputMessageDisplay();
     await loginpage.inputMessageText(msg);
   });
@@ -98,7 +103,7 @@ test.describe("Login Module", () => {
     await loginpage.storeErrorDisplay();
     await loginpage.userErrorDisplay();
     await loginpage.pwdErrorDisplay();
-    expect(page).toHaveURL("https://quickvee.com/merchants/login");
+    expect(page).toHaveURL(routes.main_URL.live_URL);
   });
 
   test("loginWithOnlyUsernameEntered", async ({ page }) => {
@@ -107,7 +112,7 @@ test.describe("Login Module", () => {
     await loginpage.pwdErrorDisplay();
     await loginpage.storeErrorDisplay();
 
-    expect(page).toHaveURL("https://quickvee.com/merchants/login");
+    expect(page).toHaveURL(routes.main_URL.live_URL);
   });
 
   test("loginWithOnlyPasswordEntered", async ({ page }) => {
@@ -116,6 +121,6 @@ test.describe("Login Module", () => {
     await loginpage.storeErrorDisplay();
     await loginpage.userErrorDisplay();
 
-    expect(page).toHaveURL("https://quickvee.com/merchants/login");
+    expect(page).toHaveURL(routes.main_URL.live_URL);
   });
 });

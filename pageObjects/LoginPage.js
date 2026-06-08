@@ -3,11 +3,9 @@ import { loginPayload } from "../api/payloads/merchantLoginPayload";
 import { APIClients } from "../api/clients/APIClients";
 const merchants = require("../api/testData/merchants.json");
 const sessionDataStorage = require("../utilities/helper/sessionDataStorage");
-
+const route = require("../utilities/routes.json");
 class LoginPage {
-
   constructor(page) {
-
     this.page = page;
 
     this.logo = page.getByRole("img", { name: "Quickvee" });
@@ -29,7 +27,6 @@ class LoginPage {
     this.pwdError = page.getByText("Password is required");
 
     this.incorrectMessage = page.locator(".MuiAlert-message");
-
   }
 
   async login(store, user, pwd) {
@@ -98,35 +95,35 @@ class LoginPage {
     await this.forgotPassword.click();
   }
 
-  async createSessionAPIMerchant() {
-    const apiClients = new APIClients(this.page.request);
-    const payload = loginPayload(
-      merchants.merchantLogin.username,
-      merchants.merchantLogin.password,
-      merchants.merchantLogin.storename,
-      merchants.merchantLogin.otp
-    );
-
-    const url = merchants.url;
-    const responseAPI = await apiClients.post(url, payload);
-    return responseAPI;
-  }
-
   async createSessionAPIEmployee() {
     const apiClients = new APIClients(this.page.request);
     const payload = loginPayload(
       merchants.employeeLogin.username,
       merchants.employeeLogin.password,
       merchants.employeeLogin.storename,
-      merchants.employeeLogin.otp
+      merchants.employeeLogin.otp,
     );
 
-    const url = merchants.url;
+    const url = route.API_URL.login;
     const responseAPI = await apiClients.post(url, payload);
     expect(responseAPI.ok()).toBeTruthy();
     expect(responseAPI.status()).toBe(200);
     const responseBodyAPI = await responseAPI.json();
     return responseBodyAPI;
+  }
+
+  async createSessionAPIMerchant() {
+    const apiClients = new APIClients(this.page.request);
+    const payload = loginPayload(
+      merchants.merchantLogin.username,
+      merchants.merchantLogin.password,
+      merchants.merchantLogin.storename,
+      merchants.merchantLogin.otp,
+    );
+
+    const url = route.API_URL.login;
+    const responseAPI = await apiClients.post(url, payload);
+    return responseAPI;
   }
 
   async successAPILoginMerchant() {
@@ -144,10 +141,25 @@ class LoginPage {
     sessionDataStorage.set("merchantId", responseBodyAPI.data.merchant_id);
     sessionDataStorage.set("name", responseBodyAPI.data.name);
     sessionDataStorage.set("email", responseBodyAPI.data.email);
-    //console.log(responseBodyAPI);
     return responseBodyAPI;
   }
 
+  async incorrectLoginAPI() {
+    const apiClients = new APIClients(this.page.request);
+    const payload = loginPayload(
+      merchants.incorrect_Login.username,
+      merchants.incorrect_Login.password,
+      merchants.incorrect_Login.storename,
+      merchants.incorrect_Login.otp,
+    );
+
+    const url = route.API_URL.login;
+    const responseAPI = await apiClients.post(url, payload);
+    expect(responseAPI.ok()).toBeTruthy();
+    expect(responseAPI.status()).toBe(200);
+    const responseBodyAPI = await responseAPI.json();
+    return responseBodyAPI;
+  }
 }
 
 module.exports = { LoginPage };

@@ -1,4 +1,5 @@
 import { expect } from "@playwright/test";
+const route = require("../routes.json");
 
 export async function loginResponse(
   page,
@@ -7,13 +8,13 @@ export async function loginResponse(
   username,
   password,
 ) {
+  const url = route.API_URL.login;
   const [response] = await Promise.all([
     page.waitForResponse(
-      (res) =>
-        res.request().method() === "POST" &&
-        res.url().includes("LoginApiReact/create_session"),
+      (res) => res.request().method() === "POST" && res.url().includes(url),
     ),
     loginpage.login(storename, username, password),
+    loginpage.successAPILoginMerchant(),
   ]);
 
   expect(response.status()).toBe(200);
