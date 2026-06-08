@@ -5,7 +5,10 @@ import { loginResponse } from "../utilities/apiHelper/loginHelper";
 import { setMerchantID } from "../utilities/helper/sessionData";
 import sessionDataStorage from "../utilities/helper/sessionDataStorage";
 import merchants from "../api/testData/merchants.json";
-import routes from "../utilities/routes.json";
+import {
+  getLoginUrl,
+  navigateToLoginPage,
+} from "../utilities/helper/navigationHelper";
 
 const VALID_STORE = "chain";
 const MERCHANT_EMAIL = "vivek.dubey521@gmail.com";
@@ -18,8 +21,7 @@ test.describe("Login Module", () => {
   let dashboard;
 
   test.beforeEach(async ({ page }) => {
-    const url = routes.main_URL.live_URL;
-    await page.goto(url);
+    await navigateToLoginPage(page);
 
     loginpage = new LoginPage(page);
     dashboard = new Dashboard(page);
@@ -103,7 +105,7 @@ test.describe("Login Module", () => {
     await loginpage.storeErrorDisplay();
     await loginpage.userErrorDisplay();
     await loginpage.pwdErrorDisplay();
-    expect(page).toHaveURL(routes.main_URL.live_URL);
+    expect(page).toHaveURL(getLoginUrl());
   });
 
   test("loginWithOnlyUsernameEntered", async ({ page }) => {
@@ -112,7 +114,7 @@ test.describe("Login Module", () => {
     await loginpage.pwdErrorDisplay();
     await loginpage.storeErrorDisplay();
 
-    expect(page).toHaveURL(routes.main_URL.live_URL);
+    expect(page).toHaveURL(getLoginUrl());
   });
 
   test("loginWithOnlyPasswordEntered", async ({ page }) => {
@@ -121,6 +123,6 @@ test.describe("Login Module", () => {
     await loginpage.storeErrorDisplay();
     await loginpage.userErrorDisplay();
 
-    expect(page).toHaveURL(routes.main_URL.live_URL);
+    expect(page).toHaveURL(getLoginUrl());
   });
 });

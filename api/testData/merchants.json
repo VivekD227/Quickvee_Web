@@ -16,5 +16,8 @@
     "password": "Quickvee@123",
     "storename": "chain",
     "otp": ""
+  },
+  "preset_id": {
+    "manager": 2393
   }
 }

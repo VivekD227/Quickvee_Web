@@ -5,6 +5,7 @@ import { Dashboard } from "../pageObjects/Dashboard";
 import { AddEmployee } from "../pageObjects/AddEmployee";
 import { ManageRole } from "../pageObjects/ManageRole";
 import { getMerchantID } from "../utilities/helper/loginAndStoreMerchantID";
+import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
 
 const STORE_NAME = "Test Automation";
 const EXISTING_EMPLOYEE_EMAIL = "vivekdemp@gmail.com";
@@ -114,7 +115,7 @@ test.describe("Add Employee Module", () => {
       addemployee = new AddEmployee(page);
       managerole = new ManageRole(page);
 
-      await page.goto("https://quickvee.com/merchants/login");
+      await navigateToLoginPage(page);
       await getMerchantID(page, loginpage);
       await dashboard.logoDisplayed();
       await dashboard.menuClick();

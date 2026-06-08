@@ -1,4 +1,8 @@
 const { expect } = require("@playwright/test");
+import { APIClients } from "../api/clients/APIClients";
+import sessionDataStorage from "../utilities/helper/sessionDataStorage";
+import merchants from "../api/testData/merchants.json";
+import routes from "../utilities/routes.json";
 
 class ManageRole {
   constructor(page) {
@@ -10,7 +14,8 @@ class ManageRole {
     this.closeModuleBtn = page.locator(".quic-btn-cancle");
     this.createRoleBtn = page.getByRole("button", {
       name: /Create Role/i,
-    }); this.roleCount = page.locator("div.MuiBox-root.css-1jt8yge");
+    });
+    this.roleCount = page.locator("div.MuiBox-root.css-1jt8yge");
     this.selectRole_text = page.getByText("Select a role to edit");
     this.chooseRole_text = page.getByText(
       "Choose a role from the list or create a new one",
@@ -159,7 +164,9 @@ class ManageRole {
     await expect(this.page.getByText(/Roles \(\d+\)/)).not.toHaveText(
       "Roles (0)",
     );
-    const names = await this.rolesModal.locator(".css-dl8xe1").allTextContents();
+    const names = await this.rolesModal
+      .locator(".css-dl8xe1")
+      .allTextContents();
     return names.map((name) => name.trim()).filter(Boolean);
   }
 
@@ -231,7 +238,9 @@ class ManageRole {
 
   async cancelDeleteRole() {
     await expect(this.deleteConfirmText).toBeVisible();
-    await this.page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await this.page
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
     await expect(this.deleteConfirmText).not.toBeVisible();
   }
 
@@ -392,7 +401,6 @@ class ManageRole {
   }
 
   async openCreateRoleForm() {
-
     // const [response] = await Promise.all([
     //   this.page.waitForResponse(
     //     (res) =>
@@ -402,7 +410,7 @@ class ManageRole {
     //   await this.createRoleBtn.click()
 
     // ]);
-    await this.createRoleBtn.click()
+    await this.createRoleBtn.click();
 
     await expect(this.permissionText).toBeVisible();
     await expect(this.roleNameFieldText).toBeVisible();
@@ -487,6 +495,21 @@ class ManageRole {
 
   async errorMsgText(text) {
     await expect(this.errorMsg).toHaveText(text);
+  }
+
+  async permission_PresetAPI(roleName) {
+    const apiClients = new APIClients(this.page.request);
+    const payload = presetPayload(
+      sessionDataStorage.get("merchantId"),
+      merchants.preset_id.manager,
+      sessionDataStorage.get("email"),
+    );
+    const url = routes.API_URL.preset_URL;
+    const responseAPI = await apiClients.post(url, payload);
+    expect(responseAPI.ok()).toBeTruthy();
+    expect(responseAPI.status()).toBe(200);
+    const responseBodyAPI = await responseAPI.json();
+    return responseBodyAPI;
   }
 }
 

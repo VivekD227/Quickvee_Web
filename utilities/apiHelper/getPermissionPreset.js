@@ -13,6 +13,7 @@ export async function getPreset(page, managerole, role) {
         res.url().includes("Store_setting_react_api/permission_list"),
     ),
     managerole.clickEditForRole(role),
+    managerole.permission_PresetAPI(role),
   ]);
 
   expect(response.ok()).toBeTruthy();

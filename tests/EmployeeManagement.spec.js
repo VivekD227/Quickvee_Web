@@ -3,6 +3,7 @@ import { EmployeeManagement } from "../pageObjects/EmployeeManagement";
 import { LoginPage } from "../pageObjects/LoginPage";
 import { Dashboard } from "../pageObjects/Dashboard";
 import { getMerchantID } from "../utilities/helper/loginAndStoreMerchantID";
+import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
 
 test.describe("Add Employee Module", () => {
   test.describe.configure({ mode: "serial", timeout: 90_000 });
@@ -23,7 +24,7 @@ test.describe("Add Employee Module", () => {
       dashboard = new Dashboard(page);
       employeemanagement = new EmployeeManagement(page);
 
-      await page.goto("https://quickvee.com/merchants/login");
+      await navigateToLoginPage(page);
       await getMerchantID(page, loginpage);
       await dashboard.logoDisplayed();
       await dashboard.menuClick();

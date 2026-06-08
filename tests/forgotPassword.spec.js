@@ -2,6 +2,8 @@ import { test, expect } from "@playwright/test";
 import { LoginPage } from "../pageObjects/LoginPage";
 import { ForgotPassword } from "../pageObjects/ForgotPassword";
 import { forgotPasswordAPI } from "../utilities/apiHelper/forgotPasswordHelper";
+import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
+import routes from "../utilities/routes.json";
 
 test.describe("Forgot Password", () => {
   test.describe.configure({ mode: "serial", timeout: 60_000 });
@@ -9,11 +11,11 @@ test.describe("Forgot Password", () => {
   let forgotpassword;
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("https://quickvee.com/merchants/login");
+    await navigateToLoginPage(page);
     loginpage = new LoginPage(page);
     forgotpassword = new ForgotPassword(page);
     await loginpage.forgotPasswordBtnClick();
-    expect(page).toHaveURL("https://quickvee.com/merchants/forgot-password");
+    expect(page).toHaveURL(routes.page_URL.forgot_password);
   });
 
   test("Invalid Email Format Forgot Password Test", async ({ page }) => {

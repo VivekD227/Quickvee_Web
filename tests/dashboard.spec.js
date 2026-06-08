@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { LoginPage } from "../pageObjects/LoginPage";
 import { Dashboard } from "../pageObjects/Dashboard";
 import merchants from "../api/testData/merchants.json";
+import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
 
 test.describe("DashBoard Module", () => {
   test.describe.configure({ mode: "serial", timeout: 60_000 });
@@ -13,12 +14,12 @@ test.describe("DashBoard Module", () => {
   let pwd;
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("https://quickvee.com/merchants/login");
+    await navigateToLoginPage(page);
     loginpage = new LoginPage(page);
     dashboard = new Dashboard(page);
-    sName = merchants.validUser.storename;
-    uName = merchants.validUser.username;
-    pwd = merchants.validUser.password;
+    sName = merchants.merchantLogin.storename;
+    uName = merchants.merchantLogin.username;
+    pwd = merchants.merchantLogin.password;
 
     await loginpage.login(sName, uName, pwd);
     await dashboard.logoDisplayed();
@@ -28,7 +29,7 @@ test.describe("DashBoard Module", () => {
     let storeName = "Test Automation";
     let vName = "View Online Store";
     // await dashboard.storenameDisplay();
-    
+
     // await dashboard.storeNameText(storeName);
     // await dashboard.viewStoreDisplay();
 

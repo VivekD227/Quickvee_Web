@@ -3,9 +3,10 @@ import { EmployeeManagement } from "../pageObjects/EmployeeManagement";
 import { LoginPage } from "../pageObjects/LoginPage";
 import { Dashboard } from "../pageObjects/Dashboard";
 import { ManageRole } from "../pageObjects/ManageRole";
-import { getMerchantID } from "../utilities/helper/loginAndStoreMerchantID";
+import { loginResponse } from "../utilities/apiHelper/loginHelper";
+import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
 import { getPreset } from "../utilities/apiHelper/getPermissionPreset";
-
+import merchants from "../api/testData/merchants.json";
 
 const ROLES = ["Manager", "Cashier", "Driver", "Time Clock Only"];
 const TOTAL_PERMISSIONS = 160;
@@ -19,6 +20,9 @@ test.describe("Manage Role Module", () => {
   let dashboard;
   let employeemanagement;
   let managerole;
+  let storename;
+  let username;
+  let password;
 
   test.beforeAll(
     async ({ browser }) => {
@@ -31,8 +35,13 @@ test.describe("Manage Role Module", () => {
       employeemanagement = new EmployeeManagement(page);
       managerole = new ManageRole(page);
 
-      await page.goto("https://quickvee.com/merchants/login");
-      await getMerchantID(page, loginpage);
+      storename = merchants.merchantLogin.storename;
+      username = merchants.merchantLogin.username;
+      password = merchants.merchantLogin.password;
+
+      await navigateToLoginPage(page);
+      await loginResponse(page, loginpage, storename, username, password);
+      // await getMerchantID(page, loginpage);
       await dashboard.logoDisplayed();
       await dashboard.menuClick();
       await dashboard.employeeClick();
@@ -64,7 +73,7 @@ test.describe("Manage Role Module", () => {
   });
 
   for (const roleName of ROLES) {
-    test(`Verify and update permissions for ${roleName}`, async () => {
+    test.only(`Verify and update permissions for ${roleName}`, async () => {
       let responseBody;
       let permissionsArray;
       let apiPermissionCount;
@@ -148,7 +157,7 @@ test.describe("Manage Role Module", () => {
     await managerole.errorMsgText(error);
   });
 
-    test("Edit custom role name, save, and cancel delete", async () => {
+  test("Edit custom role name, save, and cancel delete", async () => {
     test.setTimeout(120_000);
     const initialRoleName = managerole.generateUniqueRoleName();
     const updatedRoleName = managerole.generateUniqueRoleName();

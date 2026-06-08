@@ -3,6 +3,10 @@
     "live_URL": "https://quickvee.com/merchants/login"
   },
   "API_URL": {
-    "login": "https://api-ci.quickvee.us/LoginApiReact/create_session"
+    "login": "https://api-ci.quickvee.us/LoginApiReact/create_session",
+    "preset_URL": "https://api-node.quickvee.us/permission/get_permission_preset_by_id"
+  },
+  "page_URL": {
+    "forgot_password": "https://quickvee.com/merchants/forgot-password"
   }
 }
