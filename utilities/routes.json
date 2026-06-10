@@ -4,8 +4,12 @@
   },
   "API_URL": {
     "login": "https://api-ci.quickvee.us/LoginApiReact/create_session",
-    "preset_URL": "https://api-node.quickvee.us/permission/get_permission_preset_by_id"
-  },
+    "preset_URL": "https://api-node.quickvee.us/permission/get_permission_preset_by_id",
+    "main_preset_URL": "https://api-node.quickvee.us/permission/get_permission_preset",
+   "employeeList_URL": "https://api-ci.quickvee.us/Store_setting_react_api/employee_list",
+    "managerStore_URL": "https://api-ci.quickvee.us/Store_setting_react_api/getManagerStores",
+    "deleteEmployee_URL": "https://api-ci.quickvee.us/Store_setting_react_api/deleted_employee_list"
+},
   "page_URL": {
     "forgot_password": "https://quickvee.com/merchants/forgot-password"
   }

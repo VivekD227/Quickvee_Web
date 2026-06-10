@@ -2,8 +2,8 @@ import { test, expect } from "@playwright/test";
 import { EmployeeManagement } from "../pageObjects/EmployeeManagement";
 import { LoginPage } from "../pageObjects/LoginPage";
 import { Dashboard } from "../pageObjects/Dashboard";
-import { getMerchantID } from "../utilities/helper/loginAndStoreMerchantID";
 import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
+import merchants from "../api/testData/merchants.json";
 
 test.describe("Add Employee Module", () => {
   test.describe.configure({ mode: "serial", timeout: 90_000 });
@@ -13,6 +13,9 @@ test.describe("Add Employee Module", () => {
   let loginpage;
   let dashboard;
   let employeemanagement;
+  let sName;
+  let uName;
+  let pwd;
 
   test.beforeAll(
     async ({ browser }) => {
@@ -23,9 +26,11 @@ test.describe("Add Employee Module", () => {
       loginpage = new LoginPage(page);
       dashboard = new Dashboard(page);
       employeemanagement = new EmployeeManagement(page);
-
+      sName = merchants.merchantLogin.storename;
+      uName = merchants.merchantLogin.username;
+      pwd = merchants.merchantLogin.password;
       await navigateToLoginPage(page);
-      await getMerchantID(page, loginpage);
+      await loginpage.login(sName, uName, pwd);
       await dashboard.logoDisplayed();
       await dashboard.menuClick();
       await dashboard.employeeClick();

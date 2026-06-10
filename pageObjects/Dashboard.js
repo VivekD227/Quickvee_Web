@@ -1,4 +1,6 @@
 const { expect } = require("@playwright/test");
+import routes from "../utilities/routes.json";
+import { APIClients } from "../api/clients/APIClients";
 
 class Dashboard {
   constructor(page) {
@@ -34,15 +36,15 @@ class Dashboard {
   }
 
   async logoDisplayed() {
-  await this.page.waitForTimeout(10000);
-  await expect(this.quickveeLogo).toBeVisible();
-}
+    await this.page.waitForTimeout(10000);
+    await expect(this.quickveeLogo).toBeVisible();
+  }
 
-  async viewStoreDisplay(){
+  async viewStoreDisplay() {
     await expect(this.viewStore).toBeVisible();
   }
 
-  async viewStoreText(text){
+  async viewStoreText(text) {
     await expect(this.viewStore).toHaveText(text);
   }
 
@@ -75,7 +77,38 @@ class Dashboard {
   }
 
   async manage_employeeClick() {
-    await this.manage_emp.click();
+    const [presetResponse, employeeListResponse, managerStoreResponse, deleteEmployeeResponse] = await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" && res.url().includes(routes.API_URL.main_preset_URL)
+      ),
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" && res.url().includes(routes.API_URL.employeeList_URL)
+      ),
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" && res.url().includes(routes.API_URL.managerStore_URL)
+      ),
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" && res.url().includes(routes.API_URL.deleteEmployee_URL)
+      ),
+      await this.manage_emp.click(),
+    ]);
+
+    expect(presetResponse.status()).toBe(200);
+    expect(employeeListResponse.status()).toBe(200);
+    expect(managerStoreResponse.status()).toBe(200);
+    expect(deleteEmployeeResponse.status()).toBe(200);
+    const deleteEmployeeResponseBody = await deleteEmployeeResponse.json();
+    console.log("Delete Employee Response:", deleteEmployeeResponseBody);
+    return deleteEmployeeResponseBody;
+  }
+
+  async getEmployeeListAPI() {
+    const apiClient = new APIClients(this.page.request);
+    const payload = 
   }
 }
 
