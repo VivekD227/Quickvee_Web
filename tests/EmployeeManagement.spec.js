@@ -2,20 +2,49 @@ import { test, expect } from "@playwright/test";
 import { EmployeeManagement } from "../pageObjects/EmployeeManagement";
 import { LoginPage } from "../pageObjects/LoginPage";
 import { Dashboard } from "../pageObjects/Dashboard";
+import { ManageRole } from "../pageObjects/ManageRole";
+import { AddEmployee } from "../pageObjects/AddEmployee";
 import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
 import merchants from "../api/testData/merchants.json";
+import { loginResponse } from "../utilities/apiHelper/loginHelper";
+
+const DEFAULT_EMPLOYEE_EMAIL = "vivekdemp@gmail.com";
+const STORE_NAME = "Test Automation";
+
+function randomAlpha(length = 8) {
+  return Array.from({ length }, () =>
+    String.fromCharCode(97 + Math.floor(Math.random() * 26)),
+  ).join("");
+}
+
+function buildValidEmployeeData() {
+  const uniqueSuffix = Date.now() + Math.floor(Math.random() * 1000);
+  return {
+    firstName: randomAlpha(),
+    lastName: "Employee",
+    email: `autoemp${uniqueSuffix}@test.com`,
+    phone: "9876543210",
+    pin: String(1000 + (uniqueSuffix % 9000)),
+    role: "Cashier",
+    store: STORE_NAME,
+    password: "Vivek@123",
+  };
+}
 
 test.describe("Add Employee Module", () => {
-  test.describe.configure({ mode: "serial", timeout: 90_000 });
+  test.describe.configure({ mode: "serial", timeout: 120_000 });
 
   let context;
   let page;
   let loginpage;
   let dashboard;
   let employeemanagement;
+  let managerole;
+  let addemployee;
   let sName;
   let uName;
   let pwd;
+  let createdEmployee;
 
   test.beforeAll(
     async ({ browser }) => {
@@ -26,11 +55,13 @@ test.describe("Add Employee Module", () => {
       loginpage = new LoginPage(page);
       dashboard = new Dashboard(page);
       employeemanagement = new EmployeeManagement(page);
+      managerole = new ManageRole(page);
+      addemployee = new AddEmployee(page);
       sName = merchants.merchantLogin.storename;
       uName = merchants.merchantLogin.username;
       pwd = merchants.merchantLogin.password;
       await navigateToLoginPage(page);
-      await loginpage.login(sName, uName, pwd);
+      const login = await loginResponse(page, loginpage, sName, uName, pwd);
       await dashboard.logoDisplayed();
       await dashboard.menuClick();
       await dashboard.employeeClick();
@@ -55,5 +86,59 @@ test.describe("Add Employee Module", () => {
     await employeemanagement.allStoreDisplay();
     await employeemanagement.allRolesDisplay();
     await employeemanagement.selectAllDisplay();
+  });
+
+  test("Validating the Listing", async () => {
+    const UICount = await employeemanagement.getemployeeCount();
+    const APICount = await dashboard.getEmployeeListAPI();
+    expect(UICount).toBe(APICount);
+  });
+
+  test("Default employee vivekdemp@gmail.com should exist in store", async () => {
+    await employeemanagement.verifyEmployeeExists(DEFAULT_EMPLOYEE_EMAIL);
+  });
+
+  test("Default employee assigned store should not be changeable on edit", async () => {
+    await employeemanagement.verifyDefaultEmployeeAssignedStoreNotChangeable(
+      DEFAULT_EMPLOYEE_EMAIL,
+    );
+  });
+
+  test("Employee card shows full name, email, phone, role and assigned store count", async () => {
+    createdEmployee = buildValidEmployeeData();
+
+    await employeemanagement.addEmployeeClick();
+    await addemployee.addEmployeeTextDisplay();
+    await addemployee.fillAllRequiredFields(createdEmployee);
+    const response = await addemployee.submitAndWaitForAddEmployeeApi();
+    await addemployee.expectAddEmployeeApiSuccess(response);
+
+    await employeemanagement.search(createdEmployee.email);
+    await employeemanagement.verifyEmployeeCardDetails(createdEmployee.email, {
+      fullName: `${createdEmployee.firstName} ${createdEmployee.lastName}`,
+      phone: createdEmployee.phone,
+      role: createdEmployee.role,
+    });
+  });
+
+  test("Edit newly created employee, save and validate updated card", async () => {
+    const updatedEmployee = {
+      firstName: randomAlpha(),
+      lastName: "Updated",
+      phone: "5551234567",
+      role: "Manager",
+    };
+
+    await employeemanagement.editEmployeeAndSave(
+      createdEmployee.email,
+      updatedEmployee,
+    );
+
+    await employeemanagement.search(createdEmployee.email);
+    await employeemanagement.verifyEmployeeCardDetails(createdEmployee.email, {
+      fullName: `${updatedEmployee.firstName} ${updatedEmployee.lastName}`,
+      phone: updatedEmployee.phone,
+      role: updatedEmployee.role,
+    });
   });
 });

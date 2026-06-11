@@ -6,11 +6,3 @@ export function loginPayload(username, password, storename, otp = "") {
     otp,
   };
 }
-
-export function presetPayload(merchantID, presetID, email) {
-  return {
-    merchantID,
-    presetID,
-    email,
-  };
-}
