@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test";
-
+const routes = require("../utilities/routes.json");
 class AddEmployee {
   constructor(page) {
     this.page = page;
@@ -437,11 +437,11 @@ class AddEmployee {
   }
 
   async submitAndWaitForAddEmployeeApi() {
+    const employeeURL = routes.API_URL.addEmployee_URL;
     const [response] = await Promise.all([
       this.page.waitForResponse(
         (res) =>
-          res.request().method() === "POST" &&
-          res.url().includes("Store_setting_react_api/addEdit_employee"),
+          res.request().method() === "POST" && res.url().includes(employeeURL),
         { timeout: 30_000 },
       ),
       this.submitAddEmployeeButton.click(),

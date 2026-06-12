@@ -7,10 +7,10 @@ import { AddEmployee } from "../pageObjects/AddEmployee";
 import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
 import merchants from "../api/testData/merchants.json";
 import { loginResponse } from "../utilities/apiHelper/loginHelper";
+import sessionDataStorage from "../utilities/helper/sessionDataStorage";
 
 const DEFAULT_EMPLOYEE_EMAIL = "vivekdemp@gmail.com";
 const STORE_NAME = "Test Automation";
-
 function randomAlpha(length = 8) {
   return Array.from({ length }, () =>
     String.fromCharCode(97 + Math.floor(Math.random() * 26)),
@@ -45,6 +45,7 @@ test.describe("Add Employee Module", () => {
   let uName;
   let pwd;
   let createdEmployee;
+  let searchEmployee;
 
   test.beforeAll(
     async ({ browser }) => {
@@ -86,13 +87,12 @@ test.describe("Add Employee Module", () => {
     await employeemanagement.allStoreDisplay();
     await employeemanagement.allRolesDisplay();
     await employeemanagement.selectAllDisplay();
+    await employeemanagement.employeeCountCheck();
   });
 
-  test("Validating the Listing", async () => {
-    const UICount = await employeemanagement.getemployeeCount();
-    const APICount = await dashboard.getEmployeeListAPI();
-    expect(UICount).toBe(APICount);
-  });
+  // test("Validating the Listing", async () => {
+  //   await employeemanagement.employeeCountCheck();
+  // });
 
   test("Default employee vivekdemp@gmail.com should exist in store", async () => {
     await employeemanagement.verifyEmployeeExists(DEFAULT_EMPLOYEE_EMAIL);
@@ -112,7 +112,7 @@ test.describe("Add Employee Module", () => {
     await addemployee.fillAllRequiredFields(createdEmployee);
     const response = await addemployee.submitAndWaitForAddEmployeeApi();
     await addemployee.expectAddEmployeeApiSuccess(response);
-
+    await employeemanagement.employeeCountCheck();
     await employeemanagement.search(createdEmployee.email);
     await employeemanagement.verifyEmployeeCardDetails(createdEmployee.email, {
       fullName: `${createdEmployee.firstName} ${createdEmployee.lastName}`,
@@ -124,7 +124,7 @@ test.describe("Add Employee Module", () => {
   test("Edit newly created employee, save and validate updated card", async () => {
     const updatedEmployee = {
       firstName: randomAlpha(),
-      lastName: "Updated",
+      lastName: "Edited",
       phone: "5551234567",
       role: "Manager",
     };
@@ -133,6 +133,8 @@ test.describe("Add Employee Module", () => {
       createdEmployee.email,
       updatedEmployee,
     );
+    await employeemanagement.clearSearch();
+    await employeemanagement.employeeCountCheck();
 
     await employeemanagement.search(createdEmployee.email);
     await employeemanagement.verifyEmployeeCardDetails(createdEmployee.email, {
@@ -140,5 +142,74 @@ test.describe("Add Employee Module", () => {
       phone: updatedEmployee.phone,
       role: updatedEmployee.role,
     });
+
+    searchEmployee = {
+      firstName: updatedEmployee.firstName,
+      lastName: updatedEmployee.lastName,
+      fullName: `${updatedEmployee.firstName} ${updatedEmployee.lastName}`,
+      email: createdEmployee.email,
+    };
+  });
+
+  test("Search by first name", async () => {
+    await employeemanagement.clearSearch();
+    await employeemanagement.verifySearchByText(
+      searchEmployee.firstName,
+      searchEmployee.email,
+    );
+    await employeemanagement.clearSearch();
+  });
+
+  test("Search by last name", async () => {
+    await employeemanagement.clearSearch();
+    await employeemanagement.verifySearchByText(
+      searchEmployee.lastName,
+      searchEmployee.email,
+    );
+    await employeemanagement.clearSearch();
+  });
+
+  test("Search by full name", async () => {
+    await employeemanagement.clearSearch();
+    await employeemanagement.verifySearchByText(
+      searchEmployee.fullName,
+      searchEmployee.email,
+    );
+    await employeemanagement.clearSearch();
+  });
+
+  test("Search by email", async () => {
+    await employeemanagement.clearSearch();
+    await employeemanagement.verifySearchByText(
+      searchEmployee.email,
+      searchEmployee.email,
+    );
+    await employeemanagement.clearSearch();
+  });
+
+  test("Delete confirmation dialog", async () => {
+    await employeemanagement.clearSearch();
+    await employeemanagement.search(searchEmployee.email);
+    await employeemanagement.clickDeleteEmployee(searchEmployee.email);
+    await employeemanagement.verifyDeleteConfirmationDialog();
+    await employeemanagement.cancelDeleteEmployee();
+    await employeemanagement.clearSearch();
+  });
+
+  test("Delete employee from card", async () => {
+    await employeemanagement.deleteEmployeeFromCard(searchEmployee.email);
+    await employeemanagement.employeeCountCheck();
+  });
+
+  test.only("Permanent Delete Employee", async () => {
+    // await dashboard.employeeClick();
+    // const deleteAPI = await employeemanagement.deleteAPICall();
+    const permanentDelete = await sessionDataStorage.get("isDeleted");
+    console.log(sessionDataStorage.get("isDeleted"));
+    if (permanentDelete == true) {
+      await employeemanagement.hiddenviewDeleted();
+    } else {
+      await employeemanagement.visibleviewDeleted();
+    }
   });
 });

@@ -104,7 +104,7 @@ class Dashboard {
       this.page.waitForResponse(
         (res) =>
           res.request().method() === "POST" &&
-          res.url().includes(routes.API_URL.deleteEmployee_URL),
+          res.url().includes(routes.API_URL.deleteEmployeeList_URL),
       ),
       await this.manage_emp.click(),
       await this.getEmployeeListAPI(),
@@ -116,7 +116,7 @@ class Dashboard {
     expect(deleteEmployeeResponse.status()).toBe(200);
     const deleteEmployeeResponseBody = await deleteEmployeeResponse.json();
     // console.log("Delete Employee Response:", deleteEmployeeResponseBody);
-    return deleteEmployeeResponseBody;
+    sessionDataStorage.set("isDeleted", deleteEmployeeResponseBody.status);
   }
 
   async getEmployeeListAPI() {
