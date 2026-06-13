@@ -106,12 +106,17 @@ test.describe("Add Employee Module", () => {
 
   test("Employee card shows full name, email, phone, role and assigned store count", async () => {
     createdEmployee = buildValidEmployeeData();
+    await employeemanagement.clearSearch();
+    const countBeforeAdd = await employeemanagement.getemployeeCount();
 
     await employeemanagement.addEmployeeClick();
     await addemployee.addEmployeeTextDisplay();
     await addemployee.fillAllRequiredFields(createdEmployee);
     const response = await addemployee.submitAndWaitForAddEmployeeApi();
     await addemployee.expectAddEmployeeApiSuccess(response);
+
+    const countAfterAdd = await employeemanagement.getemployeeCount();
+    expect(countAfterAdd).toBe(countBeforeAdd + 1);
     await employeemanagement.employeeCountCheck();
     await employeemanagement.search(createdEmployee.email);
     await employeemanagement.verifyEmployeeCardDetails(createdEmployee.email, {
@@ -197,19 +202,46 @@ test.describe("Add Employee Module", () => {
   });
 
   test("Delete employee from card", async () => {
+    await employeemanagement.clearSearch();
+    const countBeforeDelete = await employeemanagement.getemployeeCount();
+
     await employeemanagement.deleteEmployeeFromCard(searchEmployee.email);
+
+    const countAfterDelete = await employeemanagement.getemployeeCount();
+    expect(countAfterDelete).toBe(countBeforeDelete - 1);
     await employeemanagement.employeeCountCheck();
   });
 
-  test.only("Permanent Delete Employee", async () => {
-    // await dashboard.employeeClick();
-    // const deleteAPI = await employeemanagement.deleteAPICall();
-    const permanentDelete = await sessionDataStorage.get("isDeleted");
-    console.log(sessionDataStorage.get("isDeleted"));
-    if (permanentDelete == true) {
-      await employeemanagement.hiddenviewDeleted();
-    } else {
+  test("Restore Employee", async () => {
+    const permanentDelete = sessionDataStorage.get("isDeleted");
+
+    if (permanentDelete === true) {
       await employeemanagement.visibleviewDeleted();
+
+      await employeemanagement.restoreFirstDeletedEmployee();
+      await employeemanagement.restoreClick();
+      await employeemanagement.verifyRestoredEmployeeInActiveList(
+        searchEmployee.email,
+      );
+      await employeemanagement.verifyRestoredEmployeePinIsEmpty(
+        searchEmployee.email,
+      );
+    } else {
+      await employeemanagement.hiddenviewDeleted();
+    }
+  });
+
+  test("Permanent Delete Employee", async () => {
+    const permanentDelete = sessionDataStorage.get("isDeleted");
+
+    if (permanentDelete === true) {
+      await employeemanagement.visibleviewDeleted();
+
+      await employeemanagement.permanentDeleteFirstDeletedEmployee();
+      await employeemanagement.deleteForeverClick();
+      await employeemanagement.yesDeleteBtnClick();
+    } else {
+      await employeemanagement.hiddenviewDeleted();
     }
   });
 });
