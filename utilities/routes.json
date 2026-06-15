@@ -1,6 +1,7 @@
 {
   "main_URL": {
-    "live_URL": "https://quickvee.com/merchants/login"
+    "live_URL": "https://quickvee.com/merchants/login",
+    "QA_URL": "https://quickvee-qa.com/merchants/dashboard"
   },
   "API_URL": {
     "login": "https://api-ci.quickvee.us/LoginApiReact/create_session",
@@ -9,10 +10,15 @@
     "employeeList_URL": "https://api-ci.quickvee.us/Store_setting_react_api/employee_list",
     "managerStore_URL": "https://api-ci.quickvee.us/Store_setting_react_api/getManagerStores",
     "deleteEmployeeList_URL": "https://api-ci.quickvee.us/Store_setting_react_api/deleted_employee_list",
-    "deleteEmployee_URL": "https://api-ci.quickvee.us/Store_setting_react_api/delete_employee", 
+    "deleteEmployee_URL": "https://api-ci.quickvee.us/Store_setting_react_api/delete_employee",
     "addEmployee_URL": "https://api-ci.quickvee.us/Store_setting_react_api/addEdit_employee",
     "forverDeleteEmployee_URL": "https://api-ci.quickvee.us/Store_setting_react_api/forever_delete_employee",
     "restoreEmployee_URL": "https://api-ci.quickvee.us/Store_setting_react_api/restore_employee"
+  },
+  "QA_URL": {
+    "login": "https://api-ci.quickvee-qa.com/LoginApiReact/create_session",
+    "brand_URL": "https://api-ci.quickvee-qa.com/Product_api_react/list_brand_tag",
+    "getNotification_URL": "https://api-ci.quickvee-qa.com/Notification/get_notifications"
   },
   "page_URL": {
     "forgot_password": "https://quickvee.com/merchants/forgot-password"

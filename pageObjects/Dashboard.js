@@ -28,6 +28,10 @@ class Dashboard {
     this.employee = page.getByText("Employees");
 
     this.manage_emp = page.getByText("Manage Employees");
+
+    this.inventory = page.getByText("Inventory", { exact: true });
+
+    this.brands = page.getByText("Brands", { exact: true });
   }
 
   async storenameDisplay() {
@@ -147,6 +151,30 @@ class Dashboard {
 
     //console.log(activeEmployees);
     return count;
+  }
+
+  async inventoryClick() {
+    await this.inventory.click();
+  }
+
+  async brandsClick() {
+    const [response, getNotification] = await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes(routes.QA_URL.brand_URL),
+      ),
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes(routes.QA_URL.getNotification_URL),
+      ),
+      await this.brands.click(),
+    ]);
+    expect(response.status()).toBe(200);
+    expect(getNotification.status()).toBe(200);
+    const brandResponse = response.json();
+    return brandResponse;
   }
 }
 

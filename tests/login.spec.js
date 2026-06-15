@@ -6,8 +6,8 @@ import { setMerchantID } from "../utilities/helper/sessionData";
 import sessionDataStorage from "../utilities/helper/sessionDataStorage";
 import merchants from "../api/testData/merchants.json";
 import {
-  getLoginUrl,
-  navigateToLoginPage,
+  getLoginQAUrl,
+  navigateToQALoginPage,
 } from "../utilities/helper/navigationHelper";
 
 const VALID_STORE = "chain";
@@ -21,7 +21,7 @@ test.describe("Login Module", () => {
   let dashboard;
 
   test.beforeEach(async ({ page }) => {
-    await navigateToLoginPage(page);
+    await navigateToQALoginPage(page);
 
     loginpage = new LoginPage(page);
     dashboard = new Dashboard(page);
@@ -29,7 +29,7 @@ test.describe("Login Module", () => {
     await loginpage.LogoDisplayed();
   });
 
-  test("Merchant Login", async ({ page }) => {
+  test.only("Merchant Login", async ({ page }) => {
     const responseBody = await loginResponse(
       page,
       loginpage,

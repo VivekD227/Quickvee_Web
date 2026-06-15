@@ -8,7 +8,7 @@ export async function loginResponse(
   username,
   password,
 ) {
-  const url = route.API_URL.login;
+  const url = route.QA_URL.login;
   const [response] = await Promise.all([
     page.waitForResponse(
       (res) => res.request().method() === "POST" && res.url().includes(url),

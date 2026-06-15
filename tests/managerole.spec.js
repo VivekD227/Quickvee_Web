@@ -9,7 +9,7 @@ import { getPreset } from "../utilities/apiHelper/getPermissionPreset";
 import merchants from "../api/testData/merchants.json";
 
 const ROLES = ["Manager", "Cashier", "Driver", "Time Clock Only"];
-const TOTAL_PERMISSIONS = 160;
+const TOTAL_PERMISSIONS = 161;
 
 test.describe("Manage Role Module", () => {
   test.describe.configure({ mode: "serial", timeout: 90_000 });
