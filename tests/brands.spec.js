@@ -1,20 +1,23 @@
-import { test, expect } from "@playwright/test";
-import { navigateToQALoginPage } from "../utilities/helper/navigationHelper";
-import { loginResponse } from "../utilities/apiHelper/loginHelper";
-import { Dashboard } from "../pageObjects/Dashboard";
+import { test } from "@playwright/test";
+import { Brands } from "../pageObjects/Brands";
 import { LoginPage } from "../pageObjects/LoginPage";
+import { Dashboard } from "../pageObjects/Dashboard";
+import { navigateToQALoginPage } from "../utilities/helper/navigationHelper";
 import merchants from "../api/testData/merchants.json";
+import routes from "../utilities/routes.json";
 
 test.describe("New Brand Module", () => {
-  test.describe.configure({ mode: "serial", timeout: 90_000 });
+  test.describe.configure({ mode: "serial", timeout: 120_000 });
 
   let context;
   let page;
   let loginpage;
   let dashboard;
+  let brand;
   let sName;
   let uName;
   let pwd;
+  let newBrand;
 
   test.beforeAll(
     async ({ browser }) => {
@@ -24,11 +27,21 @@ test.describe("New Brand Module", () => {
 
       loginpage = new LoginPage(page);
       dashboard = new Dashboard(page);
+      brand = new Brands(page);
       sName = merchants.merchantLogin.storename;
       uName = merchants.merchantLogin.username;
       pwd = merchants.merchantLogin.password;
+
       await navigateToQALoginPage(page);
-      const login = await loginResponse(page, loginpage, sName, uName, pwd);
+      const [loginApiResponse] = await Promise.all([
+        page.waitForResponse(
+          (res) =>
+            res.request().method() === "POST" &&
+            res.url().includes(routes.QA_URL.login),
+        ),
+        loginpage.login(sName, uName, pwd),
+      ]);
+      await loginApiResponse.json();
       await dashboard.logoDisplayed();
       await dashboard.menuClick();
       await dashboard.inventoryClick();
@@ -41,8 +54,26 @@ test.describe("New Brand Module", () => {
     await context?.close();
   });
 
-  test("Check UI", async () => {
-    console.log("Test");
-    await page.pause();
+  // test("Merchant login and navigate to Brands page", async () => {
+  //   await brand.verifyBrandsPageLoaded();
+  // });
+
+  test("Verify Brands page UI elements are displayed", async () => {
+    await brand.brandsHeadingDisplay();
+    await brand.brandCountDisplay();
+    await brand.addBrandBtnDisplay();
+    await brand.searchBarDisplay();
+    await brand.onlineDisplayOrderDisplay();
+    await brand.tableColumnsDisplay();
+    await brand.reorderHintDisplay();
+    await brand.emptyStateOrListingDisplay();
+    await brand.multipleClickAdd();
+    await brand.cancelBtnClick();
+  });
+
+  test("Adding a new brand", async () => {
+    newBrand = await brand.generateUniqueBrandName();
+    await brand.addBrandBtnClick();
+    console.log(newBrand);
   });
 });

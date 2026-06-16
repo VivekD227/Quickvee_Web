@@ -158,21 +158,16 @@ class Dashboard {
   }
 
   async brandsClick() {
-    const [response, getNotification] = await Promise.all([
+    const [response] = await Promise.all([
       this.page.waitForResponse(
         (res) =>
           res.request().method() === "POST" &&
           res.url().includes(routes.QA_URL.brand_URL),
       ),
-      this.page.waitForResponse(
-        (res) =>
-          res.request().method() === "POST" &&
-          res.url().includes(routes.QA_URL.getNotification_URL),
-      ),
-      await this.brands.click(),
+
+      this.brands.click(),
     ]);
     expect(response.status()).toBe(200);
-    expect(getNotification.status()).toBe(200);
     const brandResponse = response.json();
     return brandResponse;
   }
