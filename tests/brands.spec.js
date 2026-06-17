@@ -74,6 +74,23 @@ test.describe("New Brand Module", () => {
   test("Adding a new brand", async () => {
     newBrand = await brand.generateUniqueBrandName();
     await brand.addBrandBtnClick();
-    console.log(newBrand);
+    await brand.setBrandName(newBrand);
+    await brand.addBtnAPI();
+    await brand.successfullDialogDisplay();
+    await brand.verifyAddedBrandInListWithActions(newBrand);
+  });
+
+  test("Search for the added brand", async () => {
+    await brand.searchBrand(newBrand);
+    await brand.verifySearchedBrandDisplayed(newBrand);
+  });
+
+  test("Verify duplicate brand name is not allowed", async () => {
+    await brand.clearBrandSearch();
+    await brand.verifyDuplicateBrandNameNotAllowed(newBrand);
+  });
+
+  test("Verify brand name exceeding 50 characters shows error", async () => {
+    await brand.verifyBrandNameExceedingMaxLengthNotAllowed(50);
   });
 });

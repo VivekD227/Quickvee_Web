@@ -168,8 +168,9 @@ class Dashboard {
       this.brands.click(),
     ]);
     expect(response.status()).toBe(200);
-    const brandResponse = response.json();
-    return brandResponse;
+    const brandResponse = await response.json();
+    const brand_APIcount = brandResponse.total_count.brand;
+    console.log(brand_APIcount);
   }
 }
 

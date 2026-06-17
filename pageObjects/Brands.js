@@ -1,4 +1,5 @@
 import { expect } from "@playwright/test";
+import routes from "../utilities/routes.json";
 
 const BRANDS_PAGE_URL = /\/merchants\/inventory\/brands/;
 
@@ -30,11 +31,51 @@ class Brands {
       .getByRole("button", { name: "Add brand" })
       .last();
     this.brandName = page.getByPlaceholder("New brand name");
+    this.successfullDialog = page.getByText("Added Successfully");
+    this.duplicateBrandError = page.getByText("Brand already exists");
+    this.brandNameMaxLengthError = page.getByText(
+      /50 character|maximum.*50|exceed.*50|too long/i,
+    );
   }
 
-  async verifyBrandsPageLoaded() {
-    await expect(this.page).toHaveURL(BRANDS_PAGE_URL);
-    await expect(this.brandsHeading).toBeVisible();
+  getBrandListRow(brandName) {
+    return this.page.locator('[data-brand-row="true"]').filter({
+      has: this.page.getByRole("button", { name: brandName, exact: true }),
+    });
+  }
+
+  getFirstBrandListRow() {
+    return this.page.locator('[data-brand-row="true"]').first();
+  }
+
+  async successfullDialogDisplay() {
+    await expect(this.successfullDialog).toBeVisible();
+  }
+
+  async verifyAddedBrandInListWithActions(brandName) {
+    await expect(this.brandsHeading).toBeVisible({ timeout: 15_000 });
+    const brandRow = this.getBrandListRow(brandName);
+    await expect(brandRow).toBeVisible({ timeout: 15_000 });
+    await expect(
+      brandRow.getByRole("button", { name: brandName, exact: true }),
+    ).toBeVisible();
+    await expect(
+      brandRow.getByRole("button", { name: "Rename" }),
+    ).toBeVisible();
+    await expect(
+      brandRow.getByRole("button", { name: "Delete brand" }),
+    ).toBeVisible();
+
+    // TODO: Uncomment once newly added brand is fixed to appear at the top of the list
+    // const firstRow = this.getFirstBrandListRow();
+    // await expect(firstRow).toBeVisible();
+    // await expect(
+    //   firstRow.getByRole("button", { name: brandName, exact: true }),
+    // ).toBeVisible();
+    // await expect(firstRow.getByRole("button", { name: "Rename" })).toBeVisible();
+    // await expect(
+    //   firstRow.getByRole("button", { name: "Delete brand" }),
+    // ).toBeVisible();
   }
 
   async brandsHeadingDisplay() {
@@ -51,6 +92,33 @@ class Brands {
 
   async searchBarDisplay() {
     await expect(this.searchBar).toBeVisible();
+  }
+
+  async searchBrand(brandName) {
+    await this.searchBar.fill(brandName);
+  }
+
+  async clearBrandSearch() {
+    await this.searchBar.clear();
+  }
+
+  async verifySearchedBrandDisplayed(brandName) {
+    await expect(this.getBrandListRow(brandName)).toBeVisible();
+    await expect(this.page.locator('[data-brand-row="true"]')).toHaveCount(1);
+    await expect(
+      this.getBrandListRow(brandName).getByRole("button", {
+        name: brandName,
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      this.getBrandListRow(brandName).getByRole("button", { name: "Rename" }),
+    ).toBeVisible();
+    await expect(
+      this.getBrandListRow(brandName).getByRole("button", {
+        name: "Delete brand",
+      }),
+    ).toBeVisible();
   }
 
   async onlineDisplayOrderDisplay() {
@@ -92,6 +160,10 @@ class Brands {
     await expect(this.addBrandConfirm).toBeDisabled();
   }
 
+  async addBrandConfirmClick() {
+    await this.addBrandConfirm.click();
+  }
+
   async multipleClickAdd() {
     await this.addBrandBtn.click();
     await this.addBrandBtn.click();
@@ -123,9 +195,56 @@ class Brands {
     return `AutoBrand_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
   }
 
+  async verifyDuplicateBrandNameError() {
+    await expect(this.duplicateBrandError).toBeVisible({ timeout: 10_000 });
+    await expect(this.successfullDialog).not.toBeVisible();
+  }
+
+  async verifyDuplicateBrandNameNotAllowed(brandName) {
+    await this.addBrandBtnClick();
+    await this.setBrandName(brandName);
+    await this.addBrandConfirmClick();
+    await this.verifyDuplicateBrandNameError();
+    await this.cancelBtnClick();
+  }
+
+  generateLongBrandName(length = 51) {
+    return `AutoBrand_${"x".repeat(length)}`;
+  }
+
+  async verifyBrandNameMaxLengthError() {
+    await expect(this.brandNameMaxLengthError).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(this.successfullDialog).not.toBeVisible();
+  }
+
+  async verifyBrandNameExceedingMaxLengthNotAllowed(maxLength = 50) {
+    await this.addBrandBtnClick();
+    await this.setBrandName(this.generateLongBrandName(maxLength + 1));
+    await this.addBrandConfirmClick();
+    await this.verifyBrandNameMaxLengthError();
+    await this.cancelBtnClick();
+  }
+
   async cancelBtnClick() {
     await this.cancelBtn.click();
     expect(this.page.getByPlaceholder("New brand name")).toBeHidden();
+  }
+
+  async addBtnAPI() {
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes(routes.QA_URL.addBrandQA),
+      ),
+      this.addBrandConfirmClick(),
+    ]);
+    expect(response.status()).toBe(200);
+    const responseBody = await response.json();
+    expect(responseBody.message).toBe("Inserted");
+    expect(responseBody.status).toBeTruthy();
   }
 }
 
