@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
 import routes from "../utilities/routes.json";
+import sessionDataStorage from "../utilities/helper/sessionDataStorage";
 
 const BRANDS_PAGE_URL = /\/merchants\/inventory\/brands/;
 
@@ -36,6 +37,7 @@ class Brands {
     this.brandNameMaxLengthError = page.getByText(
       /50 character|maximum.*50|exceed.*50|too long/i,
     );
+    this.updateBrandSuccessDialog = page.getByText("Updated");
   }
 
   getBrandListRow(brandName) {
@@ -46,6 +48,57 @@ class Brands {
 
   getFirstBrandListRow() {
     return this.page.locator('[data-brand-row="true"]').first();
+  }
+
+  async clickEditButton(newBrandName) {
+    await this.getFirstBrandListRow().getByRole("button").first().click();
+
+    const brandInput = this.getFirstBrandListRow().getByRole("textbox");
+
+    await expect(brandInput).toBeVisible();
+    await expect(this.getFirstBrandListRow().getByRole("button", { name: "Cancel" })).toBeVisible();
+    await expect(this.getFirstBrandListRow().getByRole("button", { name: "Save" })).toBeVisible();
+    await brandInput.clear();
+    await brandInput.fill(newBrandName);
+
+    await this.saveBtnClick();
+    await this.updateDialogDisplay();
+    await this.verifyAddedBrandInListWithActions(newBrandName);
+  }
+
+  async updateDialogDisplay() {
+    await expect(this.updateBrandSuccessDialog).toBeVisible();
+  }
+
+
+  async saveBtnClick() {
+    const [updateAPI, listResponse] = await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes(routes.QA_URL.updateBrandQA),
+      ),
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes(routes.QA_URL.brand_URL),
+      ),
+      this.page.getByRole("button", { name: "Save" }).click(),
+
+    ]);
+
+    expect(updateAPI.status()).toBe(200);
+    expect(listResponse.status()).toBe(200);
+    const updateResponseBody = await updateAPI.json();
+    expect(updateResponseBody.message).toBe("Updated");
+    expect(updateResponseBody.status).toBeTruthy();
+    expect(updateResponseBody.codeElastic).toBe(200);
+
+    const listResponseBody = await listResponse.json();
+    const newApiCount = listResponseBody.total_count.brand;
+    sessionDataStorage.set("brand_APIcount", newApiCount);
+    console.log(`New brand count from list API (after edit): ${newApiCount}`);
+    await this.verifyBrandCountMatchesAPI();
   }
 
   async successfullDialogDisplay() {
@@ -84,6 +137,23 @@ class Brands {
 
   async brandCountDisplay() {
     await expect(this.brandCount).toBeVisible();
+  }
+
+  async getDisplayedBrandCount() {
+    await expect(this.brandCount).toBeVisible();
+    const countText = (await this.brandCount.textContent())?.trim() ?? "";
+    return parseInt(countText.match(/\d+/)?.[0] ?? "0", 10);
+  }
+
+  async verifyBrandCountMatchesAPI() {
+    const uiCount = await this.getDisplayedBrandCount();
+    const apiCount = sessionDataStorage.get("brand_APIcount");
+    console.log(`UI brand count: ${uiCount}`);
+    console.log(`API brand count: ${apiCount}`);
+    expect(
+      uiCount,
+      `UI brand count (${uiCount}) should match API count (${apiCount})`,
+    ).toBe(apiCount);
   }
 
   async addBrandBtnDisplay() {
@@ -195,6 +265,10 @@ class Brands {
     return `AutoBrand_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
   }
 
+  async generateUniqueEditBrandName() {
+    return `EditBrand_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+  }
+
   async verifyDuplicateBrandNameError() {
     await expect(this.duplicateBrandError).toBeVisible({ timeout: 10_000 });
     await expect(this.successfullDialog).not.toBeVisible();
@@ -233,18 +307,42 @@ class Brands {
   }
 
   async addBtnAPI() {
-    const [response] = await Promise.all([
-      this.page.waitForResponse(
-        (res) =>
-          res.request().method() === "POST" &&
-          res.url().includes(routes.QA_URL.addBrandQA),
-      ),
-      this.addBrandConfirmClick(),
+    const previousCount = sessionDataStorage.get("brand_APIcount");
+    const addBrandPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.QA_URL.addBrandQA),
+    );
+    const brandListPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.QA_URL.brand_URL),
+    );
+
+    await this.addBrandConfirmClick();
+
+    const [addResponse, listResponse] = await Promise.all([
+      addBrandPromise,
+      brandListPromise,
     ]);
-    expect(response.status()).toBe(200);
-    const responseBody = await response.json();
-    expect(responseBody.message).toBe("Inserted");
-    expect(responseBody.status).toBeTruthy();
+
+    expect(addResponse.status()).toBe(200);
+    const addResponseBody = await addResponse.json();
+    expect(addResponseBody.message).toBe("Inserted");
+    expect(addResponseBody.status).toBeTruthy();
+
+    expect(listResponse.status()).toBe(200);
+    const listResponseBody = await listResponse.json();
+    const newApiCount = listResponseBody.total_count.brand;
+    sessionDataStorage.set("brand_APIcount", newApiCount);
+    console.log(`Previous brand count (before add): ${previousCount}`);
+    console.log(`New brand count from list API (after add): ${newApiCount}`);
+    expect(
+      newApiCount,
+      `Brand list API count should increase by 1 after add (was ${previousCount}, now ${newApiCount})`,
+    ).toBe(previousCount + 1);
+
+    await this.verifyBrandCountMatchesAPI();
   }
 }
 

@@ -19,7 +19,8 @@
     "login": "https://api-ci.quickvee-qa.com/LoginApiReact/create_session",
     "brand_URL": "https://api-ci.quickvee-qa.com/Product_api_react/list_brand_tag",
     "getNotification_URL": "https://api-ci.quickvee-qa.com/Notification/get_notifications",
-    "addBrandQA": "https://api-ci.quickvee-qa.com/Product_api_react/add_brand_tag"
+    "addBrandQA": "https://api-ci.quickvee-qa.com/Product_api_react/add_brand_tag",
+    "updateBrandQA": "https://api-ci.quickvee-qa.com/Product_api_react/update_brand_tag"
   },
   "page_URL": {
     "forgot_password": "https://quickvee.com/merchants/forgot-password"

@@ -18,6 +18,7 @@ test.describe("New Brand Module", () => {
   let uName;
   let pwd;
   let newBrand;
+  let editBrand;
 
   test.beforeAll(
     async ({ browser }) => {
@@ -61,6 +62,7 @@ test.describe("New Brand Module", () => {
   test("Verify Brands page UI elements are displayed", async () => {
     await brand.brandsHeadingDisplay();
     await brand.brandCountDisplay();
+    await brand.verifyBrandCountMatchesAPI();
     await brand.addBrandBtnDisplay();
     await brand.searchBarDisplay();
     await brand.onlineDisplayOrderDisplay();
@@ -92,5 +94,10 @@ test.describe("New Brand Module", () => {
 
   test("Verify brand name exceeding 50 characters shows error", async () => {
     await brand.verifyBrandNameExceedingMaxLengthNotAllowed(50);
+  });
+
+  test("Verify Edit brand name functionality", async () => {
+    editBrand = await brand.generateUniqueEditBrandName();
+    await brand.clickEditButton(editBrand);
   });
 });
