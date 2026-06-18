@@ -19,6 +19,7 @@ test.describe("New Brand Module", () => {
   let pwd;
   let newBrand;
   let editBrand;
+  const duplicate_Brand = "Duplicate Brand";
 
   test.beforeAll(
     async ({ browser }) => {
@@ -73,6 +74,14 @@ test.describe("New Brand Module", () => {
     await brand.cancelBtnClick();
   });
 
+  test("Adding Duplicate Brand", async () => {
+    await brand.addBrandBtnClick();
+    await brand.setBrandName(duplicate_Brand);
+    await brand.addBtnAPI();
+    await brand.successfullDialogDisplay();
+    await brand.verifyAddedBrandInListWithActions(duplicate_Brand);
+  });
+
   test("Adding a new brand", async () => {
     newBrand = await brand.generateUniqueBrandName();
     await brand.addBrandBtnClick();
@@ -99,5 +108,13 @@ test.describe("New Brand Module", () => {
   test("Verify Edit brand name functionality", async () => {
     editBrand = await brand.generateUniqueEditBrandName();
     await brand.clickEditButton(editBrand);
+  });
+
+  test("Verify duplicate name while Editing", async () => {
+    await brand.verifyDuplicateOnEdit(duplicate_Brand);
+  });
+
+  test("Verify Delete Brand", async () => {
+    await brand.deleteBrand(duplicate_Brand);
   });
 });

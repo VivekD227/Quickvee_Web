@@ -38,6 +38,10 @@ class Brands {
       /50 character|maximum.*50|exceed.*50|too long/i,
     );
     this.updateBrandSuccessDialog = page.getByText("Updated");
+    this.deleteBrandSuccessDialog = page.getByText("Deleted");
+    this.deleteBrandConfirmBtn = page
+      .getByRole("button", { name: /delete brand/i })
+      .last();
   }
 
   getBrandListRow(brandName) {
@@ -56,8 +60,12 @@ class Brands {
     const brandInput = this.getFirstBrandListRow().getByRole("textbox");
 
     await expect(brandInput).toBeVisible();
-    await expect(this.getFirstBrandListRow().getByRole("button", { name: "Cancel" })).toBeVisible();
-    await expect(this.getFirstBrandListRow().getByRole("button", { name: "Save" })).toBeVisible();
+    await expect(
+      this.getFirstBrandListRow().getByRole("button", { name: "Cancel" }),
+    ).toBeVisible();
+    await expect(
+      this.getFirstBrandListRow().getByRole("button", { name: "Save" }),
+    ).toBeVisible();
     await brandInput.clear();
     await brandInput.fill(newBrandName);
 
@@ -66,10 +74,24 @@ class Brands {
     await this.verifyAddedBrandInListWithActions(newBrandName);
   }
 
+  async verifyDuplicateOnEdit(duplicateBrand) {
+    await this.getFirstBrandListRow()
+      .getByRole("button", { name: "Rename" })
+      .first()
+      .click();
+
+    const brandInput = this.getFirstBrandListRow().getByRole("textbox");
+    await brandInput.fill(duplicateBrand);
+    await this.getFirstBrandListRow()
+      .getByRole("button", { name: "Save" })
+      .first()
+      .click();
+    await expect(this.duplicateBrandError).toBeVisible();
+  }
+
   async updateDialogDisplay() {
     await expect(this.updateBrandSuccessDialog).toBeVisible();
   }
-
 
   async saveBtnClick() {
     const [updateAPI, listResponse] = await Promise.all([
@@ -84,7 +106,6 @@ class Brands {
           res.url().includes(routes.QA_URL.brand_URL),
       ),
       this.page.getByRole("button", { name: "Save" }).click(),
-
     ]);
 
     expect(updateAPI.status()).toBe(200);
@@ -299,6 +320,78 @@ class Brands {
     await this.addBrandConfirmClick();
     await this.verifyBrandNameMaxLengthError();
     await this.cancelBtnClick();
+  }
+
+  async verifyBrandNotInList(brandName) {
+    await expect(this.getBrandListRow(brandName)).toHaveCount(0);
+  }
+
+  async clickDeleteBrandButton(brandName) {
+    const brandRow = this.getBrandListRow(brandName);
+    await expect(brandRow).toBeVisible({ timeout: 15_000 });
+    await brandRow.getByRole("button", { name: "Delete brand" }).click();
+  }
+
+  async confirmDeleteBrand() {
+    await expect(this.deleteBrandConfirmBtn).toBeVisible({ timeout: 10_000 });
+    await this.deleteBrandConfirmBtn.click();
+  }
+
+  async deleteBrandSuccessDialogDisplay() {
+    await expect(this.deleteBrandSuccessDialog).toBeVisible({
+      timeout: 10_000,
+    });
+  }
+
+  async deleteBrandAPI() {
+    const previousCount = sessionDataStorage.get("brand_APIcount");
+    const deleteBrandPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.QA_URL.deleteBrandQA),
+    );
+    const brandListPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.QA_URL.brand_URL),
+    );
+
+    await this.confirmDeleteBrand();
+
+    const [deleteResponse, listResponse] = await Promise.all([
+      deleteBrandPromise,
+      brandListPromise,
+    ]);
+
+    expect(deleteResponse.status()).toBe(200);
+    const deleteResponseBody = await deleteResponse.json();
+    expect(deleteResponseBody.message).toBe("Deleted");
+    expect(deleteResponseBody.status).toBeTruthy();
+
+    await this.deleteBrandSuccessDialogDisplay();
+
+    expect(listResponse.status()).toBe(200);
+    const listResponseBody = await listResponse.json();
+    const newApiCount = listResponseBody.total_count.brand;
+    sessionDataStorage.set("brand_APIcount", newApiCount);
+    console.log(`Previous brand count (before delete): ${previousCount}`);
+    console.log(`New brand count from list API (after delete): ${newApiCount}`);
+    expect(
+      newApiCount,
+      `Brand list API count should decrease by 1 after delete (was ${previousCount}, now ${newApiCount})`,
+    ).toBe(previousCount - 1);
+
+    await this.verifyBrandCountMatchesAPI();
+  }
+
+  async deleteBrand(brandName) {
+    await this.clearBrandSearch();
+    await this.searchBrand(brandName);
+    await this.verifySearchedBrandDisplayed(brandName);
+    await this.clickDeleteBrandButton(brandName);
+    await this.deleteBrandAPI();
+    await this.clearBrandSearch();
+    await this.verifyBrandNotInList(brandName);
   }
 
   async cancelBtnClick() {
