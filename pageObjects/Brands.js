@@ -128,28 +128,30 @@ class Brands {
 
   async verifyAddedBrandInListWithActions(brandName) {
     await expect(this.brandsHeading).toBeVisible({ timeout: 15_000 });
-    const brandRow = this.getBrandListRow(brandName);
-    await expect(brandRow).toBeVisible({ timeout: 15_000 });
-    await expect(
-      brandRow.getByRole("button", { name: brandName, exact: true }),
-    ).toBeVisible();
-    await expect(
-      brandRow.getByRole("button", { name: "Rename" }),
-    ).toBeVisible();
-    await expect(
-      brandRow.getByRole("button", { name: "Delete brand" }),
-    ).toBeVisible();
+    // const brandRow = this.getBrandListRow(brandName);
+    // await expect(brandRow).toBeVisible({ timeout: 15_000 });
+    // await expect(
+    //   brandRow.getByRole("button", { name: brandName, exact: true }),
+    // ).toBeVisible();
+    // await expect(
+    //   brandRow.getByRole("button", { name: "Rename" }),
+    // ).toBeVisible();
+    // await expect(
+    //   brandRow.getByRole("button", { name: "Delete brand" }),
+    // ).toBeVisible();
 
     // TODO: Uncomment once newly added brand is fixed to appear at the top of the list
-    // const firstRow = this.getFirstBrandListRow();
-    // await expect(firstRow).toBeVisible();
-    // await expect(
-    //   firstRow.getByRole("button", { name: brandName, exact: true }),
-    // ).toBeVisible();
-    // await expect(firstRow.getByRole("button", { name: "Rename" })).toBeVisible();
-    // await expect(
-    //   firstRow.getByRole("button", { name: "Delete brand" }),
-    // ).toBeVisible();
+    const firstRow = this.getFirstBrandListRow();
+    await expect(firstRow).toBeVisible();
+    await expect(
+      firstRow.getByRole("button", { name: brandName, exact: true }),
+    ).toBeVisible();
+    await expect(
+      firstRow.getByRole("button", { name: "Rename" }),
+    ).toBeVisible();
+    await expect(
+      firstRow.getByRole("button", { name: "Delete brand" }),
+    ).toBeVisible();
   }
 
   async brandsHeadingDisplay() {
@@ -324,6 +326,8 @@ class Brands {
 
   async verifyBrandNotInList(brandName) {
     await expect(this.getBrandListRow(brandName)).toHaveCount(0);
+
+    // await expect(this.page.getByText("No brands match")).toBeVisible();
   }
 
   async clickDeleteBrandButton(brandName) {
