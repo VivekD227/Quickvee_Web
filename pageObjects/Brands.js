@@ -349,23 +349,16 @@ class Brands {
 
   async deleteBrandAPI() {
     const previousCount = sessionDataStorage.get("brand_APIcount");
+
     const deleteBrandPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
         res.url().includes(routes.QA_URL.deleteBrandQA),
     );
-    const brandListPromise = this.page.waitForResponse(
-      (res) =>
-        res.request().method() === "POST" &&
-        res.url().includes(routes.QA_URL.brand_URL),
-    );
 
     await this.confirmDeleteBrand();
 
-    const [deleteResponse, listResponse] = await Promise.all([
-      deleteBrandPromise,
-      brandListPromise,
-    ]);
+    const deleteResponse = await deleteBrandPromise;
 
     expect(deleteResponse.status()).toBe(200);
     const deleteResponseBody = await deleteResponse.json();
@@ -373,6 +366,12 @@ class Brands {
     expect(deleteResponseBody.status).toBeTruthy();
 
     await this.deleteBrandSuccessDialogDisplay();
+
+    const listResponse = await this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.QA_URL.brand_URL),
+    );
 
     expect(listResponse.status()).toBe(200);
     const listResponseBody = await listResponse.json();
@@ -384,8 +383,6 @@ class Brands {
       newApiCount,
       `Brand list API count should decrease by 1 after delete (was ${previousCount}, now ${newApiCount})`,
     ).toBe(previousCount - 1);
-
-    await this.verifyBrandCountMatchesAPI();
   }
 
   async deleteBrand(brandName) {
@@ -395,6 +392,7 @@ class Brands {
     await this.clickDeleteBrandButton(brandName);
     await this.deleteBrandAPI();
     await this.clearBrandSearch();
+    await this.verifyBrandCountMatchesAPI();
     await this.verifyBrandNotInList(brandName);
   }
 
