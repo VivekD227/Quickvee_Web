@@ -21,7 +21,8 @@
     "getNotification_URL": "https://api-ci.quickvee-qa.com/Notification/get_notifications",
     "addBrandQA": "https://api-ci.quickvee-qa.com/Product_api_react/add_brand_tag",
     "updateBrandQA": "https://api-ci.quickvee-qa.com/Product_api_react/update_brand_tag",
-    "deleteBrandQA": "https://api-ci.quickvee-qa.com/Product_api_react/delete_brand_tag"
+    "deleteBrandQA": "https://api-ci.quickvee-qa.com/Product_api_react/delete_brand_tag",
+    "attributeList_URL": "https://api-ci.quickvee-qa.com/Varient_react_api/varients_list"
   },
   "page_URL": {
     "forgot_password": "https://quickvee.com/merchants/forgot-password"

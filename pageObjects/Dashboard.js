@@ -32,6 +32,8 @@ class Dashboard {
     this.inventory = page.getByText("Inventory", { exact: true });
 
     this.brands = page.getByText("Brands", { exact: true });
+
+    this.attributes = page.getByText("Attributes", { exact: true });
   }
 
   async storenameDisplay() {
@@ -172,6 +174,23 @@ class Dashboard {
     const brand_APIcount = brandResponse.total_count.brand;
     sessionDataStorage.set("brand_APIcount", brand_APIcount);
     console.log(`Brand API count (on navigation): ${brand_APIcount}`);
+  }
+
+  async attributesClick() {
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes(routes.QA_URL.attributeList_URL),
+      ),
+      this.attributes.click(),
+    ]);
+    expect(response.status()).toBe(200);
+    const attributeResponse = await response.json();
+    expect(attributeResponse.status).toBeTruthy();
+    const attribute_APIcount = attributeResponse.total;
+    sessionDataStorage.set("attribute_APIcount", attribute_APIcount);
+    console.log(`Attribute API count (on navigation): ${attribute_APIcount}`);
   }
 }
 
