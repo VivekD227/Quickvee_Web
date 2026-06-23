@@ -22,7 +22,10 @@
     "addBrandQA": "https://api-ci.quickvee-qa.com/Product_api_react/add_brand_tag",
     "updateBrandQA": "https://api-ci.quickvee-qa.com/Product_api_react/update_brand_tag",
     "deleteBrandQA": "https://api-ci.quickvee-qa.com/Product_api_react/delete_brand_tag",
-    "attributeList_URL": "https://api-ci.quickvee-qa.com/Varient_react_api/varients_list"
+    "attributeList_URL": "https://api-ci.quickvee-qa.com/Varient_react_api/varients_list",
+    "addAttributeQA": "https://api-ci.quickvee-qa.com/Varient_react_api/add_varient",
+    "updateAttributeQA": "https://api-ci.quickvee-qa.com/Varient_react_api/update_varient",
+    "deleteAttributeQA": "https://api-ci.quickvee-qa.com/Varient_react_api/delete_varient"
   },
   "page_URL": {
     "forgot_password": "https://quickvee.com/merchants/forgot-password"
