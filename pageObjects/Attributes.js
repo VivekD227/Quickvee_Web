@@ -41,7 +41,7 @@ class Attributes {
     this.attributeNameMaxLengthError = page.getByText(
       /50 character|maximum.*50|exceed.*50|too long/i,
     );
-    this.updateAttributeSuccessDialog = page.getByText("Updated");
+    this.updateAttributeSuccessDialog = page.getByText("Updated Successfully");
   }
 
   getAttributeListRow(attributeName) {
@@ -224,6 +224,8 @@ class Attributes {
         name: "Rename",
       }),
     ).toBeVisible();
+
+    await this.searchBar.clear();
   }
 
   async generateUniqueAttributeName() {
@@ -231,7 +233,7 @@ class Attributes {
   }
 
   async generateUniqueEditAttributeName() {
-    return `EditAttribute_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+    return `EditAttribute${Date.now()}${Math.floor(Math.random() * 10000)}`;
   }
 
   async duplicateErrorMsg() {
@@ -256,7 +258,65 @@ class Attributes {
   }
 
   generateLongAttributeName(length = 51) {
-    return `AutoAttribute_${"x".repeat(length)}`;
+    return `AutoAttribute${"x".repeat(length)}`;
+  }
+
+  generateLongEditName(length = 51) {
+    return "x".repeat(length);
+  }
+
+  async startEditForAttribute(attributeName) {
+    await this.clearAttributeSearch();
+    await this.searchAttribute(attributeName);
+
+    const attributeRow = this.getAttributeListRow(attributeName);
+    await expect(attributeRow).toBeVisible({ timeout: 15_000 });
+    await attributeRow
+      .getByRole("button", { name: attributeName, exact: true })
+      .click();
+
+    const editingRow = this.page.locator('[data-attr-row="true"]').first();
+    await expect(editingRow.getByRole("textbox")).toBeVisible();
+    await expect(
+      editingRow.getByRole("button", { name: "Cancel" }),
+    ).toBeVisible();
+    await expect(
+      editingRow.getByRole("button", { name: "Save" }),
+    ).toBeVisible();
+    return editingRow;
+  }
+
+  async cancelEdit(attributeName) {
+    const editingRow = await this.startEditForAttribute(attributeName);
+    const attributeInput = editingRow.getByRole("textbox");
+    const temporaryName = `${attributeName}Temp`;
+
+    await attributeInput.clear();
+    await attributeInput.fill(temporaryName);
+    await editingRow.getByRole("button", { name: "Cancel" }).click();
+
+    await expect(attributeInput).toBeHidden();
+    const attributeRow = this.getAttributeListRow(attributeName);
+    await expect(
+      attributeRow.getByRole("button", { name: attributeName, exact: true }),
+    ).toBeVisible();
+    await expect(
+      this.getAttributeListRow(temporaryName),
+    ).toHaveCount(0);
+    await this.clearAttributeSearch();
+  }
+
+  async verifyMaxLengthOnEdit(attributeName, maxLength = 50) {
+    const editingRow = await this.startEditForAttribute(attributeName);
+    const attributeInput = editingRow.getByRole("textbox");
+
+    await attributeInput.clear();
+    await attributeInput.fill(this.generateLongEditName(maxLength + 1));
+    await editingRow.getByRole("button", { name: "Save" }).click();
+    await this.verifyAttributeNameMaxLengthError();
+    await editingRow.getByRole("button", { name: "Cancel" }).click();
+    await expect(attributeInput).toBeHidden();
+    await this.clearAttributeSearch();
   }
 
   async verifyAttributeNameMaxLengthError() {
@@ -318,7 +378,7 @@ class Attributes {
       this.page.waitForResponse(
         (res) =>
           res.request().method() === "POST" &&
-          res.url().includes(routes.QA_URL.updateAttributeQA),
+          res.url().includes(routes.QA_URL.addAttributeQA),
       ),
       this.page.waitForResponse(
         (res) =>
@@ -331,8 +391,8 @@ class Attributes {
     expect(updateAPI.status()).toBe(200);
     expect(listResponse.status()).toBe(200);
     const updateResponseBody = await updateAPI.json();
-    expect(updateResponseBody.message).toBe("Updated");
-    expect(updateResponseBody.status).toBeTruthy();
+    expect(updateResponseBody.message).toBe("Success");
+    expect(updateResponseBody.response_message).toBe("variant updated");
 
     const listResponseBody = await listResponse.json();
     const newApiCount = listResponseBody.total;

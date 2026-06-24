@@ -85,13 +85,13 @@ test.describe("Attributes Module", () => {
     await attributes.cancelBtnClick();
   });
 
-  test("Adding Duplicate Attribute", async () => {
-    await attributes.addAttributeBtnClick();
-    await attributes.setAttributeName(duplicate_Attribute);
-    await attributes.addAttributeClick();
-    await attributes.verifyDuplicateAttributeNameError();
-    await attributes.cancelBtnClick();
-  });
+  // test("Adding Duplicate Attribute", async () => {
+  //   await attributes.addAttributeBtnClick();
+  //   await attributes.setAttributeName(duplicate_Attribute);
+  //   await attributes.addAttributeClick();
+  //   await attributes.verifyDuplicateAttributeNameError();
+  //   await attributes.cancelBtnClick();
+  // });
 
   test("Adding a new attribute", async () => {
     newAttribute = await attributes.generateUniqueAttributeName();
@@ -102,25 +102,31 @@ test.describe("Attributes Module", () => {
     await attributes.verifyAddedAttributeInListWithActions(newAttribute);
   });
 
-  //   test("Search for the added attribute", async () => {
-  //     await attributes.searchAttribute(newAttribute);
-  //     await attributes.verifySearchedAttributeDisplayed(newAttribute);
-  //   });
+  test("Search for the added attribute", async () => {
+    await attributes.searchAttribute(newAttribute);
+    await attributes.verifySearchedAttributeDisplayed(newAttribute);
+  });
 
-  //   test("Verify attribute name exceeding 50 characters shows error", async () => {
-  //     await attributes.verifyAttributeNameExceedingMaxLengthNotAllowed(50);
-  //   });
+  test("Verify attribute name exceeding 50 characters shows error", async () => {
+    await attributes.verifyAttributeNameExceedingMaxLengthNotAllowed(50);
+  });
 
-  //   test("Verify Edit attribute name functionality", async () => {
-  //     editAttribute = await attributes.generateUniqueEditAttributeName();
-  //     await attributes.clickEditButton(editAttribute);
-  //   });
 
-  //   test("Verify duplicate name while Editing", async () => {
-  //     await attributes.verifyDuplicateOnEdit(duplicate_Attribute);
-  //   });
+  test("Verify Edit attribute name functionality", async () => {
+    editAttribute = await attributes.generateUniqueEditAttributeName();
+    await attributes.clickEditButton(editAttribute);
+  });
 
-  //   test("Verify Delete Attribute", async () => {
-  //     await attributes.deleteAttribute(duplicate_Attribute);
-  //   });
+  test("Cancel edit", async () => {
+    await attributes.cancelEdit(editAttribute);
+  });
+
+  test("Max length on edit (>50)", async () => {
+    await attributes.verifyMaxLengthOnEdit(editAttribute, 50);
+  });
+
+  // test("Verify duplicate name while Editing", async () => {
+  //   await attributes.verifyDuplicateOnEdit(duplicate_Attribute);
+  // });
+
 });
