@@ -19,7 +19,7 @@ test.describe("Attributes Module", () => {
   let pwd;
   let newAttribute;
   let editAttribute;
-  const duplicate_Attribute = "Duplicate Attribute";
+  const duplicate_Attribute = "Flavor";
   const specialCharacter = "Attribute12@";
 
   test.beforeAll(
@@ -85,13 +85,13 @@ test.describe("Attributes Module", () => {
     await attributes.cancelBtnClick();
   });
 
-  // test("Adding Duplicate Attribute", async () => {
-  //   await attributes.addAttributeBtnClick();
-  //   await attributes.setAttributeName(duplicate_Attribute);
-  //   await attributes.addAttributeClick();
-  //   await attributes.verifyDuplicateAttributeNameError();
-  //   await attributes.cancelBtnClick();
-  // });
+  test("Adding Duplicate Attribute", async () => {
+    await attributes.addAttributeBtnClick();
+    await attributes.setAttributeName(duplicate_Attribute);
+    await attributes.addAttributeClick();
+    await attributes.verifyDuplicateAttributeNameError();
+    await attributes.cancelBtnClick();
+  });
 
   test("Adding a new attribute", async () => {
     newAttribute = await attributes.generateUniqueAttributeName();
@@ -111,7 +111,6 @@ test.describe("Attributes Module", () => {
     await attributes.verifyAttributeNameExceedingMaxLengthNotAllowed(50);
   });
 
-
   test("Verify Edit attribute name functionality", async () => {
     editAttribute = await attributes.generateUniqueEditAttributeName();
     await attributes.clickEditButton(editAttribute);
@@ -125,8 +124,12 @@ test.describe("Attributes Module", () => {
     await attributes.verifyMaxLengthOnEdit(editAttribute, 50);
   });
 
-  // test("Verify duplicate name while Editing", async () => {
-  //   await attributes.verifyDuplicateOnEdit(duplicate_Attribute);
-  // });
+  test("Verify duplicate name while Editing", async () => {
+    await attributes.verifyDuplicateOnEdit(duplicate_Attribute);
+  });
 
+  test("Search with No Result", async () => {
+    await attributes.searchAttribute("Random12122");
+    await attributes.noAttributesDisplay();
+  });
 });

@@ -42,6 +42,7 @@ class Attributes {
       /50 character|maximum.*50|exceed.*50|too long/i,
     );
     this.updateAttributeSuccessDialog = page.getByText("Updated Successfully");
+    this.noAttributes = page.getByText("No attributes match");
   }
 
   getAttributeListRow(attributeName) {
@@ -52,6 +53,10 @@ class Attributes {
 
   getFirstAttributeListRow() {
     return this.page.locator('[data-attr-row="true"]').first();
+  }
+
+  async noAttributesDisplay() {
+    await expect(this.noAttributes).toBeVisible();
   }
 
   async verifyAttributesPageLoaded() {
@@ -300,9 +305,7 @@ class Attributes {
     await expect(
       attributeRow.getByRole("button", { name: attributeName, exact: true }),
     ).toBeVisible();
-    await expect(
-      this.getAttributeListRow(temporaryName),
-    ).toHaveCount(0);
+    await expect(this.getAttributeListRow(temporaryName)).toHaveCount(0);
     await this.clearAttributeSearch();
   }
 
