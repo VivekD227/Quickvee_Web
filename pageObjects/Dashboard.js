@@ -38,14 +38,93 @@ class Dashboard {
     this.vendors = page.getByText("Vendors", { exact: true });
 
     this.tags = page.getByText("Tags", { exact: true });
-  }
 
-  async storenameDisplay() {
-    await expect(this.store).toBeVisible();
-  }
+    // Dashboard page UI
+    this.dashboardHeading = page.getByRole("heading", {
+      name: "Merchant Dashboard",
+    });
+    this.dashboardSubtitle = page.getByText(
+      /Sales, customers, and performance trends/i,
+    );
+    this.liveStorePulse = page.getByText("Live store pulse");
+    this.locationsLabel = page.getByText("Locations", { exact: true });
+    this.locationsBtn = page.getByRole("button", {
+      name: /All Locations|locations/i,
+    });
+    this.viewByLabel = page.getByText("View by", { exact: true });
+    this.dayView = page.getByText("Day", { exact: true });
+    this.weekView = page.getByText("Week", { exact: true });
+    this.monthView = page.getByText("Month", { exact: true });
+    this.previousBtn = page.getByRole("button", {
+      name: /View previous date range|Previous/i,
+    });
+    this.nextBtn = page.getByRole("button", {
+      name: /View next date range|Next/i,
+    });
+    this.dayViewLabel = page.getByText("Day view", { exact: true });
 
-  async storeNameText(text) {
-    await expect(this.store).toHaveText(text);
+    this.kpiLabels = [
+      "Total Sales Revenue",
+      "Total Transactions",
+      "Unique Customers",
+      "Profit Generated",
+      "Average Order Value",
+      "Items per Transaction",
+      "Discounts Given %",
+      "Discounts Given $",
+    ];
+
+    this.salesOverview = page.getByText(/Sales Overview/i);
+    this.salesRevenueLegend = page.getByText("Sales Revenue", { exact: true });
+    this.transactionsLegend = page.getByText("Transactions", { exact: true });
+    this.topProductsHeading = page.getByRole("heading", {
+      name: "Top Products",
+    });
+    this.recentOrdersHeading = page.getByRole("heading", {
+      name: "Recent Orders Activity",
+    });
+
+    this.navDashboard = page.getByRole("link", { name: /Dashboard/i });
+    this.navOrders = page.getByRole("link", { name: /Orders/i });
+    this.navLoyalty = page.getByRole("link", { name: /Loyalty Program/i });
+    this.navPurchaseOrder = page.getByRole("link", {
+      name: /Purchase Order/i,
+    });
+    this.navStocktake = page.getByRole("link", { name: /Stocktake/i });
+    this.navTaxes = page.getByRole("link", { name: /Taxes/i });
+    this.navImportData = page.getByRole("link", { name: /Import Data/i });
+    this.accountMenu = page.getByRole("generic", {
+      name: "Open account menu",
+    });
+
+    this.revenueAmount = page
+      .getByRole("link", { name: /View Total Sales Revenue report/i })
+      .getByText(/^\$/);
+    this.totalTransactionss = page
+      .getByRole("link", { name: /View Total Transactions report/i })
+      .locator("p")
+      .nth(1);
+    this.uniqueCustomersAmount = page
+      .getByRole("link", { name: /View Unique Customers report/i })
+      .locator("p")
+      .nth(1);
+    this.profitAmount = page
+      .getByRole("link", { name: /View Profit Generated report/i })
+      .getByText(/^\$/);
+    this.avgOrderValueAmount = page
+      .getByRole("link", { name: /View Average Order Value report/i })
+      .getByText(/^\$/);
+    this.itemsPerTransactionAmount = page
+      .getByRole("link", { name: /View Items per Transaction report/i })
+      .locator("p")
+      .nth(1);
+    this.discountPercentAmount = page
+      .getByRole("link", { name: /View Discounts Given % report/i })
+      .locator("p")
+      .nth(1);
+    this.discountDollarAmount = page
+      .getByRole("link", { name: /View Discounts Given \$ report/i })
+      .getByText(/^\$/);
   }
 
   async logoDisplayed() {
@@ -59,6 +138,155 @@ class Dashboard {
 
   async viewStoreText(text) {
     await expect(this.viewStore).toHaveText(text);
+  }
+
+  async verifyLocationsDisplay(storeResponse) {
+    const stores = storeResponse?.data ?? [];
+    const storeLength = stores.length;
+    expect(storeLength).toBeGreaterThan(0);
+
+    if (storeLength === 1) {
+      await expect(
+        this.page.getByRole("button", {
+          name: new RegExp(`All Locations\\s*\\(${storeLength}\\)`, "i"),
+        }),
+      ).toBeVisible();
+      return;
+    }
+
+    const storeNames = stores
+      .map((store) => store?.name)
+      .filter(Boolean);
+    expect(storeNames.length).toBeGreaterThan(0);
+
+    const locationButtons = this.page.getByRole("button");
+    let matched = false;
+    const count = await locationButtons.count();
+    for (let i = 0; i < count; i++) {
+      const text = ((await locationButtons.nth(i).textContent()) || "").trim();
+      if (storeNames.some((name) => text.includes(name))) {
+        matched = true;
+        break;
+      }
+    }
+    expect(
+      matched,
+      `Expected one of store names [${storeNames.join(", ")}] on Locations control`,
+    ).toBeTruthy();
+  }
+
+  async verifyDashboardUI(storeResponse) {
+    await expect(this.quickveeLogo).toBeVisible();
+    await this.viewStoreDisplay();
+    await expect(this.dashboardHeading).toBeVisible();
+    await expect(this.dashboardSubtitle).toBeVisible();
+    await expect(this.liveStorePulse).toBeVisible();
+
+    await expect(this.locationsLabel).toBeVisible();
+    await this.verifyLocationsDisplay(storeResponse);
+
+    await expect(this.viewByLabel).toBeVisible();
+    await expect(this.dayView.first()).toBeVisible();
+    await expect(this.weekView.first()).toBeVisible();
+    await expect(this.monthView.first()).toBeVisible();
+    await expect(this.previousBtn).toBeVisible();
+    await expect(this.nextBtn).toBeVisible();
+    await expect(this.dayViewLabel).toBeVisible();
+
+    for (const label of this.kpiLabels) {
+      await expect(this.page.getByText(label, { exact: true }).first()).toBeVisible();
+      await expect(
+        this.page.getByRole("link", {
+          name: new RegExp(`View ${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} report`, "i"),
+        }),
+      ).toBeVisible();
+    }
+
+    await expect(this.salesOverview).toBeVisible();
+    await expect(this.salesRevenueLegend).toBeVisible();
+    await expect(this.transactionsLegend).toBeVisible();
+    await expect(this.topProductsHeading).toBeVisible();
+    await expect(this.recentOrdersHeading).toBeVisible();
+
+    await expect(this.navDashboard).toBeVisible();
+    await expect(this.navOrders).toBeVisible();
+    await expect(this.inventory).toBeVisible();
+    await expect(this.employee).toBeVisible();
+    await expect(this.navLoyalty).toBeVisible();
+    await expect(this.navPurchaseOrder).toBeVisible();
+    await expect(this.navStocktake).toBeVisible();
+    await expect(this.navTaxes).toBeVisible();
+    await expect(this.navImportData).toBeVisible();
+  }
+
+  async nextBtnClick() {
+    await this.nextBtn.click();
+  }
+
+  async checkNextBtnDisable() {
+    while (!(await this.nextBtn.isDisabled())) {
+      await this.nextBtnClick();
+    }
+  }
+
+  async dayViewClick() {
+    await this.dayView.first().click();
+  }
+
+  async monthViewClick() {
+    await this.monthView.first().click();
+  }
+
+  async UIRevenue() {
+    const text = await this.revenueAmount.first().innerText();
+    const revenueText = text.replace(/[$,]/g, "").trim();
+    console.log(revenueText);
+    return revenueText;
+  }
+
+  async UITransaction() {
+    const text = await this.totalTransactionss.first().innerText();
+    console.log(text);
+    return text.replace(/[$,]/g, "").trim();
+  }
+
+  async UIUniqueCustomers() {
+    const text = await this.uniqueCustomersAmount.first().innerText();
+    console.log(text);
+    return text.replace(/[$,]/g, "").trim();
+  }
+
+  async UIProfit() {
+    const text = await this.profitAmount.first().innerText();
+    const profitText = text.replace(/[$,]/g, "").trim();
+    console.log(profitText);
+    return profitText;
+  }
+
+  async UIAvgOrderValue() {
+    const text = await this.avgOrderValueAmount.first().innerText();
+    const aovText = text.replace(/[$,]/g, "").trim();
+    console.log(aovText);
+    return aovText;
+  }
+
+  async UIItemsPerTransaction() {
+    const text = await this.itemsPerTransactionAmount.first().innerText();
+    console.log(text);
+    return text.replace(/[$,]/g, "").trim();
+  }
+
+  async UIDiscountPercent() {
+    const text = await this.discountPercentAmount.first().innerText();
+    console.log(text);
+    return text.replace(/[$,%]/g, "").trim();
+  }
+
+  async UIDiscountAmount() {
+    const text = await this.discountDollarAmount.first().innerText();
+    const discountText = text.replace(/[$,]/g, "").trim();
+    console.log(discountText);
+    return discountText;
   }
 
   async profileBtnClick() {

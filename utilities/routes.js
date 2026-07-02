@@ -1,13 +1,15 @@
-const { webBaseUrl, apiCiBaseUrl, apiNodeBaseUrl } = require("./baseUrl");
+const { webBaseUrl, apiCiBaseUrl, apiNodeBaseUrl, reportBaseUrl } = require("./baseUrl");
 
 const apiCi = (path) => `${apiCiBaseUrl}/${path}`;
 const apiNode = (path) => `${apiNodeBaseUrl}/${path}`;
 const page = (path) => `${webBaseUrl}${path}`;
+const reportAPI = (path) => `${reportBaseUrl}/${path}`;
 
 module.exports = {
   webBaseUrl,
   apiCiBaseUrl,
   apiNodeBaseUrl,
+  reportBaseUrl,
 
   main_URL: {
     live_URL: page("/merchants/login"),
@@ -41,6 +43,16 @@ module.exports = {
     addVendor_URL: apiNode("Vendor_api_new/create_vendor"),
     updateVendor_URL: apiNode("Vendor_api_new/update_vendor"),
     deleteVendor_URL: apiNode("Vendor_api_new/delete_vendor"),
+    getStoresManagement: apiCi("Store_setting_react_api/getManagerStores"),
+    revenueDataAPI: reportAPI("api/reports/revenue_data_api"),
+    totalTransaction: reportAPI("api/reports/sales_count_api"),
+    customerCountAPI: reportAPI("api/reports/customer_count_api"),
+    grossProfitAPI: reportAPI("api/reports/gross_profit_api"),
+    avgSalesValueAPI: reportAPI("api/reports/avg_sales_value"),
+    avgItemSaleAPI: reportAPI("api/reports/avg_item_sale"),
+    discountAmountAPI: reportAPI("api/reports/discount_api_new"),
+    discountPercentAPI: reportAPI("api/reports/discount_in_per_api_new"),
+    topProductSoldAPI: reportAPI("api/reports/top_sold_products")
   },
 
   //   QA_URL: {
