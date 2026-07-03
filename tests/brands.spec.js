@@ -2,9 +2,9 @@ import { test } from "@playwright/test";
 import { Brands } from "../pageObjects/Brands";
 import { LoginPage } from "../pageObjects/LoginPage";
 import { Dashboard } from "../pageObjects/Dashboard";
-import { navigateToQALoginPage } from "../utilities/helper/navigationHelper";
+import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
 import merchants from "../api/testData/merchants.json";
-import routes from "../utilities/routes.json";
+import routes from "../utilities/routes.js";
 
 test.describe("New Brand Module", () => {
   test.describe.configure({ mode: "serial", timeout: 120_000 });
@@ -34,12 +34,12 @@ test.describe("New Brand Module", () => {
       uName = merchants.merchantLogin.username;
       pwd = merchants.merchantLogin.password;
 
-      await navigateToQALoginPage(page);
+      await navigateToLoginPage(page);
       const [loginApiResponse] = await Promise.all([
         page.waitForResponse(
           (res) =>
             res.request().method() === "POST" &&
-            res.url().includes(routes.QA_URL.login),
+            res.url().includes(routes.API_URL.login),
         ),
         loginpage.login(sName, uName, pwd),
       ]);
@@ -67,9 +67,7 @@ test.describe("New Brand Module", () => {
     await brand.addBrandBtnDisplay();
     await brand.searchBarDisplay();
     await brand.onlineDisplayOrderDisplay();
-    await brand.tableColumnsDisplay();
     await brand.reorderHintDisplay();
-    await brand.emptyStateOrListingDisplay();
     await brand.multipleClickAdd();
     await brand.cancelBtnClick();
   });

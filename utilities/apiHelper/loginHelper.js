@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test";
-const route = require("../routes.json");
+const route = require("../routes.js");
 
 export async function loginResponse(
   page,

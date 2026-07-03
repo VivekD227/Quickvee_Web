@@ -3,7 +3,7 @@ import { loginPayload } from "../api/payloads/merchantLoginPayload";
 import { APIClients } from "../api/clients/APIClients";
 const merchants = require("../api/testData/merchants.json");
 const sessionDataStorage = require("../utilities/helper/sessionDataStorage");
-const route = require("../utilities/routes.json");
+const route = require("../utilities/routes.js");
 class LoginPage {
   constructor(page) {
     this.page = page;

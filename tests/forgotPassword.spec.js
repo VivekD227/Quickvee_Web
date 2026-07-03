@@ -3,7 +3,7 @@ import { LoginPage } from "../pageObjects/LoginPage";
 import { ForgotPassword } from "../pageObjects/ForgotPassword";
 import { forgotPasswordAPI } from "../utilities/apiHelper/forgotPasswordHelper";
 import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
-import routes from "../utilities/routes.json";
+import routes from "../utilities/routes.js";
 
 test.describe("Forgot Password", () => {
   test.describe.configure({ mode: "serial", timeout: 60_000 });

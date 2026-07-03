@@ -1,4 +1,4 @@
-import routes from "../routes.json";
+import routes from "../routes.js";
 
 export function getLoginUrl(env = "live_URL") {
   return routes.main_URL[env];
@@ -12,6 +12,6 @@ export function getQALoginUrl(env = "QA_URL") {
   return routes.main_URL[env];
 }
 
-export async function navigateToQALoginPage(page, env = "QA_URL") {
-  await page.goto(getLoginUrl(env));
-}
+// export async function navigateToLoginPage(page, env = "QA_URL") {
+//   await page.goto(getLoginUrl(env));
+//}

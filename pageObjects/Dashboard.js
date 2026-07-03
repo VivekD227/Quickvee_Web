@@ -1,5 +1,5 @@
 const { expect } = require("@playwright/test");
-import routes from "../utilities/routes.json";
+import routes from "../utilities/routes.js";
 import { APIClients } from "../api/clients/APIClients";
 import { employeeListPayload } from "../api/payloads/employeeListPayload";
 const sessionDataStorage = require("../utilities/helper/sessionDataStorage");
@@ -113,13 +113,21 @@ class Dashboard {
           res.url().includes(routes.API_URL.deleteEmployeeList_URL),
       ),
       await this.manage_emp.click(),
-      await this.getEmployeeListAPI(),
+      // await this.getEmployeeListAPI(),
     ]);
 
     expect(presetResponse.status()).toBe(200);
     expect(employeeListResponse.status()).toBe(200);
     expect(managerStoreResponse.status()).toBe(200);
     expect(deleteEmployeeResponse.status()).toBe(200);
+    const activeEmp = await employeeListResponse.json();
+    const activeEmployees = activeEmp.result.filter(
+      (employee) => employee.is_deleted === "0",
+    );
+    const name = activeEmployees.map((employee) => employee.f_name);
+    const count = name.length;
+    sessionDataStorage.set("APICounts", count);
+
     const deleteEmployeeResponseBody = await deleteEmployeeResponse.json();
     // console.log("Delete Employee Response:", deleteEmployeeResponseBody);
     sessionDataStorage.set("isDeleted", deleteEmployeeResponseBody.status);
@@ -164,7 +172,7 @@ class Dashboard {
       this.page.waitForResponse(
         (res) =>
           res.request().method() === "POST" &&
-          res.url().includes(routes.QA_URL.brand_URL),
+          res.url().includes(routes.API_URL.brand_URL),
       ),
 
       this.brands.click(),
@@ -181,14 +189,14 @@ class Dashboard {
       this.page.waitForResponse(
         (res) =>
           res.request().method() === "POST" &&
-          res.url().includes(routes.QA_URL.attributeList_URL),
+          res.url().includes(routes.API_URL.attributeList_URL),
       ),
       this.attributes.click(),
     ]);
     expect(response.status()).toBe(200);
     const attributeResponse = await response.json();
     expect(attributeResponse.status).toBeTruthy();
-    const attribute_APIcount = attributeResponse.total;
+    const attribute_APIcount = attributeResponse.total_count;
     sessionDataStorage.set("attribute_APIcount", attribute_APIcount);
     console.log(`Attribute API count (on navigation): ${attribute_APIcount}`);
   }

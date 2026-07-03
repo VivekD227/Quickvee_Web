@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test";
-const routes = require("../utilities/routes.json");
+const routes = require("../utilities/routes.js");
 class AddEmployee {
   constructor(page) {
     this.page = page;

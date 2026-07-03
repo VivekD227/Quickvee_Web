@@ -1,8 +1,4 @@
 const { expect } = require("@playwright/test");
-import { APIClients } from "../api/clients/APIClients";
-import sessionDataStorage from "../utilities/helper/sessionDataStorage";
-import merchants from "../api/testData/merchants.json";
-import routes from "../utilities/routes.json";
 
 class ManageRole {
   constructor(page) {
@@ -77,7 +73,9 @@ class ManageRole {
       /Are you sure you want to\s*delete this Role\s*\?/i,
     );
     this.deletedDialog = page.getByText(/Role deleted successfully/i);
-    this.duplicateRoleError = page.getByText(/preset name already exists/i);
+    this.duplicateRoleError = page.getByText(
+      /role name already exists|preset name already exists/i,
+    );
     this.errorMsg = page.getByText("Role name is required");
     this.closeDialogBtn = page.locator(".Toastify__close-button");
   }
@@ -495,21 +493,6 @@ class ManageRole {
 
   async errorMsgText(text) {
     await expect(this.errorMsg).toHaveText(text);
-  }
-
-  async permission_PresetAPI(roleName) {
-    const apiClients = new APIClients(this.page.request);
-    const payload = presetPayload(
-      sessionDataStorage.get("merchantId"),
-      merchants.preset_id.manager,
-      sessionDataStorage.get("email"),
-    );
-    const url = routes.API_URL.preset_URL;
-    const responseAPI = await apiClients.post(url, payload);
-    expect(responseAPI.ok()).toBeTruthy();
-    expect(responseAPI.status()).toBe(200);
-    const responseBodyAPI = await responseAPI.json();
-    return responseBodyAPI;
   }
 }
 

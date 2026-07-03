@@ -2,9 +2,9 @@ import { test } from "@playwright/test";
 import { Attributes } from "../pageObjects/Attributes";
 import { LoginPage } from "../pageObjects/LoginPage";
 import { Dashboard } from "../pageObjects/Dashboard";
-import { navigateToQALoginPage } from "../utilities/helper/navigationHelper";
+import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
 import merchants from "../api/testData/merchants.json";
-import routes from "../utilities/routes.json";
+import routes from "../utilities/routes.js";
 
 test.describe("Attributes Module", () => {
   test.describe.configure({ mode: "serial", timeout: 120_000 });
@@ -35,12 +35,12 @@ test.describe("Attributes Module", () => {
       uName = merchants.merchantLogin.username;
       pwd = merchants.merchantLogin.password;
 
-      await navigateToQALoginPage(page);
+      await navigateToLoginPage(page);
       const [loginApiResponse] = await Promise.all([
         page.waitForResponse(
           (res) =>
             res.request().method() === "POST" &&
-            res.url().includes(routes.QA_URL.login),
+            res.url().includes(routes.API_URL.login),
         ),
         loginpage.login(sName, uName, pwd),
       ]);

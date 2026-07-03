@@ -3,13 +3,13 @@ import { EmployeeManagement } from "../pageObjects/EmployeeManagement";
 import { LoginPage } from "../pageObjects/LoginPage";
 import { Dashboard } from "../pageObjects/Dashboard";
 import { ManageRole } from "../pageObjects/ManageRole";
-import { loginResponse } from "../utilities/apiHelper/loginHelper";
 import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
-import { getPreset } from "../utilities/apiHelper/getPermissionPreset";
+import { getPreset } from "../utilities/apiHelper/getPermissionPreset.js";
 import merchants from "../api/testData/merchants.json";
+import routes from "../utilities/routes.js";
 
 const ROLES = ["Manager", "Cashier", "Driver", "Time Clock Only"];
-const TOTAL_PERMISSIONS = 161;
+const TOTAL_PERMISSIONS = 163;
 
 test.describe("Manage Role Module", () => {
   test.describe.configure({ mode: "serial", timeout: 90_000 });
@@ -20,9 +20,9 @@ test.describe("Manage Role Module", () => {
   let dashboard;
   let employeemanagement;
   let managerole;
-  let storename;
-  let username;
-  let password;
+  let storename = merchants.merchantLogin.storename;
+  let username = merchants.merchantLogin.username;
+  let password = merchants.merchantLogin.password;
 
   test.beforeAll(
     async ({ browser }) => {
@@ -40,8 +40,15 @@ test.describe("Manage Role Module", () => {
       password = merchants.merchantLogin.password;
 
       await navigateToLoginPage(page);
-      await loginResponse(page, loginpage, storename, username, password);
-      // await getMerchantID(page, loginpage);
+      const [loginApiResponse] = await Promise.all([
+        page.waitForResponse(
+          (res) =>
+            res.request().method() === "POST" &&
+            res.url().includes(routes.API_URL.login),
+        ),
+        loginpage.login(storename, username, password),
+      ]);
+      await loginApiResponse.json();
       await dashboard.logoDisplayed();
       await dashboard.menuClick();
       await dashboard.employeeClick();
@@ -73,7 +80,7 @@ test.describe("Manage Role Module", () => {
   });
 
   for (const roleName of ROLES) {
-    test.only(`Verify and update permissions for ${roleName}`, async () => {
+    test(`Verify and update permissions for ${roleName}`, async () => {
       let responseBody;
       let permissionsArray;
       let apiPermissionCount;

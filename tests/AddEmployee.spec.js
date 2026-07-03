@@ -4,8 +4,9 @@ import { LoginPage } from "../pageObjects/LoginPage";
 import { Dashboard } from "../pageObjects/Dashboard";
 import { AddEmployee } from "../pageObjects/AddEmployee";
 import { ManageRole } from "../pageObjects/ManageRole";
-import { getMerchantID } from "../utilities/helper/loginAndStoreMerchantID";
 import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
+import merchants from "../api/testData/merchants.json";
+import routes from "../utilities/routes.js";
 
 const STORE_NAME = "Test Automation";
 const EXISTING_EMPLOYEE_EMAIL = "vivekdemp@gmail.com";
@@ -39,6 +40,9 @@ test.describe("Add Employee Module", () => {
   let employeemanagement;
   let addemployee;
   let managerole;
+  let sName;
+  let uName;
+  let pwd;
 
   async function ensureFreshAddEmployeeModal() {
     const isModalOpen = await addemployee.addEmployeeText
@@ -114,9 +118,20 @@ test.describe("Add Employee Module", () => {
       employeemanagement = new EmployeeManagement(page);
       addemployee = new AddEmployee(page);
       managerole = new ManageRole(page);
+      sName = merchants.merchantLogin.storename;
+      uName = merchants.merchantLogin.username;
+      pwd = merchants.merchantLogin.password;
 
       await navigateToLoginPage(page);
-      await getMerchantID(page, loginpage);
+      const [loginApiResponse] = await Promise.all([
+        page.waitForResponse(
+          (res) =>
+            res.request().method() === "POST" &&
+            res.url().includes(routes.API_URL.login),
+        ),
+        loginpage.login(sName, uName, pwd),
+      ]);
+      await loginApiResponse.json();
       await dashboard.logoDisplayed();
       await dashboard.menuClick();
       await dashboard.employeeClick();

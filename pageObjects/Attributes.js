@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test";
-import routes from "../utilities/routes.json";
+import routes from "../utilities/routes.js";
 import sessionDataStorage from "../utilities/helper/sessionDataStorage";
 
 const ATTRIBUTES_PAGE_URL = /\/merchants\/inventory\/attributes/;
@@ -381,12 +381,12 @@ class Attributes {
       this.page.waitForResponse(
         (res) =>
           res.request().method() === "POST" &&
-          res.url().includes(routes.QA_URL.addAttributeQA),
+          res.url().includes(routes.API_URL.addAttributeQA),
       ),
       this.page.waitForResponse(
         (res) =>
           res.request().method() === "POST" &&
-          res.url().includes(routes.QA_URL.attributeList_URL),
+          res.url().includes(routes.API_URL.attributeList_URL),
       ),
       this.page.getByRole("button", { name: "Save" }).click(),
     ]);
@@ -398,7 +398,7 @@ class Attributes {
     expect(updateResponseBody.response_message).toBe("variant updated");
 
     const listResponseBody = await listResponse.json();
-    const newApiCount = listResponseBody.total;
+    const newApiCount = listResponseBody.total_count;
     sessionDataStorage.set("attribute_APIcount", newApiCount);
     console.log(
       `New attribute count from list API (after edit): ${newApiCount}`,
@@ -420,12 +420,12 @@ class Attributes {
     const addAttributePromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.QA_URL.addAttributeQA),
+        res.url().includes(routes.API_URL.addAttributeQA),
     );
     const attributeListPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.QA_URL.attributeList_URL),
+        res.url().includes(routes.API_URL.attributeList_URL),
     );
 
     await this.addAttributeClick();
@@ -442,7 +442,7 @@ class Attributes {
     expect(addResponseBody.message).toBe("Success");
 
     const listResponseBody = await listResponse.json();
-    const newApiCount = listResponseBody.total;
+    const newApiCount = listResponseBody.total_count;
     sessionDataStorage.set("attribute_APIcount", newApiCount);
     console.log(`Previous attribute count (before add): ${previousCount}`);
     console.log(

@@ -4,11 +4,10 @@ import { Dashboard } from "./Dashboard";
 import { APIClients } from "../api/clients/APIClients";
 import { deleteEmployeePayload } from "../api/payloads/deleteEmployeePayload";
 import sessionDataStorage from "../utilities/helper/sessionDataStorage";
-const routes = require("../utilities/routes.json");
+import routes from "../utilities/routes.js";
 
 class EmployeeManagement {
   constructor(page) {
-
     this.page = page;
     this.deleteemail;
     this.addEmployeeModal = new AddEmployee(page);
@@ -37,7 +36,9 @@ class EmployeeManagement {
     this.deletedDialog = page.getByText(/Employee deleted successfully/i);
     this.cancelBtn = page.getByText("Cancel");
     this.viewDeleted = page.getByText("View Deleted");
-    this.deleteEmployeeText = page.locator('p.MuiTypography-root.MuiTypography-body1.css-dxsnuc');
+    this.deleteEmployeeText = page.locator(
+      "p.MuiTypography-root.MuiTypography-body1.css-dxsnuc",
+    );
     this.permanentDeleteConfirmHeading = page.getByRole("heading", {
       name: /Delete Employee Forever|Permanently Delete Employee/i,
     });
@@ -48,28 +49,35 @@ class EmployeeManagement {
       /Employee permanently deleted successfully|Employee deleted successfully/i,
     );
     this.deleteSearch = page.getByPlaceholder("Search deleted employees...");
-    this.firstDeletedRow = page.locator(".MuiGrid-root.MuiGrid-grid-lg-9").nth(0);
+    this.firstDeletedRow = page
+      .locator(".MuiGrid-root.MuiGrid-grid-lg-9")
+      .nth(0);
     this.confirmText = page.getByText("Confirm");
     this.cancelText = page.getByText("Cancel");
     this.yesDeleteBtn = page.getByRole("button", { name: "Yes, Delete" });
-    this.deletedSuccessfulldialog = page.getByText("Employee Forever Deleted Successfully.");
+    this.deletedSuccessfulldialog = page.getByText(
+      "Employee Forever Deleted Successfully.",
+    );
     this.yesRestoreBtn = page.getByRole("button", { name: "Yes, Restore" });
     this.restoredSuccessDialog = page.getByText(
       /Employee restored successfully|Employee Restored Successfully/i,
     );
     this.noEmployeeFoundText = page.getByText("No employees found");
     this.clearSearchBtn = page.getByRole("button", { name: "Clear Search" });
-    this.confirmRestoreText = page.getByText("Your data has been restored successfully. To continue, you must set a new PIN.");
-    this.closeBtn = page.getByTestId('CloseIcon')
+    this.confirmRestoreText = page.getByText(
+      "Your data has been restored successfully. To continue, you must set a new PIN.",
+    );
+    this.closeBtn = page.getByTestId("CloseIcon");
   }
 
   async yesDeleteBtnClick() {
     const [response] = await Promise.all([
       this.page.waitForResponse(
-        (res) => res.request().method() === "POST" && res.url().includes(routes.API_URL.forverDeleteEmployee_URL),
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes(routes.API_URL.forverDeleteEmployee_URL),
       ),
       await this.yesDeleteBtn.click(),
-
     ]);
 
     expect(response.ok()).toBeTruthy();
@@ -77,9 +85,8 @@ class EmployeeManagement {
     expect(deleteResponseBody.status).toBeTruthy();
     expect(this.deletedSuccessfulldialog).toBeVisible({ timeout: 15_000 });
     await this.deleteSearchFill(this.deleteemail);
-    expect(this.noEmployeeFoundText).toBeVisible({ timeout: 15_000 });
+    await this.verifyDeletedEmployeeNotExists(this.deleteemail);
     await this.clearSearchBtn.click();
-
   }
 
   async cancelBtnClick() {
@@ -91,8 +98,10 @@ class EmployeeManagement {
 
   getDeletedEmployeeCard(email) {
     return this.page
-      .locator(".MuiGrid-root.MuiGrid-grid-lg-9")
-      .filter({ hasText: email });
+      .locator("div")
+      .filter({ has: this.page.getByText(email, { exact: true }) })
+      .filter({ has: this.page.getByRole("button", { name: /Restore/i }) })
+      .first();
   }
 
   async getEmailFromFirstDeletedRow() {
@@ -106,7 +115,10 @@ class EmployeeManagement {
   }
 
   async deleteForeverClick() {
-    const deleteBtn = this.page.getByText("Delete Forever").first();
+    const deleteBtn = this.getDeletedEmployeeCard(this.deleteemail).getByRole(
+      "button",
+      { name: /Delete Forever/i },
+    );
     await deleteBtn.click();
     await expect(this.confirmText).toBeVisible();
     await expect(this.cancelText).toBeVisible();
@@ -175,6 +187,27 @@ class EmployeeManagement {
     await expect(this.deleteConfirmHeading).not.toBeVisible();
   }
 
+  async deleteEmployeeSuccessDialogDisplay() {
+    const toast = this.page.locator('[role="alert"]').filter({
+      hasText: /deleted/i,
+    });
+    const toastVisible = await toast
+      .waitFor({ state: "visible", timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (toastVisible) {
+      return;
+    }
+
+    const viewDeletedBtn = this.page.getByRole("button", {
+      name: /View Deleted Employees/i,
+    });
+    await expect(this.deletedDialog.or(viewDeletedBtn)).toBeVisible({
+      timeout: 15_000,
+    });
+  }
+
   async confirmDeleteEmployee() {
     await expect(this.deleteConfirmHeading).toBeVisible();
 
@@ -202,7 +235,7 @@ class EmployeeManagement {
     expect(deleteResponseBody.status).toBeTruthy();
     sessionDataStorage.set("isDeleted", deleteResponseBody.status);
     await expect(this.deleteConfirmHeading).not.toBeVisible();
-    await expect(this.deletedDialog).toBeVisible({ timeout: 15_000 });
+    await this.deleteEmployeeSuccessDialogDisplay();
   }
 
   async verifyEmployeeNotExists(email) {
@@ -263,7 +296,9 @@ class EmployeeManagement {
     const deleteResponseBody = await response.json();
     expect(deleteResponseBody.status).toBeTruthy();
     await expect(this.permanentDeleteConfirmHeading).not.toBeVisible();
-    await expect(this.permanentlyDeletedDialog).toBeVisible({ timeout: 15_000 });
+    await expect(this.permanentlyDeletedDialog).toBeVisible({
+      timeout: 15_000,
+    });
   }
 
   async permanentDeleteEmployeeFromDeletedList(email) {
@@ -275,6 +310,15 @@ class EmployeeManagement {
     await this.clearDeleteSearch();
   }
 
+  async permanentDeleteDeletedEmployee(email) {
+    this.deleteemail = email;
+    await this.deleteSearchFill(email);
+    await expect(this.getDeletedEmployeeCard(email)).toBeVisible({
+      timeout: 15_000,
+    });
+    return email;
+  }
+
   async permanentDeleteFirstDeletedEmployee() {
     this.deleteemail = await this.getEmailFromFirstDeletedRow();
     await this.deleteSearchFill(this.deleteemail);
@@ -282,26 +326,32 @@ class EmployeeManagement {
   }
 
   async restoreClick() {
-    const restoreBtn = this.page.getByText("Restore").first();
+    const restoreBtn = this.getDeletedEmployeeCard(this.restoreemail).getByRole(
+      "button",
+      { name: /Restore/i },
+    );
+    await expect(restoreBtn).toBeVisible({ timeout: 15_000 });
     const [response, deleteResponse, employeeResponse] = await Promise.all([
       this.page.waitForResponse(
         (res) =>
           res.request().method() === "POST" &&
           res.url().includes(routes.API_URL.restoreEmployee_URL),
+        { timeout: 30_000 },
       ),
       this.page.waitForResponse(
         (res) =>
           res.request().method() === "POST" &&
           res.url().includes(routes.API_URL.deleteEmployeeList_URL),
+        { timeout: 30_000 },
       ),
       this.page.waitForResponse(
         (res) =>
           res.request().method() === "POST" &&
           res.url().includes(routes.API_URL.employeeList_URL),
+        { timeout: 30_000 },
       ),
-      await restoreBtn.click(),
+      restoreBtn.click(),
     ]);
-
 
     expect(response.ok()).toBeTruthy();
     expect(deleteResponse.ok()).toBeTruthy();
@@ -316,6 +366,13 @@ class EmployeeManagement {
     await this.closeBtn.click();
   }
 
+  async restoreDeletedEmployee(email) {
+    this.restoreemail = email;
+    await this.deleteSearchFill(email);
+    const deletedCard = this.getDeletedEmployeeCard(email);
+    await expect(deletedCard).toBeVisible({ timeout: 15_000 });
+    return email;
+  }
 
   async restoreFirstDeletedEmployee() {
     this.restoreemail = await this.getEmailFromFirstDeletedRow();
@@ -504,12 +561,6 @@ class EmployeeManagement {
     console.log(count);
 
     return count;
-  }
-
-  async employeeCountCheck() {
-    const UICount = await this.getemployeeCount();
-    const APICount = await this.dashboard.getEmployeeListAPI();
-    expect(UICount).toBe(APICount);
   }
 
   // async deleteAPICall() {

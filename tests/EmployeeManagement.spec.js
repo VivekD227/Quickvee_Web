@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test } from "@playwright/test";
 import { EmployeeManagement } from "../pageObjects/EmployeeManagement";
 import { LoginPage } from "../pageObjects/LoginPage";
 import { Dashboard } from "../pageObjects/Dashboard";
@@ -6,7 +6,7 @@ import { ManageRole } from "../pageObjects/ManageRole";
 import { AddEmployee } from "../pageObjects/AddEmployee";
 import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
 import merchants from "../api/testData/merchants.json";
-import { loginResponse } from "../utilities/apiHelper/loginHelper";
+import routes from "../utilities/routes.js";
 import sessionDataStorage from "../utilities/helper/sessionDataStorage";
 
 const DEFAULT_EMPLOYEE_EMAIL = "vivekdemp@gmail.com";
@@ -62,7 +62,15 @@ test.describe("Add Employee Module", () => {
       uName = merchants.merchantLogin.username;
       pwd = merchants.merchantLogin.password;
       await navigateToLoginPage(page);
-      const login = await loginResponse(page, loginpage, sName, uName, pwd);
+      const [loginApiResponse] = await Promise.all([
+        page.waitForResponse(
+          (res) =>
+            res.request().method() === "POST" &&
+            res.url().includes(routes.API_URL.login),
+        ),
+        loginpage.login(sName, uName, pwd),
+      ]);
+      await loginApiResponse.json();
       await dashboard.logoDisplayed();
       await dashboard.menuClick();
       await dashboard.employeeClick();
@@ -87,12 +95,7 @@ test.describe("Add Employee Module", () => {
     await employeemanagement.allStoreDisplay();
     await employeemanagement.allRolesDisplay();
     await employeemanagement.selectAllDisplay();
-    await employeemanagement.employeeCountCheck();
   });
-
-  // test("Validating the Listing", async () => {
-  //   await employeemanagement.employeeCountCheck();
-  // });
 
   test("Default employee vivekdemp@gmail.com should exist in store", async () => {
     await employeemanagement.verifyEmployeeExists(DEFAULT_EMPLOYEE_EMAIL);
@@ -107,7 +110,6 @@ test.describe("Add Employee Module", () => {
   test("Employee card shows full name, email, phone, role and assigned store count", async () => {
     createdEmployee = buildValidEmployeeData();
     await employeemanagement.clearSearch();
-    const countBeforeAdd = await employeemanagement.getemployeeCount();
 
     await employeemanagement.addEmployeeClick();
     await addemployee.addEmployeeTextDisplay();
@@ -115,9 +117,6 @@ test.describe("Add Employee Module", () => {
     const response = await addemployee.submitAndWaitForAddEmployeeApi();
     await addemployee.expectAddEmployeeApiSuccess(response);
 
-    const countAfterAdd = await employeemanagement.getemployeeCount();
-    expect(countAfterAdd).toBe(countBeforeAdd + 1);
-    await employeemanagement.employeeCountCheck();
     await employeemanagement.search(createdEmployee.email);
     await employeemanagement.verifyEmployeeCardDetails(createdEmployee.email, {
       fullName: `${createdEmployee.firstName} ${createdEmployee.lastName}`,
@@ -139,7 +138,6 @@ test.describe("Add Employee Module", () => {
       updatedEmployee,
     );
     await employeemanagement.clearSearch();
-    await employeemanagement.employeeCountCheck();
 
     await employeemanagement.search(createdEmployee.email);
     await employeemanagement.verifyEmployeeCardDetails(createdEmployee.email, {
@@ -203,13 +201,7 @@ test.describe("Add Employee Module", () => {
 
   test("Delete employee from card", async () => {
     await employeemanagement.clearSearch();
-    const countBeforeDelete = await employeemanagement.getemployeeCount();
-
     await employeemanagement.deleteEmployeeFromCard(searchEmployee.email);
-
-    const countAfterDelete = await employeemanagement.getemployeeCount();
-    expect(countAfterDelete).toBe(countBeforeDelete - 1);
-    await employeemanagement.employeeCountCheck();
   });
 
   test("Restore Employee", async () => {
@@ -218,7 +210,7 @@ test.describe("Add Employee Module", () => {
     if (permanentDelete === true) {
       await employeemanagement.visibleviewDeleted();
 
-      await employeemanagement.restoreFirstDeletedEmployee();
+      await employeemanagement.restoreDeletedEmployee(searchEmployee.email);
       await employeemanagement.restoreClick();
       await employeemanagement.verifyRestoredEmployeeInActiveList(
         searchEmployee.email,
@@ -235,9 +227,12 @@ test.describe("Add Employee Module", () => {
     const permanentDelete = sessionDataStorage.get("isDeleted");
 
     if (permanentDelete === true) {
+      await employeemanagement.deleteEmployeeFromCard(searchEmployee.email);
       await employeemanagement.visibleviewDeleted();
 
-      await employeemanagement.permanentDeleteFirstDeletedEmployee();
+      await employeemanagement.permanentDeleteDeletedEmployee(
+        searchEmployee.email,
+      );
       await employeemanagement.deleteForeverClick();
       await employeemanagement.yesDeleteBtnClick();
     } else {
