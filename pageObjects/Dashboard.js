@@ -113,7 +113,6 @@ class Dashboard {
           res.url().includes(routes.API_URL.deleteEmployeeList_URL),
       ),
       await this.manage_emp.click(),
-      // await this.getEmployeeListAPI(),
     ]);
 
     expect(presetResponse.status()).toBe(200);
@@ -131,36 +130,6 @@ class Dashboard {
     const deleteEmployeeResponseBody = await deleteEmployeeResponse.json();
     // console.log("Delete Employee Response:", deleteEmployeeResponseBody);
     sessionDataStorage.set("isDeleted", deleteEmployeeResponseBody.status);
-  }
-
-  async getEmployeeListAPI() {
-    const apiClients = new APIClients(this.page.request);
-    const payload = employeeListPayload(
-      sessionDataStorage.get("merchantId"),
-      sessionDataStorage.get("email"),
-      // merchants.employee_id,
-      0,
-      sessionDataStorage.get("loginType"),
-      sessionDataStorage.get("tokenId"),
-      sessionDataStorage.get("loginType"),
-    );
-
-    const url = routes.API_URL.employeeList_URL;
-    const responseAPI = await apiClients.post(url, payload);
-    const responseBody = await responseAPI.json();
-    //console.log(responseBody);
-    //const response = await this.getEmployeeListAPI();
-
-    const activeEmployees = responseBody.result.filter(
-      (employee) => employee.is_deleted === "0",
-    );
-
-    const name = activeEmployees.map((employee) => employee.f_name);
-    const count = name.length;
-    console.log(count);
-
-    //console.log(activeEmployees);
-    return count;
   }
 
   async inventoryClick() {
