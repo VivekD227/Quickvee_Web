@@ -34,6 +34,8 @@ class Dashboard {
     this.brands = page.getByText("Brands", { exact: true });
 
     this.attributes = page.getByText("Attributes", { exact: true });
+
+    this.vendors = page.getByText("Vendors", { exact: true });
   }
 
   async storenameDisplay() {
@@ -168,6 +170,37 @@ class Dashboard {
     const attribute_APIcount = attributeResponse.total_count;
     sessionDataStorage.set("attribute_APIcount", attribute_APIcount);
     console.log(`Attribute API count (on navigation): ${attribute_APIcount}`);
+  }
+
+  async vendorsClick() {
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes(routes.API_URL.vendorList_URL),
+      ),
+      this.vendors.click(),
+    ]);
+    expect(response.status()).toBe(200);
+    const vendorResponse = await response.json();
+    expect(vendorResponse.status).toBeTruthy();
+    const vendor_APIcount = Number(vendorResponse.total_vendors);
+    sessionDataStorage.set("vendor_APIcount", vendor_APIcount);
+    sessionDataStorage.set(
+      "vendor_productsSupplied_APIcount",
+      Number(vendorResponse.total_assigned_products),
+    );
+    sessionDataStorage.set(
+      "vendor_noProducts_APIcount",
+      Number(vendorResponse.total_vendors_with_no_product),
+    );
+    console.log(`Vendor API count (on navigation): ${vendor_APIcount}`);
+    console.log(
+      `Products supplied API count (on navigation): ${vendorResponse.total_assigned_products}`,
+    );
+    console.log(
+      `No products vendor API count (on navigation): ${vendorResponse.total_vendors_with_no_product}`,
+    );
   }
 }
 
