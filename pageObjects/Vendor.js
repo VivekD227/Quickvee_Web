@@ -77,6 +77,50 @@ class Vendor {
             /Phone number must be 10 digits/i,
         );
         this.vendorAddedSuccessMessage = page.getByText(/Vendor added successfully/i);
+        this.noVendorsMatchMessage = page.getByText(/No vendors match/i);
+        this.contactDetailsContactNameLabel = page.getByText("Contact name", {
+            exact: true,
+        });
+        this.contactDetailsEmailLabel = page.getByText("Email", { exact: true });
+        this.contactDetailsPhoneLabel = page.getByText("Phone", { exact: true });
+        this.contactDetailsPaymentTermsLabel = page.getByText("Payment terms", {
+            exact: true,
+        });
+        this.editDetailsBtn = page.getByRole("button", { name: "Edit details" });
+        this.collapseVendorRowBtn = page.getByRole("button", { name: "Collapse" });
+
+        this.editVendorNameField = page.locator('input[name="edit-vendor-name"]');
+        this.editContactNameField = page.locator(
+            'input[name="edit-vendor-contact"]',
+        );
+        this.editPhoneNumberField = page.locator(
+            'input[name="edit-vendor-phone"]',
+        );
+        this.editEmailField = page.locator('input[name="edit-vendor-email"]');
+        this.editPaymentTermsDropdown = page.locator(
+            'select[name="edit-vendor-payment-terms"]',
+        );
+        this.saveEditVendorBtn = page.getByRole("button", {
+            name: "Save changes",
+            exact: true,
+        });
+        this.cancelEditVendorBtn = page
+            .locator("div")
+            .filter({ has: page.locator('input[name="edit-vendor-name"]') })
+            .getByRole("button", { name: "Cancel", exact: true })
+            .first();
+        this.vendorUpdatedSuccessMessage = page.getByText(
+            /Vendor updated successfully/i,
+        );
+        this.vendorDeletedSuccessMessage = page.getByText(
+            /Vendor deleted successfully/i,
+        );
+        this.deleteVendorDialog = page.getByRole("dialog");
+        this.editVendorNameRequiredError = page.getByText(
+            /Vendor Name is required/i,
+        );
+        this.editPhoneRequiredError = page.getByText(/Phone number is required/i);
+        this.editInvalidEmailError = page.getByText(/Invalid email address/i);
     }
 
     getVendorListRows() {
@@ -107,6 +151,10 @@ class Vendor {
         return `vendor.${Date.now()}@example.com`;
     }
 
+    generateUniqueContactName() {
+        return `AutoContact${Date.now()}${Math.floor(Math.random() * 10000)}`;
+    }
+
     formatPhoneForDisplay(phone) {
         const digits = phone.replace(/\D/g, "");
         if (digits.length === 10) {
@@ -134,8 +182,8 @@ class Vendor {
         return vendorName.replace(/_/g, "");
     }
 
-    async searchVendor(vendorName) {
-        const searchTerm = this.getVendorSearchTerm(vendorName);
+    async searchVendor(searchText) {
+        const searchTerm = this.getVendorSearchTerm(searchText);
         await Promise.all([
             this.page
                 .waitForResponse(
@@ -148,6 +196,24 @@ class Vendor {
             this.searchBar.fill(searchTerm),
         ]);
         await this.page.waitForTimeout(1500);
+    }
+
+    async verifySearchByText(searchText, expectedVendorName) {
+        await this.clearVendorSearch();
+        await this.searchVendor(searchText);
+        await expect(this.noVendorsMatchMessage).toHaveCount(0);
+        const vendorRow = this.getVendorListRow(expectedVendorName);
+        await expect(vendorRow).toBeVisible({ timeout: 15_000 });
+    }
+
+    async verifySearchWithNoResults(
+        searchText = `ZZZNoVendorMatch${Date.now()}`,
+    ) {
+        await this.clearVendorSearch();
+        await this.searchVendor(searchText);
+        await expect(this.noVendorsMatchMessage).toBeVisible({ timeout: 15_000 });
+        await expect(this.getVendorListRows()).toHaveCount(0);
+        await this.clearVendorSearch();
     }
 
     async refreshVendorsPage() {
@@ -288,7 +354,7 @@ class Vendor {
         const vendorData = {
             vendorName,
             phone: options.phone ?? "5559876543",
-            contactName: options.contactName ?? "Auto Contact",
+            contactName: options.contactName ?? this.generateUniqueContactName(),
             email: options.email ?? this.generateUniqueVendorEmail(),
             paymentTerms: options.paymentTerms ?? DEFAULT_PAYMENT_TERM,
         };
@@ -390,18 +456,88 @@ class Vendor {
         }
     }
 
+    getViewVendorReportBtn(vendorRow) {
+        return vendorRow.getByRole("button", { name: "View Vendor Report" });
+    }
+
+    async verifyViewVendorReportIcon(vendorName) {
+        const vendorRow = await this.findVendorRow(vendorName);
+        await expect(this.getViewVendorReportBtn(vendorRow)).toBeVisible({
+            timeout: 15_000,
+        });
+    }
+
     async verifyActionsColumnIcons(vendorName) {
         await expect(this.actionsColumn).toBeVisible();
         const vendorRow = await this.findVendorRow(vendorName);
 
-        await expect(
-            vendorRow.getByRole("button", { name: "View Vendor Report" }),
-        ).toBeVisible();
+        await expect(this.getViewVendorReportBtn(vendorRow)).toBeVisible();
         await expect(vendorRow.getByRole("button", { name: "Edit" })).toBeVisible();
         await expect(
             vendorRow.getByRole("button", { name: "Delete vendor" }),
         ).toBeVisible();
-        await expect(vendorRow.getByRole("button", { name: "Expand" })).toBeVisible();
+        await expect(
+            vendorRow.getByRole("button", { name: /Expand|Collapse/i }),
+        ).toBeVisible();
+    }
+
+    getContactDetailsPanel() {
+        return this.page
+            .locator("div")
+            .filter({ has: this.editDetailsBtn })
+            .filter({ hasText: /Contact name/i })
+            .filter({ hasText: /Payment terms/i })
+            .first();
+    }
+
+    async clickVendorRowToViewDetails(vendorName) {
+        const vendorRow = await this.findVendorRow(vendorName);
+
+        if (await this.collapseVendorRowBtn.isVisible().catch(() => false)) {
+            return;
+        }
+
+        await vendorRow.click({ position: { x: 40, y: 20 } });
+        await expect(this.collapseVendorRowBtn).toBeVisible({ timeout: 10_000 });
+    }
+
+    async verifyContactDetailsPanelOpen() {
+        const panel = this.getContactDetailsPanel();
+        await expect(panel).toBeVisible({ timeout: 10_000 });
+        await expect(this.contactDetailsContactNameLabel).toBeVisible();
+        await expect(this.contactDetailsEmailLabel).toBeVisible();
+        await expect(this.contactDetailsPhoneLabel).toBeVisible();
+        await expect(this.contactDetailsPaymentTermsLabel).toBeVisible();
+        await expect(this.editDetailsBtn).toBeVisible();
+        await expect(this.collapseVendorRowBtn).toBeVisible();
+    }
+
+    async verifyContactDetailsPhone(phone) {
+        const panel = this.getContactDetailsPanel();
+        await expect(panel).toBeVisible({ timeout: 10_000 });
+        await expect(panel).toContainText(this.formatPhoneForDisplay(phone));
+    }
+
+    async verifyContactDetailsEmail(email) {
+        const panel = this.getContactDetailsPanel();
+        await expect(panel).toBeVisible({ timeout: 10_000 });
+        await expect(panel).toContainText(email);
+    }
+
+    async verifyContactDetailsPaymentTerms(paymentTerms) {
+        const panel = this.getContactDetailsPanel();
+        await expect(panel).toBeVisible({ timeout: 10_000 });
+        await expect(this.contactDetailsPaymentTermsLabel).toBeVisible();
+        await expect(panel).toContainText(paymentTerms);
+    }
+
+    async collapseVendorDetails() {
+        if (await this.collapseVendorRowBtn.isVisible().catch(() => false)) {
+            await this.collapseVendorRowBtn.click();
+            await expect(this.collapseVendorRowBtn).toBeHidden({
+                timeout: 10_000,
+            });
+        }
     }
 
     async verifyVendorsPageLoaded() {
@@ -716,6 +852,341 @@ class Vendor {
         await this.submitAddVendorModal();
         await expect(this.invalidPhoneError).toBeVisible({ timeout: 10_000 });
         await this.verifyVendorNotAdded();
+    }
+
+    async clickEditVendor(vendorName) {
+        const vendorRow = await this.findVendorRow(vendorName);
+        await vendorRow.getByRole("button", { name: "Edit" }).click();
+        await expect(this.editVendorNameField).toBeVisible({ timeout: 10_000 });
+        await expect(this.saveEditVendorBtn).toBeVisible();
+    }
+
+    async fillEditVendorForm({
+        vendorName,
+        contactName,
+        phone,
+        email,
+        paymentTerms,
+    } = {}) {
+        if (vendorName !== undefined) {
+            await this.editVendorNameField.fill(vendorName);
+        }
+        if (contactName !== undefined) {
+            await this.editContactNameField.fill(contactName);
+        }
+        if (phone !== undefined) {
+            await this.editPhoneNumberField.fill(phone);
+        }
+        if (email !== undefined) {
+            await this.editEmailField.fill(email);
+        }
+        if (paymentTerms !== undefined) {
+            await this.editPaymentTermsDropdown.selectOption(paymentTerms);
+        }
+    }
+
+    async cancelEditVendor() {
+        await this.cancelEditVendorBtn.click();
+        await expect(this.editVendorNameField).toBeHidden({ timeout: 10_000 });
+    }
+
+    async saveEditVendorAPI() {
+        const updatePromise = this.page.waitForResponse(
+            (res) =>
+                res.request().method() === "POST" &&
+                res.url().includes(routes.API_URL.updateVendor_URL),
+        );
+        const listPromise = this.page
+            .waitForResponse(
+                (res) =>
+                    res.request().method() === "POST" &&
+                    res.url().includes(routes.API_URL.vendorList_URL),
+                { timeout: 15_000 },
+            )
+            .catch(() => null);
+
+        await this.saveEditVendorBtn.click();
+
+        const [updateResponse, listResponse] = await Promise.all([
+            updatePromise,
+            listPromise,
+        ]);
+
+        expect(updateResponse.status()).toBe(200);
+        const updateBody = await updateResponse.json();
+        expect(updateBody.status).toBeTruthy();
+        expect(updateBody.message).toBe("Vendor Data Updated Successfully.");
+
+        await expect(this.vendorUpdatedSuccessMessage).toBeVisible({
+            timeout: 15_000,
+        });
+        await expect(this.editVendorNameField).toBeHidden({ timeout: 15_000 });
+
+        if (listResponse) {
+            const listBody = await listResponse.json();
+            sessionDataStorage.set(
+                "vendor_APIcount",
+                Number(listBody.total_vendors),
+            );
+        }
+    }
+
+    async updateVendorFieldAndVerify({
+        currentVendorName,
+        updates = {},
+        verifyInList = {},
+    } = {}) {
+        await this.clickEditVendor(currentVendorName);
+        await this.fillEditVendorForm(updates);
+        await this.saveEditVendorAPI();
+
+        const searchName = updates.vendorName ?? currentVendorName;
+        if (verifyInList.vendorName || updates.vendorName) {
+            await this.verifyVendorNameInVendorColumn(
+                verifyInList.vendorName ?? updates.vendorName ?? searchName,
+            );
+        }
+        if (
+            verifyInList.contactName ||
+            verifyInList.email ||
+            verifyInList.phone ||
+            updates.contactName ||
+            updates.email ||
+            updates.phone
+        ) {
+            await this.verifyContactInfoInContactColumn({
+                vendorName: searchName,
+                contactName: verifyInList.contactName ?? updates.contactName,
+                email: verifyInList.email ?? updates.email,
+                phone: verifyInList.phone ?? updates.phone,
+            });
+        }
+        if (verifyInList.paymentTerms || updates.paymentTerms) {
+            const vendorRow = await this.findVendorRow(searchName);
+            await expect(vendorRow).toContainText(
+                verifyInList.paymentTerms ?? updates.paymentTerms,
+            );
+        }
+
+        return {
+            vendorName: searchName,
+            ...updates,
+        };
+    }
+
+    async verifyCancelEditDiscardsChanges(vendorData) {
+        const originalName = vendorData.vendorName;
+        const tempName = `${originalName}Temp`;
+
+        await this.clickEditVendor(originalName);
+        await this.fillEditVendorForm({
+            vendorName: tempName,
+            contactName: "Temp Contact Cancel",
+            phone: "5550001111",
+            email: "temp.cancel@example.com",
+            paymentTerms: "Net 60",
+        });
+        await this.cancelEditVendor();
+
+        await this.verifyVendorNameInVendorColumn(originalName);
+        await this.verifyContactInfoInContactColumn({
+            vendorName: originalName,
+            contactName: vendorData.contactName,
+            email: vendorData.email,
+        });
+        await expect(this.getVendorListRow(tempName)).toHaveCount(0);
+        await this.clearVendorSearch();
+    }
+
+    async verifyInvalidEmailOnEdit(vendorName) {
+        await this.clickEditVendor(vendorName);
+        await this.fillEditVendorForm({ email: "bad-email" });
+        await this.saveEditVendorBtn.click();
+        await expect(this.editInvalidEmailError).toBeVisible({ timeout: 10_000 });
+        await expect(this.vendorUpdatedSuccessMessage).not.toBeVisible();
+        await expect(this.editVendorNameField).toBeVisible();
+        await this.cancelEditVendor();
+        await this.clearVendorSearch();
+    }
+
+    async verifyClearVendorNameOnEdit(vendorName) {
+        await this.clickEditVendor(vendorName);
+        await this.editVendorNameField.fill("");
+        await this.saveEditVendorBtn.click();
+        await expect(this.editVendorNameRequiredError).toBeVisible({
+            timeout: 10_000,
+        });
+        await expect(this.vendorUpdatedSuccessMessage).not.toBeVisible();
+        await expect(this.editVendorNameField).toBeVisible();
+        await this.cancelEditVendor();
+        await this.clearVendorSearch();
+    }
+
+    async verifyClearPhoneOnEdit(vendorName) {
+        await this.clickEditVendor(vendorName);
+        await this.editPhoneNumberField.fill("");
+        await this.saveEditVendorBtn.click();
+        await expect(this.editPhoneRequiredError).toBeVisible({
+            timeout: 10_000,
+        });
+        await expect(this.vendorUpdatedSuccessMessage).not.toBeVisible();
+        await expect(this.editVendorNameField).toBeVisible();
+        await this.cancelEditVendor();
+        await this.clearVendorSearch();
+    }
+
+    async verifyUpdateSuccessMessage(vendorName) {
+        const updatedName = `${vendorName}Msg`;
+        await this.clickEditVendor(vendorName);
+        await this.fillEditVendorForm({ vendorName: updatedName });
+
+        const updatePromise = this.page.waitForResponse(
+            (res) =>
+                res.request().method() === "POST" &&
+                res.url().includes(routes.API_URL.updateVendor_URL),
+        );
+        await this.saveEditVendorBtn.click();
+        const updateResponse = await updatePromise;
+        expect(updateResponse.status()).toBe(200);
+        const updateBody = await updateResponse.json();
+        expect(updateBody.message).toBe("Vendor Data Updated Successfully.");
+        await expect(this.vendorUpdatedSuccessMessage).toBeVisible({
+            timeout: 15_000,
+        });
+        await expect(this.editVendorNameField).toBeHidden({ timeout: 15_000 });
+        return updatedName;
+    }
+
+    async clickDeleteVendor(vendorName) {
+        const vendorRow = await this.findVendorRow(vendorName);
+        await vendorRow.getByRole("button", { name: "Delete vendor" }).click();
+        await expect(this.deleteVendorDialog).toBeVisible({ timeout: 10_000 });
+        await expect(this.deleteVendorDialog).toContainText(
+            new RegExp(`Delete\\s+"?${vendorName}"?`, "i"),
+        );
+    }
+
+    async cancelDeleteVendor() {
+        await this.deleteVendorDialog
+            .getByRole("button", { name: "Cancel", exact: true })
+            .click();
+        await expect(this.deleteVendorDialog).toBeHidden({ timeout: 10_000 });
+    }
+
+    async confirmDeleteVendor() {
+        await this.deleteVendorDialog
+            .getByRole("button", { name: "Delete vendor", exact: true })
+            .click();
+    }
+
+    async deleteVendorAPI() {
+        const previousCount = sessionDataStorage.get("vendor_APIcount");
+
+        const deletePromise = this.page.waitForResponse(
+            (res) =>
+                res.request().method() === "POST" &&
+                res.url().includes(routes.API_URL.deleteVendor_URL),
+        );
+        const listPromise = this.page
+            .waitForResponse(
+                (res) =>
+                    res.request().method() === "POST" &&
+                    res.url().includes(routes.API_URL.vendorList_URL),
+                { timeout: 15_000 },
+            )
+            .catch(() => null);
+
+        await this.confirmDeleteVendor();
+
+        const [deleteResponse, listResponse] = await Promise.all([
+            deletePromise,
+            listPromise,
+        ]);
+
+        expect(deleteResponse.status()).toBe(200);
+        const deleteBody = await deleteResponse.json();
+        expect(deleteBody.status).toBeTruthy();
+        expect(deleteBody.message).toBe("Vendor Deleted Successfully.");
+
+        await expect(this.vendorDeletedSuccessMessage).toBeVisible({
+            timeout: 15_000,
+        });
+        await expect(this.deleteVendorDialog).toBeHidden({ timeout: 15_000 });
+
+        if (listResponse) {
+            const listBody = await listResponse.json();
+            const newApiCount = Number(listBody.total_vendors);
+            sessionDataStorage.set("vendor_APIcount", newApiCount);
+            expect(
+                newApiCount,
+                `Vendor list API count should decrease by 1 after delete (was ${previousCount}, now ${newApiCount})`,
+            ).toBe(previousCount - 1);
+        } else {
+            const uiCount = await this.getDisplayedVendorCount();
+            sessionDataStorage.set("vendor_APIcount", uiCount);
+            expect(uiCount).toBe(previousCount - 1);
+        }
+
+        return previousCount;
+    }
+
+    async verifyCancelDeleteKeepsVendor(vendorName) {
+        await this.clickDeleteVendor(vendorName);
+        await this.cancelDeleteVendor();
+        await this.verifyVendorNameInVendorColumn(vendorName);
+        await this.clearVendorSearch();
+    }
+
+    async deleteVendorAndVerifyRemoved(vendorName) {
+        const previousCount = sessionDataStorage.get("vendor_APIcount");
+        await this.clickDeleteVendor(vendorName);
+        await this.deleteVendorAPI();
+        await this.verifyVendorCountMatchesList();
+        const newCount = sessionDataStorage.get("vendor_APIcount");
+        expect(newCount).toBe(previousCount - 1);
+        await this.verifyDeletedVendorNotInSearch(vendorName);
+    }
+
+    async verifyDeletedVendorNotInSearch(vendorName) {
+        await this.clearVendorSearch();
+        await this.searchVendor(vendorName);
+        await expect(this.noVendorsMatchMessage).toBeVisible({ timeout: 15_000 });
+        await expect(this.getVendorListRow(vendorName)).toHaveCount(0);
+        await this.clearVendorSearch();
+    }
+
+    async verifyDeleteSuccessMessage(vendorName) {
+        await this.clickDeleteVendor(vendorName);
+
+        const deletePromise = this.page.waitForResponse(
+            (res) =>
+                res.request().method() === "POST" &&
+                res.url().includes(routes.API_URL.deleteVendor_URL),
+        );
+        await this.confirmDeleteVendor();
+        const deleteResponse = await deletePromise;
+        expect(deleteResponse.status()).toBe(200);
+        const deleteBody = await deleteResponse.json();
+        expect(deleteBody.message).toBe("Vendor Deleted Successfully.");
+        await expect(this.vendorDeletedSuccessMessage).toBeVisible({
+            timeout: 15_000,
+        });
+
+        await this.page
+            .waitForResponse(
+                (res) =>
+                    res.request().method() === "POST" &&
+                    res.url().includes(routes.API_URL.vendorList_URL),
+                { timeout: 15_000 },
+            )
+            .then(async (listResponse) => {
+                const listBody = await listResponse.json();
+                sessionDataStorage.set(
+                    "vendor_APIcount",
+                    Number(listBody.total_vendors),
+                );
+            })
+            .catch(() => null);
     }
 }
 

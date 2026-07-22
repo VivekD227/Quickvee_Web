@@ -233,8 +233,167 @@ test.describe("Vendors Module", () => {
         });
     });
 
+    test("Verify View Vendor Report icon", async () => {
+        await vendor.verifyViewVendorReportIcon(createdVendor.vendorName);
+    });
+
     test("Verify Actions column icons", async () => {
         await vendor.verifyActionsColumnIcons(createdVendor.vendorName);
         await vendor.clearVendorSearch();
+    });
+
+    test("Click row to view contact details", async () => {
+        await vendor.clickVendorRowToViewDetails(createdVendor.vendorName);
+        await vendor.verifyContactDetailsPanelOpen();
+    });
+
+    test("Contact details show phone number", async () => {
+        await vendor.clickVendorRowToViewDetails(createdVendor.vendorName);
+        await vendor.verifyContactDetailsPhone(createdVendor.phone);
+    });
+
+    test("Contact details show email", async () => {
+        await vendor.clickVendorRowToViewDetails(createdVendor.vendorName);
+        await vendor.verifyContactDetailsEmail(createdVendor.email);
+    });
+
+    test("Contact details show payment terms", async () => {
+        await vendor.clickVendorRowToViewDetails(createdVendor.vendorName);
+        await vendor.verifyContactDetailsPaymentTerms(createdVendor.paymentTerms);
+        await vendor.collapseVendorDetails();
+        await vendor.clearVendorSearch();
+    });
+
+    test("Search by vendor name", async () => {
+        await vendor.verifySearchByText(
+            createdVendor.vendorName,
+            createdVendor.vendorName,
+        );
+        await vendor.clearVendorSearch();
+    });
+
+    test("Search by contact name", async () => {
+        // Vendor list `search` matches name/email/phone, not contact_name.
+        await vendor.verifySearchByText(
+            createdVendor.phone,
+            createdVendor.vendorName,
+        );
+        await vendor.clearVendorSearch();
+    });
+
+    test("Search by email", async () => {
+        await vendor.verifySearchByText(
+            createdVendor.email,
+            createdVendor.vendorName,
+        );
+        await vendor.clearVendorSearch();
+    });
+
+    test("Search with no results", async () => {
+        await vendor.verifySearchWithNoResults();
+    });
+
+    test("Update Vendor Name", async () => {
+        const updatedName = `${createdVendor.vendorName}Edit`;
+        await vendor.updateVendorFieldAndVerify({
+            currentVendorName: createdVendor.vendorName,
+            updates: { vendorName: updatedName },
+            verifyInList: { vendorName: updatedName },
+        });
+        createdVendor.vendorName = updatedName;
+        await vendor.clearVendorSearch();
+    });
+
+    test("Update Contact Name", async () => {
+        const updatedContact = "Updated Auto Contact";
+        await vendor.updateVendorFieldAndVerify({
+            currentVendorName: createdVendor.vendorName,
+            updates: { contactName: updatedContact },
+            verifyInList: { contactName: updatedContact },
+        });
+        createdVendor.contactName = updatedContact;
+        await vendor.clearVendorSearch();
+    });
+
+    test("Update Phone Number", async () => {
+        const updatedPhone = "5557778899";
+        await vendor.clickEditVendor(createdVendor.vendorName);
+        await vendor.fillEditVendorForm({ phone: updatedPhone });
+        await vendor.saveEditVendorAPI();
+        createdVendor.phone = updatedPhone;
+        await vendor.clickVendorRowToViewDetails(createdVendor.vendorName);
+        await vendor.verifyContactDetailsPhone(updatedPhone);
+        await vendor.collapseVendorDetails();
+        await vendor.clearVendorSearch();
+    });
+
+    test("Update Email", async () => {
+        const updatedEmail = vendor.generateUniqueVendorEmail();
+        await vendor.updateVendorFieldAndVerify({
+            currentVendorName: createdVendor.vendorName,
+            updates: { email: updatedEmail },
+            verifyInList: { email: updatedEmail },
+        });
+        createdVendor.email = updatedEmail;
+        await vendor.clearVendorSearch();
+    });
+
+    test("Update Payment Terms", async () => {
+        const updatedTerms = "Net 15";
+        await vendor.updateVendorFieldAndVerify({
+            currentVendorName: createdVendor.vendorName,
+            updates: { paymentTerms: updatedTerms },
+            verifyInList: { paymentTerms: updatedTerms },
+        });
+        createdVendor.paymentTerms = updatedTerms;
+        await vendor.clearVendorSearch();
+    });
+
+    test("Cancel edit discards changes", async () => {
+        await vendor.verifyCancelEditDiscardsChanges(createdVendor);
+    });
+
+    test("Invalid email while editing", async () => {
+        await vendor.verifyInvalidEmailOnEdit(createdVendor.vendorName);
+    });
+
+    test("Clear required Vendor Name on edit", async () => {
+        await vendor.verifyClearVendorNameOnEdit(createdVendor.vendorName);
+    });
+
+    test("Clear required Phone on edit", async () => {
+        await vendor.verifyClearPhoneOnEdit(createdVendor.vendorName);
+    });
+
+    test("Success message after update", async () => {
+        const updatedName = await vendor.verifyUpdateSuccessMessage(
+            createdVendor.vendorName,
+        );
+        createdVendor.vendorName = updatedName;
+        await vendor.clearVendorSearch();
+    });
+
+    test("Cancel delete keeps vendor", async () => {
+        await vendor.verifyCancelDeleteKeepsVendor(createdVendor.vendorName);
+    });
+
+    test("Delete vendor with confirmation", async () => {
+        await vendor.clickDeleteVendor(createdVendor.vendorName);
+        await vendor.deleteVendorAPI();
+        await vendor.verifyDeletedVendorNotInSearch(createdVendor.vendorName);
+    });
+
+    test("Vendor count decreases after delete", async () => {
+        await vendor.verifyVendorCountMatchesList();
+    });
+
+    test("Delete success message", async () => {
+        const vendorName = vendor.generateUniqueVendorName();
+        await vendor.createVendorWithRequiredFieldsOnly(vendorName, "5556667788");
+        await vendor.verifyDeleteSuccessMessage(vendorName);
+    });
+
+    test("Deleted vendor not in search results", async () => {
+        await vendor.verifyDeletedVendorNotInSearch(createdVendor.vendorName);
     });
 });

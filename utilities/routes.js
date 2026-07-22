@@ -38,6 +38,8 @@ module.exports = {
     addAttributeQA: apiCi("Varient_react_api/add_varient"),
     vendorList_URL: apiNode("Vendor_api_new/vendor_list"),
     addVendor_URL: apiNode("Vendor_api_new/create_vendor"),
+    updateVendor_URL: apiNode("Vendor_api_new/update_vendor"),
+    deleteVendor_URL: apiNode("Vendor_api_new/delete_vendor"),
   },
 
   //   QA_URL: {

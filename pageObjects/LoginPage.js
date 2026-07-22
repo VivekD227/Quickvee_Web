@@ -14,7 +14,7 @@ class LoginPage {
 
     this.username = page.getByLabel("Username");
 
-    this.password = page.getByLabel("Password");
+    this.password = page.locator('input[name="password"]');
 
     this.loginBtn = page.getByRole("button", { name: "Login" });
 
