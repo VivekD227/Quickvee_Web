@@ -125,41 +125,6 @@ class LoginPage {
     const responseAPI = await apiClients.post(url, payload);
     return responseAPI;
   }
-
-  async successAPILoginMerchant() {
-    const responseAPI = await this.createSessionAPIMerchant();
-    expect(responseAPI.ok()).toBeTruthy();
-    expect(responseAPI.status()).toBe(200);
-    const responseBodyAPI = await responseAPI.json();
-
-    expect(responseBodyAPI.status).toBe(true);
-    expect(responseBodyAPI.login_type).toBe("merchant");
-    // console.log(responseBodyAPI);
-    sessionDataStorage.set("loginType", responseBodyAPI.login_type);
-    sessionDataStorage.set("token", responseBodyAPI.token);
-    sessionDataStorage.set("tokenId", responseBodyAPI.token_id);
-    sessionDataStorage.set("merchantId", responseBodyAPI.data.merchant_id);
-    sessionDataStorage.set("name", responseBodyAPI.data.name);
-    sessionDataStorage.set("email", responseBodyAPI.data.email);
-    return responseBodyAPI;
-  }
-
-  async incorrectLoginAPI() {
-    const apiClients = new APIClients(this.page.request);
-    const payload = loginPayload(
-      merchants.incorrect_Login.username,
-      merchants.incorrect_Login.password,
-      merchants.incorrect_Login.storename,
-      merchants.incorrect_Login.otp,
-    );
-
-    const url = route.API_URL.login;
-    const responseAPI = await apiClients.post(url, payload);
-    expect(responseAPI.ok()).toBeTruthy();
-    expect(responseAPI.status()).toBe(200);
-    const responseBodyAPI = await responseAPI.json();
-    return responseBodyAPI;
-  }
 }
 
 module.exports = { LoginPage };
