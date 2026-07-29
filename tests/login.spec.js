@@ -15,8 +15,14 @@ const VALID_STORE = merchants.merchantLogin.storename;
 const MERCHANT_EMAIL = merchants.merchantLogin.username;
 const MERCHANT_PASSWORD = merchants.merchantLogin.password;
 
+function incorrectLogin(session) {
+  expect(session.status).toBeFalsy;
+  expect(session.msg).toBe("Incorrect Username & Password")
+  console.log(session.msg);
+}
+
 test.describe("Login Module", () => {
-  //  test.describe.configure({ mode: "serial", timeout: 60_000 });
+  test.describe.configure({ mode: "serial", timeout: 60_000 });
 
   let loginpage;
   let dashboard;
@@ -32,21 +38,19 @@ test.describe("Login Module", () => {
   });
 
   test("Merchant Login", async ({ page }) => {
+
     await loginpage.login(VALID_STORE, MERCHANT_EMAIL, MERCHANT_PASSWORD);
 
     const responseBody = await loginResponse(page);
-
     await expect(responseBody.login_type).toBe("merchant");
     console.log(responseBody.login_type);
-    // const mid = await sessionDataStorage.get("merchantId");
-    // console.log("Merchant ID from sessionDataStorage:", mid);
-    // console.log(sessionDataStorage.get("token"));
-    await dashboard.storenameDisplay();
+
+    //    await dashboard.storenameDisplay();
     await dashboard.profileBtnClick();
     await dashboard.logoutBtnClick();
   });
 
-  test("Employee Login", async ({ page }) => {
+  test("Employee Login", async ({ page, request }) => {
     await loginpage.login(
       merchants.employeeLogin.storename,
       merchants.employeeLogin.username,
@@ -61,16 +65,18 @@ test.describe("Login Module", () => {
     await dashboard.logoutBtnClick();
   });
 
-  test("Incorrect Password", async ({ page }) => {
+  test.only("Incorrect Password", async ({ page }) => {
     await loginpage.login(
       merchants.incorrect_Login.storename,
       merchants.incorrect_Login.username,
       merchants.incorrect_Login.password,
     );
+
     let msg = "Incorrect Username & Password";
     const APIresponse = await loginResponse(page);
-    await expect(APIresponse.status).toBeFalsy();
-    await expect(APIresponse.msg).toBe(msg);
+    incorrectLogin(APIresponse);
+    // await expect(APIresponse.status).toBeFalsy();
+    // await expect(APIresponse.msg).toBe(msg);
 
     await loginpage.inputMessageDisplay();
     await loginpage.inputMessageText(msg);

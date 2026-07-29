@@ -16,6 +16,7 @@ module.exports = {
 
   API_URL: {
     login: apiCi("LoginApiReact/create_session"),
+    chkMerchant: apiCi("LoginApiReact/chk_merchant"),
     preset_URL: apiNode("permission/get_permission_preset_by_id"),
     main_preset_URL: apiNode("permission/get_permission_preset"),
     employeeList_URL: apiCi("Store_setting_react_api/employee_list"),
