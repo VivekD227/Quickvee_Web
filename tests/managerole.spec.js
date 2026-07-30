@@ -9,7 +9,7 @@ import merchants from "../api/testData/merchants.json";
 import routes from "../utilities/routes.js";
 
 const ROLES = ["Manager", "Cashier", "Driver", "Time Clock Only"];
-const TOTAL_PERMISSIONS = 163;
+const TOTAL_PERMISSIONS = 168;
 
 test.describe("Manage Role Module", () => {
   test.describe.configure({ mode: "serial", timeout: 90_000 });

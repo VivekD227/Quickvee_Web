@@ -16,9 +16,10 @@ const MERCHANT_EMAIL = merchants.merchantLogin.username;
 const MERCHANT_PASSWORD = merchants.merchantLogin.password;
 
 function incorrectLogin(session) {
-  expect(session.status).toBeFalsy;
-  expect(session.msg).toBe("Incorrect Username & Password")
+  expect(session.status).toBeFalsy();
+  expect(session.msg).toBe("Incorrect Username & Password");
   console.log(session.msg);
+  return String(session.msg);
 }
 
 test.describe("Login Module", () => {
@@ -38,7 +39,6 @@ test.describe("Login Module", () => {
   });
 
   test("Merchant Login", async ({ page }) => {
-
     await loginpage.login(VALID_STORE, MERCHANT_EMAIL, MERCHANT_PASSWORD);
 
     const responseBody = await loginResponse(page);
@@ -65,16 +65,16 @@ test.describe("Login Module", () => {
     await dashboard.logoutBtnClick();
   });
 
-  test.only("Incorrect Password", async ({ page }) => {
+  test("Incorrect Password", async ({ page }) => {
     await loginpage.login(
       merchants.incorrect_Login.storename,
       merchants.incorrect_Login.username,
       merchants.incorrect_Login.password,
     );
 
-    let msg = "Incorrect Username & Password";
+    // let msg = "Incorrect Username & Password";
     const APIresponse = await loginResponse(page);
-    incorrectLogin(APIresponse);
+    const msg = incorrectLogin(APIresponse);
     // await expect(APIresponse.status).toBeFalsy();
     // await expect(APIresponse.msg).toBe(msg);
 
@@ -88,14 +88,18 @@ test.describe("Login Module", () => {
       "vivek.dubey521gmail.com",
       MERCHANT_PASSWORD,
     );
+    const APIresponse = await loginResponse(page);
+    const msg = incorrectLogin(APIresponse);
     await loginpage.inputMessageDisplay();
-    await loginpage.inputMessageText("Incorrect Username & Password");
+    await loginpage.inputMessageText(msg);
   });
 
   test("loginWithInvalidStoreName", async ({ page }) => {
     await loginpage.login("chains", MERCHANT_EMAIL, MERCHANT_PASSWORD);
+    const APIresponse = await loginResponse(page);
+    const msg = incorrectLogin(APIresponse);
     await loginpage.inputMessageDisplay();
-    await loginpage.inputMessageText("Incorrect Username & Password");
+    await loginpage.inputMessageText(msg);
   });
 
   test("loginWithEmptyFields", async ({ page }) => {

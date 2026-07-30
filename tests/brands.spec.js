@@ -19,7 +19,8 @@ test.describe("New Brand Module", () => {
   let pwd;
   let newBrand;
   let editBrand;
-  const duplicate_Brand = "Duplicate Brand";
+  // Must be unique per run — a fixed name fails addBtnAPI (+1) if it already exists.
+  let duplicate_Brand;
 
   test.beforeAll(
     async ({ browser }) => {
@@ -72,7 +73,8 @@ test.describe("New Brand Module", () => {
     await brand.cancelBtnClick();
   });
 
-  test("Adding Duplicate Brand", async () => {
+  test("Seed brand used for duplicate/edit checks", async () => {
+    duplicate_Brand = await brand.generateUniqueBrandName();
     await brand.addBrandBtnClick();
     await brand.setBrandName(duplicate_Brand);
     await brand.addBtnAPI();
