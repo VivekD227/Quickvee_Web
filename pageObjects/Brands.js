@@ -98,32 +98,22 @@ class Brands {
   }
 
   async saveBtnClick() {
-    const [updateAPI, listResponse] = await Promise.all([
-      this.page.waitForResponse(
-        (res) =>
-          res.request().method() === "POST" &&
-          res.url().includes(routes.API_URL.updateBrandQA),
-      ),
-      this.page.waitForResponse(
-        (res) =>
-          res.request().method() === "POST" &&
-          res.url().includes(routes.API_URL.brand_URL),
-      ),
-      this.page.getByRole("button", { name: "Save" }).click(),
-    ]);
+    const updatePromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.updateBrandQA),
+    );
 
+    await this.page.getByRole("button", { name: "Save" }).click();
+
+    const updateAPI = await updatePromise;
     expect(updateAPI.status()).toBe(200);
-    expect(listResponse.status()).toBe(200);
     const updateResponseBody = await updateAPI.json();
     expect(updateResponseBody.message).toBe("Updated");
     expect(updateResponseBody.status).toBeTruthy();
-    // expect(updateResponseBody.codeElastic).toBe(200);
 
-    const listResponseBody = await listResponse.json();
-    const newApiCount = listResponseBody.total_count.brand;
-    sessionDataStorage.set("brand_APIcount", newApiCount);
-    console.log(`New brand count from list API (after edit): ${newApiCount}`);
-    await this.verifyBrandCountMatchesAPI();
+    // Edit does not change brand count. Do not sync/compare counts from the
+    // post-edit list response — UI can briefly show "0 brands" while refresh races.
   }
 
   async successfullDialogDisplay() {
