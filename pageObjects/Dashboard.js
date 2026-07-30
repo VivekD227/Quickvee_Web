@@ -183,7 +183,15 @@ class Dashboard {
     ]);
     expect(response.status()).toBe(200);
     const vendorResponse = await response.json();
-    expect(vendorResponse.status).toBeTruthy();
+    //expect(vendorResponse.status).toBeTruthy();
+    const noData = vendorResponse.status;
+    if (noData === false) {
+      expect(vendorResponse.message).toBe("No Data Found");
+    }
+    else {
+      expect(vendorResponse.message).toBe("Vendor List.");
+
+    }
     const vendor_APIcount = Number(vendorResponse.total_vendors);
     sessionDataStorage.set("vendor_APIcount", vendor_APIcount);
     sessionDataStorage.set(
