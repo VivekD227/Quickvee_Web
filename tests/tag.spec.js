@@ -235,10 +235,6 @@ test.describe("Tags Module", () => {
     await tag.verifyTagNotInList(bulkTagB);
   });
 
-  test.skip("Bulk Delete Access Denied", async () => {
-    // Requires unauthorized / restricted-permission user credentials.
-  });
-
   // --- Merge (TC_TAG_078 - TC_TAG_086) ---
 
   test("Open Merge dialog", async () => {
@@ -290,13 +286,5 @@ test.describe("Tags Module", () => {
     await expect(tag.getTagListRow(keep)).toBeVisible();
     await tag.verifyTagNotInList(dropA);
     await tag.verifyTagNotInList(dropB);
-  });
-
-  test.skip("Product linkage after merge", async () => {
-    // Requires tags pre-linked to products; not covered in this suite.
-  });
-
-  test.skip("Merge with unauthorized user", async () => {
-    // Requires unauthorized / restricted-permission user credentials.
   });
 });
