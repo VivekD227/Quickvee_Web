@@ -355,13 +355,12 @@ class Vendor {
         res.request().method() === "POST" &&
         res.url().includes(routes.API_URL.addVendor_URL),
     );
-    const listPromise = this.page
-      .waitForResponse(
-        (res) =>
-          res.request().method() === "POST" &&
-          res.url().includes(routes.API_URL.vendorList_URL),
-        { timeout: 15_000 },
-      )
+    const listPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.vendorList_URL),
+      { timeout: 15_000 },
+    );
 
     await this.submitAddVendorModal();
 
@@ -874,7 +873,6 @@ class Vendor {
   async addVendorModalBtnEnable() {
     await expect(this.addVendorModalBtn).toBeEnabled();
     console.log("Enable");
-
   }
 
   async verifyAddVendorModalBtnDisabledWhenEmpty() {

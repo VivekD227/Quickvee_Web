@@ -36,6 +36,8 @@ class Dashboard {
     this.attributes = page.getByText("Attributes", { exact: true });
 
     this.vendors = page.getByText("Vendors", { exact: true });
+
+    this.tags = page.getByText("Tags", { exact: true });
   }
 
   async storenameDisplay() {
@@ -187,10 +189,8 @@ class Dashboard {
     const noData = vendorResponse.status;
     if (noData === false) {
       expect(vendorResponse.message).toBe("No Data Found");
-    }
-    else {
+    } else {
       expect(vendorResponse.message).toBe("Vendor List.");
-
     }
     const vendor_APIcount = Number(vendorResponse.total_vendors);
     sessionDataStorage.set("vendor_APIcount", vendor_APIcount);
@@ -209,6 +209,30 @@ class Dashboard {
     console.log(
       `No products vendor API count (on navigation): ${vendorResponse.total_vendors_with_no_product}`,
     );
+  }
+
+  async tagsClick() {
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes(routes.API_URL.brand_URL),
+      ),
+      this.tags.click(),
+    ]);
+
+    expect(response.status()).toBe(200);
+    const responseBody = await response.json();
+    if (responseBody.status === false) {
+      expect(responseBody.message).toBe("0 Data Found");
+      sessionDataStorage.set("tag_APIcount", 0);
+      console.log(`Tag API count (on navigation): 0`);
+      return;
+    }
+    expect(responseBody.status).toBe(true);
+    const tag_APIcount = Number(responseBody.total_count?.tag ?? 0);
+    sessionDataStorage.set("tag_APIcount", tag_APIcount);
+    console.log(`Tag API count (on navigation): ${tag_APIcount}`);
   }
 }
 
