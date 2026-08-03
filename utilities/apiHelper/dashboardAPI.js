@@ -1,11 +1,17 @@
 import { expect } from "@playwright/test";
 const route = require("../routes.js");
 
-async function waitForReportApi(page, apiUrl) {
-  const response = await page.waitForResponse(
-    (res) =>
-      res.request().method() === "POST" && res.url().includes(apiUrl),
-  );
+async function waitForReportApi(page, apiUrl, { postDataIncludes } = {}) {
+  const response = await page.waitForResponse((res) => {
+    if (res.request().method() !== "POST" || !res.url().includes(apiUrl)) {
+      return false;
+    }
+    if (postDataIncludes) {
+      const data = res.request().postData() || "";
+      return data.includes(postDataIncludes);
+    }
+    return true;
+  });
   expect(response.status()).toBe(200);
   return response.json();
 }
@@ -42,6 +48,6 @@ export async function discountPercentAPI(page) {
   return waitForReportApi(page, route.API_URL.discountPercentAPI);
 }
 
-export async function topProductSold(page) {
-  return waitForReportApi(page, route.API_URL.topProductSoldAPI)
+export async function topProductSold(page, options) {
+  return waitForReportApi(page, route.API_URL.topProductSoldAPI, options);
 }

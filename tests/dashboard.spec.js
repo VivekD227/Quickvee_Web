@@ -13,7 +13,7 @@ import {
   avgItemSaleAPI,
   discountAmountAPI,
   discountPercentAPI,
-  topProductSold
+  topProductSold,
 } from "../utilities/apiHelper/dashboardAPI";
 
 function getDate() {
@@ -26,8 +26,18 @@ function yesterdayDate() {
   return yesterday.toISOString().split("T")[0];
 }
 
-/** Normalize API/UI metric strings for comparison (e.g. "1.00" vs "1", "$1.77" vs "1.77"). */
+/** First day of previous calendar month as YYYY-MM-01 (local). */
+function previousMonthStartDate() {
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}-01`;
+}
+
 function normalizeMetric(value) {
+  if (value == null || String(value).trim() === "") return "0";
   const n = Number(String(value).replace(/[$,%]/g, "").trim());
   return Number.isFinite(n) ? String(n) : String(value).trim();
 }
@@ -179,8 +189,11 @@ test.describe("DashBoard Module", () => {
   });
 
   test("Top Product sold", async () => {
-    const topProductSoldPromise = topProductSold(page);
-    await dashboard.monthViewClick();
+    await dashboard.monthView.first().click();
+    const topProductSoldPromise = topProductSold(page, {
+      postDataIncludes: previousMonthStartDate(),
+    });
+    await dashboard.previousBtn.first().click();
     topProductSoldResponses = await topProductSoldPromise;
 
     expect(topProductSoldResponses.status).toBeTruthy();

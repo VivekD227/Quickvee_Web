@@ -154,9 +154,7 @@ class Dashboard {
       return;
     }
 
-    const storeNames = stores
-      .map((store) => store?.name)
-      .filter(Boolean);
+    const storeNames = stores.map((store) => store?.name).filter(Boolean);
     expect(storeNames.length).toBeGreaterThan(0);
 
     const locationButtons = this.page.getByRole("button");
@@ -194,10 +192,15 @@ class Dashboard {
     await expect(this.dayViewLabel).toBeVisible();
 
     for (const label of this.kpiLabels) {
-      await expect(this.page.getByText(label, { exact: true }).first()).toBeVisible();
+      await expect(
+        this.page.getByText(label, { exact: true }).first(),
+      ).toBeVisible();
       await expect(
         this.page.getByRole("link", {
-          name: new RegExp(`View ${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} report`, "i"),
+          name: new RegExp(
+            `View ${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} report`,
+            "i",
+          ),
         }),
       ).toBeVisible();
     }
