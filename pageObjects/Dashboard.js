@@ -83,6 +83,7 @@ class Dashboard {
     this.recentOrdersHeading = page.getByRole("heading", {
       name: "Recent Orders Activity",
     });
+    this.recentOrderTitles = page.locator("p").filter({ hasText: /Order\s*#/ });
 
     this.navDashboard = page.getByRole("link", { name: /Dashboard/i });
     this.navOrders = page.getByRole("link", { name: /Orders/i });
@@ -128,7 +129,6 @@ class Dashboard {
   }
 
   async logoDisplayed() {
-    await this.page.waitForTimeout(10000);
     await expect(this.quickveeLogo).toBeVisible();
   }
 
@@ -290,6 +290,15 @@ class Dashboard {
     const discountText = text.replace(/[$,]/g, "").trim();
     console.log(discountText);
     return discountText;
+  }
+
+  async UIRecentOrderIds() {
+    const titles = await this.recentOrderTitles.allInnerTexts();
+    const ids = titles
+      .map((title) => title.match(/Order\s*#\s*([\w-]+)/)?.[1])
+      .filter(Boolean);
+    console.log(ids);
+    return ids;
   }
 
   async profileBtnClick() {

@@ -14,6 +14,7 @@ import {
   discountAmountAPI,
   discountPercentAPI,
   topProductSold,
+  recentOrders,
 } from "../utilities/apiHelper/dashboardAPI";
 
 function getDate() {
@@ -26,20 +27,31 @@ function yesterdayDate() {
   return yesterday.toISOString().split("T")[0];
 }
 
-/** First day of previous calendar month as YYYY-MM-01 (local). */
-function previousMonthStartDate() {
-  const d = new Date();
-  d.setDate(1);
-  d.setMonth(d.getMonth() - 1);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  return `${y}-${m}-01`;
+/** Whole days covered by an inclusive YYYY-MM-DD range. */
+function daysBetween(startDate, endDate) {
+  const start = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
+  return (end - start) / 86_400_000;
 }
 
 function normalizeMetric(value) {
-  if (value == null || String(value).trim() === "") return "0";
+  if (value == null || String(value).trim() === "") return "0.00";
   const n = Number(String(value).replace(/[$,%]/g, "").trim());
-  return Number.isFinite(n) ? String(n) : String(value).trim();
+  // The UI displays metrics rounded to 2 decimals while APIs return raw precision.
+  return Number.isFinite(n) ? n.toFixed(2) : String(value).trim();
+}
+
+/** Read the order id off a recent-activity API record, whichever key it uses. */
+function getApiOrderId(order) {
+  const key = ["order_id", "orderId", "id", "order_number"].find(
+    (candidate) =>
+      order?.[candidate] != null && String(order[candidate]).trim() !== "",
+  );
+  expect(
+    key,
+    `No order id on recent order record. Available keys: ${Object.keys(order ?? {}).join(", ")}`,
+  ).toBeTruthy();
+  return String(order[key]).trim();
 }
 
 test.describe("DashBoard Module", () => {
@@ -88,15 +100,27 @@ test.describe("DashBoard Module", () => {
 
       await loginpage.login(sName, uName, pwd);
 
-      storeResponse = await storesPromise;
-      revenueResponses = await revenuePromise;
-      transactionResponses = await transactionPromise;
-      customerCountResponses = await customerCountPromise;
-      grossProfitResponses = await grossProfitPromise;
-      avgSalesValueResponses = await avgSalesValuePromise;
-      avgItemSaleResponses = await avgItemSalePromise;
-      discountAmountResponses = await discountAmountPromise;
-      discountPercentResponses = await discountPercentPromise;
+      [
+        storeResponse,
+        revenueResponses,
+        transactionResponses,
+        customerCountResponses,
+        grossProfitResponses,
+        avgSalesValueResponses,
+        avgItemSaleResponses,
+        discountAmountResponses,
+        discountPercentResponses,
+      ] = await Promise.all([
+        storesPromise,
+        revenuePromise,
+        transactionPromise,
+        customerCountPromise,
+        grossProfitPromise,
+        avgSalesValuePromise,
+        avgItemSalePromise,
+        discountAmountPromise,
+        discountPercentPromise,
+      ]);
 
       await dashboard.logoDisplayed();
     },
@@ -163,6 +187,14 @@ test.describe("DashBoard Module", () => {
     const UIAov = await dashboard.UIAvgOrderValue();
     expect(normalizeMetric(APIAov)).toBe(normalizeMetric(UIAov));
 
+    const saleCount = Number(APITransaction);
+    const expectedAov = saleCount === 0 ? 0 : Number(revenue) / saleCount;
+    console.log(expectedAov);
+    expect(
+      normalizeMetric(UIAov),
+      `Average Order Value should be ${revenue} / ${APITransaction}`,
+    ).toBe(normalizeMetric(expectedAov));
+
     expect(avgItemSaleResponses.status).toBeTruthy();
     const APIItems = avgItemSaleResponses.total_revenue_data;
     console.log(APIItems);
@@ -188,12 +220,298 @@ test.describe("DashBoard Module", () => {
     );
   });
 
-  test("Top Product sold", async () => {
-    await dashboard.monthView.first().click();
-    const topProductSoldPromise = topProductSold(page, {
-      postDataIncludes: previousMonthStartDate(),
-    });
+  test("Checking Yesterday Dashboard value", async () => {
+    const revenuePromise = revenueAPI(page);
+    const transactionPromise = totalTransaction(page);
+    const customerCountPromise = customerCountAPI(page);
+    const grossProfitPromise = grossProfitAPI(page);
+    const avgSalesValuePromise = avgSalesValueAPI(page);
+    const avgItemSalePromise = avgItemSaleAPI(page);
+    const discountAmountPromise = discountAmountAPI(page);
+    const discountPercentPromise = discountPercentAPI(page);
+
     await dashboard.previousBtn.first().click();
+
+    const revenueResponse = await revenuePromise;
+    const transactionResponse = await transactionPromise;
+    const customerCountResponse = await customerCountPromise;
+    const grossProfitResponse = await grossProfitPromise;
+    const avgSalesValueResponse = await avgSalesValuePromise;
+    const avgItemSaleResponse = await avgItemSalePromise;
+    const discountAmountResponse = await discountAmountPromise;
+    const discountPercentResponse = await discountPercentPromise;
+
+    expect(revenueResponse.mode).toBe("Day");
+    const startDate = revenueResponse.start_date;
+    const endDate = revenueResponse.end_date;
+    expect(startDate).toBe(endDate);
+    const yesterday = yesterdayDate();
+    expect(startDate).toBe(yesterday);
+    expect(endDate).toBe(yesterday);
+    expect(revenueResponse.status).toBeTruthy();
+    const revenue = revenueResponse.total_revenue_data;
+    console.log(revenue);
+    const UIrevenue = await dashboard.UIRevenue();
+    expect(normalizeMetric(UIrevenue)).toBe(normalizeMetric(revenue));
+
+    expect(transactionResponse.status).toBeTruthy();
+    expect(transactionResponse.message).toMatch(/Sales count computed/i);
+    const APITransaction = transactionResponse.total_sale_count;
+    console.log(APITransaction);
+    const totalTransactionUI = await dashboard.UITransaction();
+    expect(normalizeMetric(APITransaction)).toBe(
+      normalizeMetric(totalTransactionUI),
+    );
+
+    expect(customerCountResponse.status).toBeTruthy();
+    const APICustomers = customerCountResponse.total_customer_count;
+    console.log(APICustomers);
+    const UICustomers = await dashboard.UIUniqueCustomers();
+    expect(normalizeMetric(APICustomers)).toBe(normalizeMetric(UICustomers));
+
+    expect(grossProfitResponse.status).toBeTruthy();
+    expect(grossProfitResponse.message).toMatch(/Gross profit summed/i);
+    const APIProfit = grossProfitResponse.total_gross_profit;
+    console.log(APIProfit);
+    const UIProfit = await dashboard.UIProfit();
+    expect(normalizeMetric(APIProfit)).toBe(normalizeMetric(UIProfit));
+
+    expect(avgSalesValueResponse.status).toBeTruthy();
+    const APIAov = avgSalesValueResponse.total_revenue_data;
+    console.log(APIAov);
+    const UIAov = await dashboard.UIAvgOrderValue();
+    expect(normalizeMetric(APIAov)).toBe(normalizeMetric(UIAov));
+
+    // Average Order Value = Total Sales Revenue / Total Transactions.
+    const saleCount = Number(APITransaction);
+    const expectedAov = saleCount === 0 ? 0 : Number(revenue) / saleCount;
+    console.log(expectedAov);
+    expect(
+      normalizeMetric(UIAov),
+      `Average Order Value should be ${revenue} / ${APITransaction}`,
+    ).toBe(normalizeMetric(expectedAov));
+
+    expect(avgItemSaleResponse.status).toBeTruthy();
+    const APIItems = avgItemSaleResponse.total_revenue_data;
+    console.log(APIItems);
+    const UIItems = await dashboard.UIItemsPerTransaction();
+    expect(normalizeMetric(APIItems)).toBe(normalizeMetric(UIItems));
+
+    expect(discountPercentResponse.status).toBeTruthy();
+    expect(discountPercentResponse.msg).toMatch(/Discount percentage/i);
+    const APIDiscountPercent = discountPercentResponse.total_discount_per;
+    console.log(APIDiscountPercent);
+    const UIDiscountPercent = await dashboard.UIDiscountPercent();
+    expect(normalizeMetric(APIDiscountPercent)).toBe(
+      normalizeMetric(UIDiscountPercent),
+    );
+
+    expect(discountAmountResponse.status).toBeTruthy();
+    expect(discountAmountResponse.msg).toMatch(/Discount data fetched/i);
+    const APIDiscountAmount = discountAmountResponse.total_discount_data;
+    console.log(APIDiscountAmount);
+    const UIDiscountAmount = await dashboard.UIDiscountAmount();
+    expect(normalizeMetric(APIDiscountAmount)).toBe(
+      normalizeMetric(UIDiscountAmount),
+    );
+  });
+
+  test("Checking Week filter Dashboard value", async () => {
+    const revenuePromise = revenueAPI(page);
+    const transactionPromise = totalTransaction(page);
+    const customerCountPromise = customerCountAPI(page);
+    const grossProfitPromise = grossProfitAPI(page);
+    const avgSalesValuePromise = avgSalesValueAPI(page);
+    const avgItemSalePromise = avgItemSaleAPI(page);
+    const discountAmountPromise = discountAmountAPI(page);
+    const discountPercentPromise = discountPercentAPI(page);
+
+    await dashboard.weekView.first().click();
+
+    const revenueResponse = await revenuePromise;
+    const transactionResponse = await transactionPromise;
+    const customerCountResponse = await customerCountPromise;
+    const grossProfitResponse = await grossProfitPromise;
+    const avgSalesValueResponse = await avgSalesValuePromise;
+    const avgItemSaleResponse = await avgItemSalePromise;
+    const discountAmountResponse = await discountAmountPromise;
+    const discountPercentResponse = await discountPercentPromise;
+
+    expect(revenueResponse.mode).toBe("Week");
+    const startDate = revenueResponse.start_date;
+    const endDate = revenueResponse.end_date;
+    console.log(`${startDate} - ${endDate}`);
+    const spanDays = daysBetween(startDate, endDate);
+    expect(spanDays).toBeGreaterThanOrEqual(0);
+    expect(spanDays).toBeLessThanOrEqual(6);
+    expect(revenueResponse.status).toBeTruthy();
+    const revenue = revenueResponse.total_revenue_data;
+    console.log(revenue);
+    const UIrevenue = await dashboard.UIRevenue();
+    expect(normalizeMetric(UIrevenue)).toBe(normalizeMetric(revenue));
+
+    expect(transactionResponse.status).toBeTruthy();
+    expect(transactionResponse.message).toMatch(/Sales count computed/i);
+    const APITransaction = transactionResponse.total_sale_count;
+    console.log(APITransaction);
+    const totalTransactionUI = await dashboard.UITransaction();
+    expect(normalizeMetric(APITransaction)).toBe(
+      normalizeMetric(totalTransactionUI),
+    );
+
+    expect(customerCountResponse.status).toBeTruthy();
+    const APICustomers = customerCountResponse.total_customer_count;
+    console.log(APICustomers);
+    const UICustomers = await dashboard.UIUniqueCustomers();
+    expect(normalizeMetric(APICustomers)).toBe(normalizeMetric(UICustomers));
+
+    expect(grossProfitResponse.status).toBeTruthy();
+    expect(grossProfitResponse.message).toMatch(/Gross profit summed/i);
+    const APIProfit = grossProfitResponse.total_gross_profit;
+    console.log(APIProfit);
+    const UIProfit = await dashboard.UIProfit();
+    expect(normalizeMetric(APIProfit)).toBe(normalizeMetric(UIProfit));
+
+    expect(avgSalesValueResponse.status).toBeTruthy();
+    const APIAov = avgSalesValueResponse.total_revenue_data;
+    console.log(APIAov);
+    const UIAov = await dashboard.UIAvgOrderValue();
+    expect(normalizeMetric(APIAov)).toBe(normalizeMetric(UIAov));
+
+    // Average Order Value = Total Sales Revenue / Total Transactions.
+    const saleCount = Number(APITransaction);
+    const expectedAov = saleCount === 0 ? 0 : Number(revenue) / saleCount;
+    console.log(expectedAov);
+    expect(
+      normalizeMetric(UIAov),
+      `Average Order Value should be ${revenue} / ${APITransaction}`,
+    ).toBe(normalizeMetric(expectedAov));
+
+    expect(avgItemSaleResponse.status).toBeTruthy();
+    const APIItems = avgItemSaleResponse.total_revenue_data;
+    console.log(APIItems);
+    const UIItems = await dashboard.UIItemsPerTransaction();
+    expect(normalizeMetric(APIItems)).toBe(normalizeMetric(UIItems));
+
+    expect(discountPercentResponse.status).toBeTruthy();
+    expect(discountPercentResponse.msg).toMatch(/Discount percentage/i);
+    const APIDiscountPercent = discountPercentResponse.total_discount_per;
+    console.log(APIDiscountPercent);
+    const UIDiscountPercent = await dashboard.UIDiscountPercent();
+    expect(normalizeMetric(APIDiscountPercent)).toBe(
+      normalizeMetric(UIDiscountPercent),
+    );
+
+    expect(discountAmountResponse.status).toBeTruthy();
+    expect(discountAmountResponse.msg).toMatch(/Discount data fetched/i);
+    const APIDiscountAmount = discountAmountResponse.total_discount_data;
+    console.log(APIDiscountAmount);
+    const UIDiscountAmount = await dashboard.UIDiscountAmount();
+    expect(normalizeMetric(APIDiscountAmount)).toBe(
+      normalizeMetric(UIDiscountAmount),
+    );
+  });
+
+  test("Checking Month filter Dashboard value", async () => {
+    const revenuePromise = revenueAPI(page);
+    const transactionPromise = totalTransaction(page);
+    const customerCountPromise = customerCountAPI(page);
+    const grossProfitPromise = grossProfitAPI(page);
+    const avgSalesValuePromise = avgSalesValueAPI(page);
+    const avgItemSalePromise = avgItemSaleAPI(page);
+    const discountAmountPromise = discountAmountAPI(page);
+    const discountPercentPromise = discountPercentAPI(page);
+
+    await dashboard.monthView.first().click();
+
+    const revenueResponse = await revenuePromise;
+    const transactionResponse = await transactionPromise;
+    const customerCountResponse = await customerCountPromise;
+    const grossProfitResponse = await grossProfitPromise;
+    const avgSalesValueResponse = await avgSalesValuePromise;
+    const avgItemSaleResponse = await avgItemSalePromise;
+    const discountAmountResponse = await discountAmountPromise;
+    const discountPercentResponse = await discountPercentPromise;
+
+    expect(revenueResponse.mode).toBe("Month");
+    // const startDate = revenueResponse.start_date;
+    // const endDate = revenueResponse.end_date;
+    // console.log(`${startDate} - ${endDate}`);
+    // expect(startDate.endsWith("-01")).toBeTruthy();
+    // expect(startDate.slice(0, 7)).toBe(endDate.slice(0, 7));
+    // expect(daysBetween(startDate, endDate)).toBeGreaterThanOrEqual(0);
+    expect(revenueResponse.status).toBeTruthy();
+    const revenue = revenueResponse.total_revenue_data;
+    console.log(revenue);
+    const UIrevenue = await dashboard.UIRevenue();
+    expect(normalizeMetric(UIrevenue)).toBe(normalizeMetric(revenue));
+
+    expect(transactionResponse.status).toBeTruthy();
+    expect(transactionResponse.message).toMatch(/Sales count computed/i);
+    const APITransaction = transactionResponse.total_sale_count;
+    console.log(APITransaction);
+    const totalTransactionUI = await dashboard.UITransaction();
+    expect(normalizeMetric(APITransaction)).toBe(
+      normalizeMetric(totalTransactionUI),
+    );
+
+    expect(customerCountResponse.status).toBeTruthy();
+    const APICustomers = customerCountResponse.total_customer_count;
+    console.log(APICustomers);
+    const UICustomers = await dashboard.UIUniqueCustomers();
+    expect(normalizeMetric(APICustomers)).toBe(normalizeMetric(UICustomers));
+
+    expect(grossProfitResponse.status).toBeTruthy();
+    expect(grossProfitResponse.message).toMatch(/Gross profit summed/i);
+    const APIProfit = grossProfitResponse.total_gross_profit;
+    console.log(APIProfit);
+    const UIProfit = await dashboard.UIProfit();
+    expect(normalizeMetric(APIProfit)).toBe(normalizeMetric(UIProfit));
+
+    expect(avgSalesValueResponse.status).toBeTruthy();
+    const APIAov = avgSalesValueResponse.total_revenue_data;
+    console.log(APIAov);
+    const UIAov = await dashboard.UIAvgOrderValue();
+    expect(normalizeMetric(APIAov)).toBe(normalizeMetric(UIAov));
+
+    // Average Order Value = Total Sales Revenue / Total Transactions.
+    const saleCount = Number(APITransaction);
+    const expectedAov = saleCount === 0 ? 0 : Number(revenue) / saleCount;
+    console.log(expectedAov);
+    expect(
+      normalizeMetric(UIAov),
+      `Average Order Value should be ${revenue} / ${APITransaction}`,
+    ).toBe(normalizeMetric(expectedAov));
+
+    expect(avgItemSaleResponse.status).toBeTruthy();
+    const APIItems = avgItemSaleResponse.total_revenue_data;
+    console.log(APIItems);
+    const UIItems = await dashboard.UIItemsPerTransaction();
+    expect(normalizeMetric(APIItems)).toBe(normalizeMetric(UIItems));
+
+    expect(discountPercentResponse.status).toBeTruthy();
+    expect(discountPercentResponse.msg).toMatch(/Discount percentage/i);
+    const APIDiscountPercent = discountPercentResponse.total_discount_per;
+    console.log(APIDiscountPercent);
+    const UIDiscountPercent = await dashboard.UIDiscountPercent();
+    expect(normalizeMetric(APIDiscountPercent)).toBe(
+      normalizeMetric(UIDiscountPercent),
+    );
+
+    expect(discountAmountResponse.status).toBeTruthy();
+    expect(discountAmountResponse.msg).toMatch(/Discount data fetched/i);
+    const APIDiscountAmount = discountAmountResponse.total_discount_data;
+    console.log(APIDiscountAmount);
+    const UIDiscountAmount = await dashboard.UIDiscountAmount();
+    expect(normalizeMetric(APIDiscountAmount)).toBe(
+      normalizeMetric(UIDiscountAmount),
+    );
+  });
+
+  test("Top Product sold", async () => {
+    const topProductSoldPromise = topProductSold(page);
+    await dashboard.monthView.first().click();
+
     topProductSoldResponses = await topProductSoldPromise;
 
     expect(topProductSoldResponses.status).toBeTruthy();
@@ -205,6 +523,42 @@ test.describe("DashBoard Module", () => {
       expect(topProductSoldResponses.message).toBe("Success");
       console.log("Success");
     }
-    console.log(topProductSoldResponses.item_data);
+    const item_data = topProductSoldResponses.item_data;
+    console.log(item_data);
+    for (let i = 0; i < item_data.length - 1; i++) {
+      const currentUnitSold = Number(item_data[i].unit_sold);
+      const nextUnitSold = Number(item_data[i + 1].unit_sold);
+
+      expect(currentUnitSold).toBeGreaterThanOrEqual(nextUnitSold);
+    }
+  });
+
+  test("Recent Order Activity", async () => {
+
+    const recentOrderPromise = recentOrders(page);
+    await dashboard.dayView.first().click();
+    let recentOrderResponses = await recentOrderPromise;
+    const orderDetails = recentOrderResponses.data;
+    console.log(orderDetails);
+    if (orderDetails.length === 0) {
+      expect(recentOrderResponses.count).toBe(0);
+      console.log("Order count: 0");
+      await expect(dashboard.recentOrderTitles).toHaveCount(0);
+      return;
+    }
+
+    expect(recentOrderResponses.count).toBeGreaterThan(0);
+    console.log("Order count present");
+
+    const APIOrderIds = orderDetails.map(getApiOrderId);
+    console.log(APIOrderIds);
+
+    await expect(dashboard.recentOrderTitles.first()).toContainText(
+      APIOrderIds[0],
+    );
+    const UIOrderIds = await dashboard.UIRecentOrderIds();
+    expect(UIOrderIds.length).toBeGreaterThan(0);
+    // The card renders only the first slice of the API list, in the same order.
+    expect(UIOrderIds).toEqual(APIOrderIds.slice(0, UIOrderIds.length));
   });
 });

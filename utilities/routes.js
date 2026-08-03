@@ -52,7 +52,11 @@ module.exports = {
     avgItemSaleAPI: reportAPI("api/reports/avg_item_sale"),
     discountAmountAPI: reportAPI("api/reports/discount_api_new"),
     discountPercentAPI: reportAPI("api/reports/discount_in_per_api_new"),
-    topProductSoldAPI: reportAPI("api/reports/top_sold_products")
+    topProductSoldAPI: reportAPI("api/reports/top_sold_products"),
+    recentOrder: reportAPI("api/reports/get-recent-activity"),
+    salesByHour: apiCi("Sale_summary_api/sale_by_hour_new"),
+    system_access: apiCi("api/SettingsReact_api/system_access"),
+    featureAnnouncement: apiCi("Feature_announcements_api/show_feature_announcements")
   },
 
   //   QA_URL: {
