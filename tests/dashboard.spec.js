@@ -15,6 +15,13 @@ import {
   discountPercentAPI,
   topProductSold,
   recentOrders,
+  outletReportAPI,
+  storeSalesCountAPI,
+  customerCountStoreReportAPI,
+  storeGrossProfitAPI,
+  avgSaleValueReportAPI,
+  avgItemSaleReportAPI,
+  storeDiscountedReportAPI,
 } from "../utilities/apiHelper/dashboardAPI";
 
 function getDate() {
@@ -127,12 +134,16 @@ test.describe("DashBoard Module", () => {
     { timeout: 90_000 },
   );
 
+  function getStoreCount() {
+    return storeResponse.data.length;
+  } 
+
   test.afterAll(async () => {
     await context?.close();
   });
 
   test("Check UI", async () => {
-    const storeLength = storeResponse.data.length;
+    const storeLength = getStoreCount();
     console.log(storeLength);
 
     expect(storeResponse.status).toBeTruthy();
@@ -560,5 +571,69 @@ test.describe("DashBoard Module", () => {
     expect(UIOrderIds.length).toBeGreaterThan(0);
     // The card renders only the first slice of the API list, in the same order.
     expect(UIOrderIds).toEqual(APIOrderIds.slice(0, UIOrderIds.length));
+  });
+
+  test("Validate report outlet API", async () => {
+    test.setTimeout(180_000);
+
+    const outletReports = [
+      {
+        name: "Total Sales Revenue",
+        link: /View Total Sales Revenue report/i,
+        wait: outletReportAPI,
+      },
+      {
+        name: "Total Transactions",
+        link: /View Total Transactions report/i,
+        wait: storeSalesCountAPI,
+      },
+      {
+        name: "Unique Customers",
+        link: /View Unique Customers report/i,
+        wait: customerCountStoreReportAPI,
+      },
+      {
+        name: "Profit Generated",
+        link: /View Profit Generated report/i,
+        wait: storeGrossProfitAPI,
+      },
+      {
+        name: "Average Order Value",
+        link: /View Average Order Value report/i,
+        wait: avgSaleValueReportAPI,
+      },
+      {
+        name: "Items per Transaction",
+        link: /View Items per Transaction report/i,
+        wait: avgItemSaleReportAPI,
+      },
+      {
+        name: "Discounts Given %",
+        link: /View Discounts Given % report/i,
+        wait: discountPercentAPI,
+      },
+      {
+        name: "Discounts Given $",
+        link: /View Discounts Given \$ report/i,
+        wait: storeDiscountedReportAPI,
+      },
+    ];
+
+    for (const report of outletReports) {
+      await dashboard.navDashboard.click();
+      await expect(dashboard.dashboardHeading).toBeVisible();
+
+      const responsePromise = report.wait(page);
+      await page.getByRole("link", { name: report.link }).first().click();
+      const response = await responsePromise;
+      console.log(report.name, response);
+
+      expect(response.status, `${report.name} API should succeed`).toBeTruthy();
+    }
+  });
+
+  test("Test Dashboard for multiple store if avaialbe", async () => {
+    const storeCount = getStoreCount();
+    console.log(storeCount);
   });
 });

@@ -54,6 +54,15 @@ module.exports = {
     discountPercentAPI: reportAPI("api/reports/discount_in_per_api_new"),
     topProductSoldAPI: reportAPI("api/reports/top_sold_products"),
     recentOrder: reportAPI("api/reports/get-recent-activity"),
+    outletReportAPI: reportAPI("api/reports/revenue_data_outlet_report"),
+    storeSalesCountAPI: reportAPI("api/reports/store_sales_count_api"),
+    customerCountStoreReportAPI: reportAPI(
+      "api/reports/customer_count_store_report",
+    ),
+    storeGrossProfitAPI: reportAPI("api/reports/store_gross_profit_api"),
+    avgSaleValueReportAPI: reportAPI("api/reports/avg_sale_value_report"),
+    avgItemSaleReportAPI: reportAPI("api/reports/avg_item_sale_report"),
+    storeDiscountedReportAPI: reportAPI("api/reports/store_discounted_report"),
     salesByHour: apiCi("Sale_summary_api/sale_by_hour_new"),
     system_access: apiCi("api/SettingsReact_api/system_access"),
     featureAnnouncement: apiCi("Feature_announcements_api/show_feature_announcements")

@@ -1,10 +1,10 @@
 import { expect } from "@playwright/test";
-import { findPackageJSON } from "node:module";
 const route = require("../routes.js");
 
 async function waitForReportApi(page, apiUrl) {
-  const response = await page.waitForResponse((res) =>
-    res.request().method() === "POST" && res.url().includes(apiUrl)
+  const response = await page.waitForResponse(
+    (res) =>
+      res.request().method() === "POST" && res.url().includes(apiUrl),
   );
 
   expect(response.status()).toBe(200);
@@ -51,3 +51,30 @@ export async function recentOrders(page) {
   return waitForReportApi(page, route.API_URL.recentOrder);
 }
 
+export async function outletReportAPI(page) {
+  return waitForReportApi(page, route.API_URL.outletReportAPI);
+}
+
+export async function storeSalesCountAPI(page) {
+  return waitForReportApi(page, route.API_URL.storeSalesCountAPI);
+}
+
+export async function customerCountStoreReportAPI(page) {
+  return waitForReportApi(page, route.API_URL.customerCountStoreReportAPI);
+}
+
+export async function storeGrossProfitAPI(page) {
+  return waitForReportApi(page, route.API_URL.storeGrossProfitAPI);
+}
+
+export async function avgSaleValueReportAPI(page) {
+  return waitForReportApi(page, route.API_URL.avgSaleValueReportAPI);
+}
+
+export async function avgItemSaleReportAPI(page) {
+  return waitForReportApi(page, route.API_URL.avgItemSaleReportAPI);
+}
+
+export async function storeDiscountedReportAPI(page) {
+  return waitForReportApi(page, route.API_URL.storeDiscountedReportAPI);
+}
