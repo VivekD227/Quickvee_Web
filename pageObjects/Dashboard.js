@@ -126,8 +126,28 @@ class Dashboard {
     this.discountDollarAmount = page
       .getByRole("link", { name: /View Discounts Given \$ report/i })
       .getByText(/^\$/);
+
+    this.clickLocation = page.getByTestId('ExpandMoreIcon')
+    this.AllLocations = page.getByText("All Locations");
+    this.backBtn = page.getByText("Back");
+    this.doneBtn = page.getByText("Done");
   }
 
+  async locationClick() {
+    await this.clickLocation.click();
+  }
+
+  async doneBtnClick() {
+    await this.doneBtn.click();
+  }
+
+  async backBtnClick() {
+    await this.backBtn.click();
+  }
+
+  async AllLocationsClick() {
+    await this.AllLocations.click();
+  }
   async logoDisplayed() {
     await expect(this.quickveeLogo).toBeVisible();
   }
