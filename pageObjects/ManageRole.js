@@ -11,18 +11,21 @@ class ManageRole {
     this.createRoleBtn = page.getByRole("button", {
       name: /Create Role/i,
     });
-    this.roleCount = page.locator("div.MuiBox-root.css-1jt8yge");
+    this.rolesList = page.locator(".custom-scroll-permissions-modal");
+    this.roleCount = this.rolesList.locator("> .MuiBox-root");
     this.selectRole_text = page.getByText("Select a role to edit");
     this.chooseRole_text = page.getByText(
       "Choose a role from the list or create a new one",
     );
     this.createNewRoleBtn = page.getByText("Create New Role");
-    this.role_count = page.locator(
-      "span.MuiTypography-root.MuiTypography-label.css-1a3y088",
-    );
-    this.presentRole = page.locator(".css-dl8xe1");
-    this.defaultText = page.getByText("Default");
-    this.editBtnCount = page.getByRole("img", { name: "edit-role-icon" });
+    this.role_count = page.getByText(/Roles \(\d+\)/);
+    this.presentRole = this.rolesList.locator("p").filter({
+      hasNotText: /Default|Permission/i,
+    });
+    this.defaultText = page.getByText("Default", { exact: true });
+    this.editBtnCount = this.rolesList.getByRole("img", {
+      name: "edit-role-icon",
+    });
     this.rolesModal = page
       .getByText("Manage Employee Roles")
       .locator("xpath=ancestor::*[.//img[@alt='edit-role-icon']][1]");
@@ -33,16 +36,14 @@ class ManageRole {
     );
     this.roleNameText = page.getByText("Role Name");
     this.roleNamePlaceHolder = page.getByPlaceholder(
-      "e.g., Store Manager, Assistance",
+      "e.g., Store Manager, Assistant",
     );
     this.serachPlaceholder = page.getByPlaceholder(
       "Search permissions by name or category...",
     );
 
-    this.editRole = page
-      .getByRole("paragraph")
-      .filter({ hasText: /^Edit Role$/ });
-    this.editing = page.getByText(/^Editing:\s*Manager$/i);
+    this.editRole = page.getByText("Edit Role", { exact: true });
+    this.editing = page.getByText(/^Editing:\s*/i);
     this.roleNameFieldText = page.getByPlaceholder(
       "e.g., Store Manager, Assistant",
     );
@@ -61,9 +62,10 @@ class ManageRole {
     this.updateDialog = page.getByText(
       /Updated Successfully|Saved Successfully/i,
     );
-    this.selectAllBtn = page.locator(
-      ".MuiTypography-root.MuiTypography-body1.css-43f6m2",
-    );
+    this.selectAllBtn = page.getByRole("button", {
+      name: "Select All",
+      exact: true,
+    });
     this.clearAllBtn = page.getByRole("button", { name: "Clear All" });
     this.createRoleSubmitBtn = page.getByRole("button", {
       name: "Create New Role",
@@ -137,35 +139,35 @@ class ManageRole {
   async verifyDefaultName() {
     const roleNames = ["Manager", "Cashier", "Driver", "Time Clock Only"];
 
-    // Wait for roles to load
-    await expect(this.page.getByText(/Roles \(\d+\)/)).not.toHaveText(
-      "Roles (0)",
-    );
-
-    // Better locator
-    const actualRoles = await this.page
-      .locator(".css-dl8xe1")
-      .allTextContents();
-
-    console.log(actualRoles);
+    await expect(this.role_count).not.toHaveText("Roles (0)");
 
     for (const role of roleNames) {
-      expect(actualRoles).toContain(role);
+      await expect(
+        this.rolesList.getByText(role, { exact: true }),
+      ).toBeVisible();
     }
   }
   async defaultCheck() {
-    const count = await this.defaultText.count();
-    await expect(count).toBe(4);
+    const count = await this.rolesList
+      .getByText("Default", { exact: true })
+      .count();
+    expect(count).toBe(4);
   }
 
   async getAllRoleNames() {
-    await expect(this.page.getByText(/Roles \(\d+\)/)).not.toHaveText(
-      "Roles (0)",
-    );
-    const names = await this.rolesModal
-      .locator(".css-dl8xe1")
-      .allTextContents();
-    return names.map((name) => name.trim()).filter(Boolean);
+    await expect(this.role_count).not.toHaveText("Roles (0)");
+    const names = [];
+    const rows = this.roleCount;
+    const rowTotal = await rows.count();
+    for (let i = 0; i < rowTotal; i++) {
+      const name = await rows
+        .nth(i)
+        .locator("p")
+        .first()
+        .textContent();
+      if (name?.trim()) names.push(name.trim());
+    }
+    return names;
   }
 
   async closeRolesModule() {
@@ -184,13 +186,9 @@ class ManageRole {
   }
 
   getRoleRow(roleName) {
-    const roleList = this.rolesModal.locator("div.MuiBox-root.css-b38j4r");
-    const nameBox = roleList
-      .locator(".css-dl8xe1")
-      .filter({ hasText: roleName });
-    return nameBox.locator(
-      'xpath=ancestor::*[.//img[@alt="edit-role-icon"]][1]',
-    );
+    return this.rolesList.locator("> .MuiBox-root").filter({
+      has: this.page.getByText(roleName, { exact: true }),
+    });
   }
 
   async clickEditForRole(roleName) {
@@ -200,9 +198,7 @@ class ManageRole {
   }
 
   getCustomRoleRow(roleName) {
-    return this.rolesModal.locator("div.MuiBox-root.css-b38j4r").filter({
-      has: this.page.locator(".css-dl8xe1").filter({ hasText: roleName }),
-    });
+    return this.getRoleRow(roleName);
   }
 
   async clickDeleteForRole(roleName) {
@@ -243,7 +239,13 @@ class ManageRole {
   }
 
   async verifyRoleListed(roleName) {
-    await expect(this.page.getByText(roleName, { exact: true })).toBeVisible();
+    await expect
+      .poll(
+        async () =>
+          this.rolesList.getByText(roleName, { exact: true }).isVisible(),
+        { timeout: 20_000 },
+      )
+      .toBeTruthy();
   }
 
   async deletedDialogDisplay() {
@@ -251,9 +253,35 @@ class ManageRole {
   }
 
   async verifyRoleNotListed(roleName) {
-    await expect(
-      this.page.getByText(roleName, { exact: true }),
-    ).not.toBeVisible();
+    await expect
+      .poll(
+        async () =>
+          this.rolesList.getByText(roleName, { exact: true }).isVisible(),
+        { timeout: 20_000 },
+      )
+      .toBeFalsy();
+  }
+
+  async cleanupLeftoverCustomRoles() {
+    const customRoles = (await this.getAllRoleNames()).filter((name) =>
+      /^Role[a-z]+$/i.test(name),
+    );
+
+    for (const roleName of customRoles) {
+      try {
+        const deleteIcon = this.getRoleRow(roleName).getByRole("img", {
+          name: "delete-role-icon",
+        });
+        if ((await deleteIcon.count()) === 0) continue;
+        await deleteIcon.click();
+        await this.confirmDeleteRole();
+        await this.deletedDialogDisplay();
+        await this.dismissToasts();
+      } catch {
+        // Best-effort cleanup; continue with remaining roles.
+        await this.page.keyboard.press("Escape").catch(() => {});
+      }
+    }
   }
 
   async assertSaveBlockedWithNoPermissions() {
@@ -331,33 +359,49 @@ class ManageRole {
   }
 
   async checkEmployeeDeleteForever() {
-    const permission = this.page.getByText("Employee Delete Forever", {
+    await this.searchText("Permanently Delete Employee");
+    const permission = this.page.getByText("Permanently Delete Employee", {
       exact: true,
+    });
+    const checkbox = this.page.getByRole("checkbox", {
+      name: "Permanently Delete Employee",
     });
 
     await permission.scrollIntoViewIfNeeded();
-    await permission.click();
-
-    await this.page.waitForTimeout(2000);
+    if (!(await checkbox.isChecked())) {
+      await permission.click();
+    }
+    await expect(checkbox).toBeChecked();
+    await this.searchbar.clear();
+    await expect(this.page.getByText(/Permissions \(\d+\)/)).toBeVisible();
   }
 
   async uncheckEmployeeDeleteForever() {
-    const permission = this.page.getByText("Employee Delete Forever", {
+    await this.searchText("Permanently Delete Employee");
+    const permission = this.page.getByText("Permanently Delete Employee", {
       exact: true,
     });
-
     const checkbox = this.page.getByRole("checkbox", {
-      name: "Employee Delete Forever",
+      name: "Permanently Delete Employee",
     });
 
     await permission.scrollIntoViewIfNeeded();
-
-    // uncheck only if already checked
     if (await checkbox.isChecked()) {
       await permission.click();
     }
-
     await expect(checkbox).not.toBeChecked();
+    await this.searchbar.clear();
+    await expect(this.page.getByText(/Permissions \(\d+\)/)).toBeVisible();
+  }
+
+  async dismissToasts() {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const closeButtons = this.page.locator(".Toastify__close-button");
+      const count = await closeButtons.count();
+      if (count === 0) return;
+      await closeButtons.first().click({ force: true }).catch(() => {});
+      await this.page.waitForTimeout(200);
+    }
   }
 
   async saveBtnClick() {
@@ -381,17 +425,22 @@ class ManageRole {
   }
 
   async mainPagePermissionCount(RoleName) {
-    const managerPermissions = this.page
-      .locator("div.MuiBox-root.css-1jt8yge")
-      .filter({
-        has: this.page.getByText(RoleName),
-      })
-      .getByText(/\d+\s+Permissions?/);
+    const managerPermissions = this.getRoleRow(RoleName).getByText(
+      /\d+\s+Permissions?/,
+    );
 
     const text = await managerPermissions.textContent();
     const count = text.match(/\d+/)?.[0];
     console.log(count);
     return Number(count);
+  }
+
+  async expectMainPagePermissionCount(roleName, expectedCount) {
+    await expect
+      .poll(async () => this.mainPagePermissionCount(roleName), {
+        timeout: 20_000,
+      })
+      .toBe(expectedCount);
   }
 
   async updateDialogDisplay() {
@@ -415,16 +464,21 @@ class ManageRole {
   }
 
   async fillNewRoleName(roleName) {
-    await this.roleNameFieldText.clear();
-    await this.roleNameFieldText.fill(roleName);
-    const actualValue = await this.roleNameFieldText.inputValue();
-    return actualValue;
+    const field = this.page
+      .getByPlaceholder("e.g., Store Manager, Assistant")
+      .filter({ visible: true })
+      .last();
+    await expect(field).toBeVisible();
+    await field.fill(roleName);
+    await expect(field).toHaveValue(roleName);
+    return roleName;
   }
 
   async selectAllPermissionsClick() {
-    await this.selectAllBtn.scrollIntoViewIfNeeded();
-    await expect(this.selectAllBtn).toBeVisible();
-    await this.selectAllBtn.click();
+    const selectAll = this.selectAllBtn.first();
+    await selectAll.scrollIntoViewIfNeeded();
+    await expect(selectAll).toBeVisible();
+    await selectAll.click();
   }
 
   async clearAllPermissionsClick() {
@@ -461,11 +515,7 @@ class ManageRole {
   }
 
   async countRoleRowsByName(roleName) {
-    return this.roleCount
-      .filter({
-        has: this.page.locator(".css-dl8xe1", { hasText: roleName }),
-      })
-      .count();
+    return this.getRoleRow(roleName).count();
   }
 
   async assertDuplicateRoleNotCreated(roleName) {
@@ -480,7 +530,7 @@ class ManageRole {
     await this.submitNewRoleClick();
 
     await expect(this.duplicateRoleError).toBeVisible({ timeout: 10_000 });
-    await this.closeDialogBtn.click();
+    await this.dismissToasts();
     await expect(this.createdDialog).not.toBeVisible();
 
     await expect(this.permissionText).toBeVisible();

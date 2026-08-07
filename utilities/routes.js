@@ -1,4 +1,9 @@
-const { webBaseUrl, apiCiBaseUrl, apiNodeBaseUrl, reportBaseUrl } = require("./baseUrl");
+const {
+  webBaseUrl,
+  apiCiBaseUrl,
+  apiNodeBaseUrl,
+  reportBaseUrl,
+} = require("./baseUrl");
 
 const apiCi = (path) => `${apiCiBaseUrl}/${path}`;
 const apiNode = (path) => `${apiNodeBaseUrl}/${path}`;
@@ -21,11 +26,11 @@ module.exports = {
     chkMerchant: apiCi("LoginApiReact/chk_merchant"),
     preset_URL: apiNode("permission/get_permission_preset_by_id"),
     main_preset_URL: apiNode("permission/get_permission_preset"),
-    employeeList_URL: apiCi("Store_setting_react_api/employee_list"),
-    managerStore_URL: apiCi("Store_setting_react_api/getManagerStores"),
+    employeeList_URL: apiCi("Store_setting_react_api/employee_list_v2"),
     deleteEmployeeList_URL: apiCi(
       "Store_setting_react_api/deleted_employee_list",
     ),
+    managerStore_URL: apiCi("Store_setting_react_api/getManagerStores"),
     deleteEmployee_URL: apiCi("Store_setting_react_api/delete_employee"),
     addEmployee_URL: apiCi("Store_setting_react_api/addEdit_employee"),
     forverDeleteEmployee_URL: apiCi(
@@ -65,7 +70,9 @@ module.exports = {
     storeDiscountedReportAPI: reportAPI("api/reports/store_discounted_report"),
     salesByHour: apiCi("Sale_summary_api/sale_by_hour_new"),
     system_access: apiCi("api/SettingsReact_api/system_access"),
-    featureAnnouncement: apiCi("Feature_announcements_api/show_feature_announcements")
+    featureAnnouncement: apiCi(
+      "Feature_announcements_api/show_feature_announcements",
+    ),
   },
 
   //   QA_URL: {

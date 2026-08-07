@@ -496,7 +496,24 @@ class AddEmployee {
 
   async setEmpPinValue(value) {
     await this.setEmpPin.clear();
-    await this.setEmpPin.fill(value);
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes("UserController/check_emp_pin"),
+        { timeout: 10_000 },
+      ),
+      this.setEmpPin.fill(String(value)),
+    ]);
+
+    const body = await response.json();
+    // Taken PIN blocks submit (no addEdit_employee) — use a suggested free PIN.
+    if (body?.suggested_pins?.length) {
+      const suggested = String(body.suggested_pins[0]);
+      await this.modal
+        .getByRole("button", { name: suggested, exact: true })
+        .click();
+    }
     return this.setEmpPin.inputValue();
   }
 

@@ -17,13 +17,22 @@ function randomAlpha(length = 8) {
   ).join("");
 }
 
+function uniquePin(...exclude) {
+  const taken = new Set(exclude.map(String));
+  let pin;
+  do {
+    pin = String(1000 + Math.floor(Math.random() * 9000));
+  } while (taken.has(pin));
+  return pin;
+}
+
 function buildValidEmployeeData() {
   const uniqueSuffix = Date.now() + Math.floor(Math.random() * 1000);
   return {
     firstName: randomAlpha(),
     lastName: "Employee",
     email: `autoemp${uniqueSuffix}@test.com`,
-    pin: String(1000 + (uniqueSuffix % 9000)),
+    pin: uniquePin(),
     role: "Cashier",
     store: STORE_NAME,
     password: "Vivek@123",
@@ -394,12 +403,14 @@ test.describe("Add Employee Module", () => {
       const firstName = randomAlpha();
       const lastName = "DupAllowed";
       const baseSuffix = Date.now();
+      const firstPin = uniquePin();
+      const secondPin = uniquePin(firstPin);
 
       const firstEmployee = {
         firstName,
         lastName,
         email: `dupallow1${baseSuffix}@test.com`,
-        pin: String(1000 + (baseSuffix % 9000)),
+        pin: firstPin,
         role: "Cashier",
         store: STORE_NAME,
         password: addemployee.validPasswordSample,
@@ -414,7 +425,7 @@ test.describe("Add Employee Module", () => {
       const secondEmployee = {
         ...firstEmployee,
         email: `dupallow2${baseSuffix}@test.com`,
-        pin: String(2000 + (baseSuffix % 8000)),
+        pin: secondPin,
       };
 
       await addemployee.fillAllRequiredFields(secondEmployee);

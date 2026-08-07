@@ -384,7 +384,7 @@ class Dashboard {
     expect(managerStoreResponse.status()).toBe(200);
     expect(deleteEmployeeResponse.status()).toBe(200);
     const activeEmp = await employeeListResponse.json();
-    const activeEmployees = activeEmp.result.filter(
+    const activeEmployees = activeEmp.data.filter(
       (employee) => employee.is_deleted === "0",
     );
     const name = activeEmployees.map((employee) => employee.f_name);

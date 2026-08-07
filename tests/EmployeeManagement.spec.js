@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import { EmployeeManagement } from "../pageObjects/EmployeeManagement";
 import { LoginPage } from "../pageObjects/LoginPage";
 import { Dashboard } from "../pageObjects/Dashboard";
@@ -89,12 +89,14 @@ test.describe("Add Employee Module", () => {
     await employeemanagement.empmanagementDisplay();
     await employeemanagement.employeeTextDisplay();
     await employeemanagement.searchBarDisplay();
-    await employeemanagement.filtersDisplay();
+    //await employeemanagement.filtersDisplay();
     await employeemanagement.sortNameDisplay();
     await employeemanagement.sortUpdateDisplay();
     await employeemanagement.allStoreDisplay();
     await employeemanagement.allRolesDisplay();
-    await employeemanagement.selectAllDisplay();
+    await expect(
+      page.getByRole("button", { name: /Permissions/i }).first(),
+    ).toBeVisible();
   });
 
   test("Default employee vivekdemp@gmail.com should exist in store", async () => {

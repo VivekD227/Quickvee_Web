@@ -12,22 +12,28 @@ class EmployeeManagement {
     this.deleteemail;
     this.addEmployeeModal = new AddEmployee(page);
     this.dashboard = new Dashboard(page);
-    this.manage_role = page.getByText("Manage Roles");
-    this.addEmployee = page.getByText("Add Employee");
-    this.empmanagement = page.getByText("Employee Management");
+    this.manage_role = page
+      .getByRole("button")
+      .filter({ hasText: /Manage Roles/i });
+    this.addEmployee = page
+      .getByRole("button")
+      .filter({ hasText: /Add Employee/i });
+    this.empmanagement = page.getByText("Employee Management", { exact: true });
     this.employeeText = page.getByText(
       "Manage your team members and their store assignments",
     );
-    this.searchBar = page.getByPlaceholder("Search by name or email..");
-    this.filters = page.getByText("Filters");
-    this.sortName = page.getByText("Name");
-    this.sortUpdate = page.getByText("Updated");
-    this.allStore = page.getByText("All Stores");
-    this.allRoles = page.getByText("All Roles");
-    this.selectAll = page.getByText("Select all");
-    this.employeeCount = page.locator(
-      ".MuiGrid-root.MuiGrid-container.css-2b8xie",
-    );
+    this.searchBar = page.getByPlaceholder(/Search by name or email\.+/);
+    this.filters = page.getByText("Filters", { exact: true });
+    this.sortName = page.getByRole("button").filter({ hasText: /^Name$/ });
+    this.sortUpdate = page.getByRole("button").filter({ hasText: /^Updated$/ });
+    this.allStore = page.getByRole("button").filter({ hasText: /All Stores/i });
+    this.allRoles = page.getByRole("button").filter({ hasText: /All Roles/i });
+    // Card root changed in new Manage Employees UI (old css-2b8xie is gone).
+    // Permissions action is unique to employee cards in the new layout.
+    this.employeeCount = page
+      .locator(".MuiGrid-item.MuiGrid-grid-xs-true")
+      .filter({ has: page.getByRole("button", { name: /Permissions/i }) });
+    this.permissionsBtn = page.getByRole("button", { name: /Permissions/i });
     this.defaultStoreName = "Test Automation";
     this.deleteConfirmHeading = page.getByRole("heading", {
       name: "Delete Employee",
@@ -35,10 +41,10 @@ class EmployeeManagement {
     this.deleteConfirmText = page.getByText(/Are you sure you want to delete/i);
     this.deletedDialog = page.getByText(/Employee deleted successfully/i);
     this.cancelBtn = page.getByText("Cancel");
-    this.viewDeleted = page.getByText("View Deleted");
-    this.deleteEmployeeText = page.locator(
-      "p.MuiTypography-root.MuiTypography-body1.css-dxsnuc",
-    );
+    this.viewDeleted = page.getByRole("button", {
+      name: /View\s+deleted(?:\s+Employees)?(?:\s*\(\d+\))?/i,
+    }).first();
+    this.deleteEmployeeText = page.getByText(/Deleted Employees/i).first();
     this.permanentDeleteConfirmHeading = page.getByRole("heading", {
       name: /Delete Employee Forever|Permanently Delete Employee/i,
     });
@@ -83,7 +89,7 @@ class EmployeeManagement {
     expect(response.ok()).toBeTruthy();
     const deleteResponseBody = await response.json();
     expect(deleteResponseBody.status).toBeTruthy();
-    expect(this.deletedSuccessfulldialog).toBeVisible({ timeout: 15_000 });
+    await expect(this.deletedSuccessfulldialog).toBeVisible({ timeout: 15_000 });
     await this.deleteSearchFill(this.deleteemail);
     await this.verifyDeletedEmployeeNotExists(this.deleteemail);
     await this.clearSearchBtn.click();
@@ -167,6 +173,12 @@ class EmployeeManagement {
     const employeeCard = this.getEmployeeCard(email);
     await expect(employeeCard).toBeVisible();
     await employeeCard.getByRole("button", { name: /Delete/i }).click();
+  }
+
+  async clickPermissionsEmployee(email) {
+    const employeeCard = this.getEmployeeCard(email);
+    await expect(employeeCard).toBeVisible();
+    await employeeCard.getByRole("button", { name: /Permissions/i }).click();
   }
 
   async verifyDeleteConfirmationDialog() {
@@ -478,7 +490,8 @@ class EmployeeManagement {
   }
 
   async filtersDisplay() {
-    await expect(this.filters).toBeVisible();
+    // Filters control removed in the new Manage Employees UI.
+    await expect(this.filters).toHaveCount(0);
   }
 
   async sortNameDisplay() {
@@ -495,10 +508,6 @@ class EmployeeManagement {
 
   async allRolesDisplay() {
     await expect(this.allRoles).toBeVisible();
-  }
-
-  async selectAllDisplay() {
-    await expect(this.selectAll).toBeVisible();
   }
 
   async manageRoleVisible() {
@@ -538,10 +547,14 @@ class EmployeeManagement {
   }
 
   async getVisibleEmployeeCountFromFooter() {
-    const footer = this.page.getByText(/Showing \d+ of \d+ employees/i);
+    const footer = this.page.getByText(
+      /Showing (?:all )?(\d+)(?: of \d+)? employees/i,
+    );
     await expect(footer).toBeVisible();
     const footerText = await footer.textContent();
-    const match = footerText.match(/Showing (\d+) of \d+ employees/i);
+    const match = footerText.match(
+      /Showing (?:all )?(\d+)(?: of \d+)? employees/i,
+    );
     return match ? Number(match[1]) : 0;
   }
 
@@ -553,13 +566,23 @@ class EmployeeManagement {
   }
 
   async getemployeeCount() {
-    const footer = this.page.getByText(/Showing \d+ of \d+ employees/i);
+    const countLabel = this.page.getByText(/^\d+\s+employees?$/i);
+    if (await countLabel.isVisible().catch(() => false)) {
+      const text = await countLabel.textContent();
+      const match = text.match(/(\d+)/);
+      return match ? Number(match[1]) : 0;
+    }
+
+    const footer = this.page.getByText(
+      /Showing (?:all )?(\d+)(?: of \d+)? employees/i,
+    );
     await expect(footer).toBeVisible();
     const footerText = await footer.textContent();
+    const allMatch = footerText.match(/Showing all (\d+) employees/i);
+    if (allMatch) return Number(allMatch[1]);
     const totalMatch = footerText.match(/of (\d+) employees/i);
     const count = totalMatch ? Number(totalMatch[1]) : 0;
     console.log(count);
-
     return count;
   }
 
