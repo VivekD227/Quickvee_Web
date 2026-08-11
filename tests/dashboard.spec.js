@@ -145,7 +145,14 @@ test.describe("DashBoard Module", () => {
   test("Check UI", async () => {
     const storeLength = getStoreCount();
     console.log(storeLength);
-
+    if (storeLength >= 2) {
+      expect(await dashboard.switchStoreDisplay()).toBeTruthy();
+      console.log("Multiple Store");
+    }
+    else {
+      expect(await dashboard.switchStoreDisplay()).toBeFalsy();
+      console.log("Single Store");
+    }
     expect(storeResponse.status).toBeTruthy();
     expect(storeResponse.message).toBe("Record found Successfully.");
     expect(storeLength).toBeGreaterThan(0);

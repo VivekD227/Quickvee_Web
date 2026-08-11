@@ -37,6 +37,8 @@ class Dashboard {
 
     this.vendors = page.getByText("Vendors", { exact: true });
 
+    this.po = page.getByRole("link", { name: /Purchase Order/i });
+
     this.tags = page.getByText("Tags", { exact: true });
 
     // Dashboard page UI
@@ -131,6 +133,7 @@ class Dashboard {
     this.AllLocations = page.getByText("All Locations");
     this.backBtn = page.getByText("Back");
     this.doneBtn = page.getByText("Done");
+    this.switchStore = page.getByLabel('Switch store');
   }
 
   async locationClick() {
@@ -139,6 +142,10 @@ class Dashboard {
 
   async doneBtnClick() {
     await this.doneBtn.click();
+  }
+
+  async switchStoreDisplay() {
+    return await this.switchStore.isVisible();
   }
 
   async backBtnClick() {
@@ -493,6 +500,14 @@ class Dashboard {
     const tag_APIcount = Number(responseBody.total_count?.tag ?? 0);
     sessionDataStorage.set("tag_APIcount", tag_APIcount);
     console.log(`Tag API count (on navigation): ${tag_APIcount}`);
+  }
+
+  async poDisplay() {
+    await expect(this.po).toBeVisible();
+  }
+
+  async poClick() {
+    await this.po.click();
   }
 }
 
