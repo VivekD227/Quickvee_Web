@@ -56,8 +56,16 @@ test.describe("Purchase Order Module", () => {
   });
 
   test("Navigating to Purchase Order Page", async () => {
+    await purchaseOrder.verifyPageUrl();
+    await purchaseOrder.checkPOData();
+
     await purchaseOrder.poTextVisible();
     await purchaseOrder.newPOBtnVisible();
+    await purchaseOrder.verifyKPICardsVisible();
+    await purchaseOrder.verifySearchBarVisible();
+    await purchaseOrder.verifyStatusFilterTabsVisible();
+    await purchaseOrder.verifyAllVendorsFilterVisible();
+    await purchaseOrder.verifyListColumnHeadersVisible();
     await purchaseOrder.trackVisible();
     await purchaseOrder.closeDialogBtnClick();
     // Yellow-highlighted store dropdown next to New Purchase Order
@@ -68,87 +76,31 @@ test.describe("Purchase Order Module", () => {
     }
   });
 
-  test("Verify Purchase Order page URL", async () => {
-    await purchaseOrder.verifyPageUrl();
-  });
 
-  test("Verify Purchase Orders heading", async () => {
-    await purchaseOrder.poTextVisible();
-  });
 
-  test("Verify New Purchase Order button visible", async () => {
-    await purchaseOrder.newPOBtnVisible();
-  });
+  // test("Verify PO list rows render", async () => {
+  //   await purchaseOrder.verifyPOListRowsVisible();
+  //      await purchaseOrder.verifyShowingCountVisible();
 
-  test("Verify KPI cards visible", async () => {
-    await purchaseOrder.verifyKPICardsVisible();
-  });
+  // });
 
-  test("Verify search bar visible", async () => {
-    await purchaseOrder.verifySearchBarVisible();
-  });
-
-  test("Verify status filter tabs visible", async () => {
-    await purchaseOrder.verifyStatusFilterTabsVisible();
-  });
-
-  test("Verify All vendors filter visible", async () => {
-    await purchaseOrder.verifyAllVendorsFilterVisible();
-  });
-
-  test("Verify list column headers visible", async () => {
-    await purchaseOrder.verifyListColumnHeadersVisible();
-  });
-
-  test("Verify PO list rows render", async () => {
-    await purchaseOrder.verifyPOListRowsVisible();
-  });
-
-  test("Verify showing purchase orders count", async () => {
-    await purchaseOrder.verifyShowingCountVisible();
-  });
 
   test("Open Create Purchase Order form", async () => {
     await purchaseOrder.openCreatePOForm();
-  });
-
-  test("Verify Create PO page URL", async () => {
     await purchaseOrder.verifyCreatePageUrl();
-  });
-
-  test("Verify Create PO page title", async () => {
     await purchaseOrder.verifyCreatePageTitleVisible();
-  });
-
-  test("Verify Create PO header actions", async () => {
     await purchaseOrder.verifyCreateHeaderActionsVisible();
-  });
-
-  test("Verify Create PO form fields visible", async () => {
     await purchaseOrder.verifyCreateFormFieldsVisible();
-  });
-
-  test("Verify Order number is prefilled", async () => {
     await purchaseOrder.verifyOrderNumberPrefilled();
-  });
-
-  test("Verify product table headers visible", async () => {
     await purchaseOrder.verifyProductTableHeadersVisible();
-  });
-
-  test("Verify empty products state on Create form", async () => {
     await purchaseOrder.verifyEmptyProductsStateVisible();
-  });
-
-  test("Verify order totals on empty Create form", async () => {
     await purchaseOrder.verifyOrderTotalsVisible();
-  });
-
-  test("Save as draft and Create PO disabled when empty", async () => {
     await purchaseOrder.verifySaveAndCreateDisabledWhenEmpty();
+    await purchaseOrder.cancelCreateForm();
+
+
   });
 
-  test("Cancel Create PO returns to list", async () => {
-    await purchaseOrder.cancelCreateForm();
-  });
+
+
 });

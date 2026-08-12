@@ -1,4 +1,11 @@
 const { expect } = require("@playwright/test");
+import { getStores } from "../utilities/apiHelper/getStoresAPI.js";
+import {
+  generatePONumber,
+  purchaseOrderList,
+  purchaseOrderKPICount,
+  purchaseOrderListCount,
+} from "../utilities/apiHelper/purchaseOrderAPI.js"
 
 const PO_LIST_URL = /\/merchants\/purchase-order\/?$/;
 const PO_CREATE_URL = /\/merchants\/purchase-order\/add/;
@@ -24,7 +31,9 @@ const LIST_COLUMNS = ["PO #", "Vendor", "Status", "Items", "Expected", "Total"];
 class PurchaseOrder {
   constructor(page) {
     this.page = page;
-
+    this.genratePOResponse = generatePONumber(page);
+    this.getStoreResponse = getStores(page);
+    this.purchaseOrderListResponse = purchaseOrderList(page);
     this.poText = page.getByRole("heading", {
       name: "Purchase Orders",
       level: 1,
@@ -147,6 +156,24 @@ class PurchaseOrder {
 
   async newPOBtnClick() {
     await this.newPOBtn.click();
+    await this.genratePOResponse;
+    await this.getStoreResponse;
+  }
+
+  async checkPOData() {
+    const APIMessageData = await this.purchaseOrderListResponse;
+    console.log(APIMessageData.message);
+    if (APIMessageData.message === "No purchase orders found") {
+      await this.notverifyPOListRowsVisible();
+      await this.notverifyShowingCountVisible();
+      console.log("Not Visible");
+
+    }
+    else {
+      await purchaseOrder.verifyPOListRowsVisible();
+      await purchaseOrder.verifyShowingCountVisible();
+      console.log("Visible");
+    }
   }
 
   async trackVisible() {
@@ -215,8 +242,16 @@ class PurchaseOrder {
     expect(rowCount).toBeGreaterThan(0);
   }
 
+  async notverifyPOListRowsVisible() {
+    await expect(this.poListRows().first()).not.toBeVisible();
+  }
+
   async verifyShowingCountVisible() {
     await expect(this.showingCountText).toBeVisible();
+  }
+
+  async notverifyShowingCountVisible() {
+    await expect(this.showingCountText).not.toBeVisible();
   }
 
   async verifyListPageChrome() {

@@ -9,6 +9,7 @@ import {
   purchaseOrderKPICount,
   purchaseOrderListCount,
 } from "../utilities/apiHelper/purchaseOrderAPI";
+import { getStores } from "../utilities/apiHelper/getStoresAPI.js";
 
 class Dashboard {
   constructor(page) {
@@ -17,7 +18,7 @@ class Dashboard {
     this.purchaseorderList = purchaseOrderList(page);
     this.purchaseorderKPI = purchaseOrderKPICount(page);
     this.purchaseOrderListCount = purchaseOrderListCount(page);
-
+    this.getStoreAPI = getStores(page)
     this.store = page.locator(".admin_medium").first();
 
     this.profileBtn = page.locator("#basic-button:visible");
@@ -517,6 +518,7 @@ class Dashboard {
 
   async poClick() {
     await this.po.click();
+    const getStoreResponse = await this.getStoreAPI;
     const poListResponse = await this.purchaseorderList;
     const poKPIResponse = await this.purchaseorderKPI;
     const poCountResponse = await this.purchaseOrderListCount;
