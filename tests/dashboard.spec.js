@@ -148,8 +148,7 @@ test.describe("DashBoard Module", () => {
     if (storeLength >= 2) {
       expect(await dashboard.switchStoreDisplay()).toBeTruthy();
       console.log("Multiple Store");
-    }
-    else {
+    } else {
       expect(await dashboard.switchStoreDisplay()).toBeFalsy();
       console.log("Single Store");
     }
@@ -567,7 +566,6 @@ test.describe("DashBoard Module", () => {
   });
 
   test("Recent Order Activity", async () => {
-
     const recentOrderPromise = recentOrders(page);
     await dashboard.dayView.first().click();
     let recentOrderResponses = await recentOrderPromise;

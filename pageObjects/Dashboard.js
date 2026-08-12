@@ -4,10 +4,19 @@ import { APIClients } from "../api/clients/APIClients";
 import { employeeListPayload } from "../api/payloads/employeeListPayload";
 const sessionDataStorage = require("../utilities/helper/sessionDataStorage");
 import { merchants } from "../api/testData/merchants.json";
+import {
+  purchaseOrderList,
+  purchaseOrderKPICount,
+  purchaseOrderListCount,
+} from "../utilities/apiHelper/purchaseOrderAPI";
 
 class Dashboard {
   constructor(page) {
     this.page = page;
+
+    this.purchaseorderList = purchaseOrderList(page);
+    this.purchaseorderKPI = purchaseOrderKPICount(page);
+    this.purchaseOrderListCount = purchaseOrderListCount(page);
 
     this.store = page.locator(".admin_medium").first();
 
@@ -129,11 +138,11 @@ class Dashboard {
       .getByRole("link", { name: /View Discounts Given \$ report/i })
       .getByText(/^\$/);
 
-    this.clickLocation = page.getByTestId('ExpandMoreIcon')
+    this.clickLocation = page.getByTestId("ExpandMoreIcon");
     this.AllLocations = page.getByText("All Locations");
     this.backBtn = page.getByText("Back");
     this.doneBtn = page.getByText("Done");
-    this.switchStore = page.getByLabel('Switch store');
+    this.switchStore = page.getByLabel("Switch store");
   }
 
   async locationClick() {
@@ -508,6 +517,11 @@ class Dashboard {
 
   async poClick() {
     await this.po.click();
+    const poListResponse = await this.purchaseorderList;
+    const poKPIResponse = await this.purchaseorderKPI;
+    const poCountResponse = await this.purchaseOrderListCount;
+
+    //console.log(poCountResponse);
   }
 }
 

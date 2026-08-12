@@ -73,6 +73,15 @@ module.exports = {
     featureAnnouncement: apiCi(
       "Feature_announcements_api/show_feature_announcements",
     ),
+    purchaseOrderList: apiNode(
+      "new_purchase_orders_api/new_purchase_orders_list",
+    ),
+    purchaseOrderKPICount: apiNode(
+      "new_purchase_orders_api/new_purchase_orders_count",
+    ),
+    purchaseOrderListCount: apiNode(
+      "new_purchase_orders_api/new_purchase_orders_list_count",
+    ),
   },
 
   //   QA_URL: {
