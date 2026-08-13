@@ -62,8 +62,10 @@ test.describe("Purchase Order Module", () => {
     await purchaseOrder.poTextVisible();
     await purchaseOrder.newPOBtnVisible();
     await purchaseOrder.verifyKPICardsVisible();
+    await purchaseOrder.verifyKPIMatchesAPI();
     await purchaseOrder.verifySearchBarVisible();
     await purchaseOrder.verifyStatusFilterTabsVisible();
+    await purchaseOrder.verifyStatusCountsMatchAPI();
     await purchaseOrder.verifyAllVendorsFilterVisible();
     await purchaseOrder.verifyListColumnHeadersVisible();
     await purchaseOrder.trackVisible();

@@ -5,7 +5,8 @@ import {
   purchaseOrderList,
   purchaseOrderKPICount,
   purchaseOrderListCount,
-} from "../utilities/apiHelper/purchaseOrderAPI.js"
+} from "../utilities/apiHelper/purchaseOrderAPI.js";
+import sessionDataStorage from "../utilities/helper/sessionDataStorage";
 
 const PO_LIST_URL = /\/merchants\/purchase-order\/?$/;
 const PO_CREATE_URL = /\/merchants\/purchase-order\/add/;
@@ -66,7 +67,9 @@ class PurchaseOrder {
     this.showingCountText = page.getByText(/Showing\s+\d+\s+purchase orders?/i);
 
     // Create PO form
-    this.createPageTitle = page.getByText("New Purchase Order", { exact: true });
+    this.createPageTitle = page.getByText("New Purchase Order", {
+      exact: true,
+    });
     this.cancelBtn = page.getByRole("button", { name: "Cancel", exact: true });
     this.saveAsDraftBtn = page.getByRole("button", {
       name: "Save as draft",
@@ -162,16 +165,17 @@ class PurchaseOrder {
 
   async checkPOData() {
     const APIMessageData = await this.purchaseOrderListResponse;
-    console.log(APIMessageData.message);
-    if (APIMessageData.message === "No purchase orders found") {
+    //console.log(APIMessageData.message );
+    if (
+      APIMessageData.message === "No purchase orders found" &&
+      APIMessageData.data.length === 0
+    ) {
       await this.notverifyPOListRowsVisible();
       await this.notverifyShowingCountVisible();
       console.log("Not Visible");
-
-    }
-    else {
-      await purchaseOrder.verifyPOListRowsVisible();
-      await purchaseOrder.verifyShowingCountVisible();
+    } else {
+      await this.verifyPOListRowsVisible();
+      await this.verifyShowingCountVisible();
       console.log("Visible");
     }
   }
@@ -212,6 +216,60 @@ class PurchaseOrder {
     ).toBeVisible();
   }
 
+  toNumber(value) {
+    return Number(String(value ?? "").replace(/[$,]/g, "").trim());
+  }
+
+  async verifyKPIMatchesAPI() {
+    const kpi = sessionDataStorage.get("poKPI_data");
+    expect(kpi, "PO KPI API should be stored from poClick").toBeDefined();
+
+    const apiOpenValue = kpi.total_cost;
+    const apiUnitsIncoming = kpi.total_units;
+    const apiOverdue = kpi.due_po_count;
+    const apiAcross = kpi.open_po_count;
+    const keys = Object.keys(kpi).join(", ");
+
+    expect(apiOpenValue, `total_cost missing. Keys: ${keys}`).toBeDefined();
+    expect(
+      apiUnitsIncoming,
+      `total_units missing. Keys: ${keys}`,
+    ).toBeDefined();
+    expect(apiOverdue, `due_po_count missing. Keys: ${keys}`).toBeDefined();
+    expect(apiAcross, `open_po_count missing. Keys: ${keys}`).toBeDefined();
+
+    const uiOpenValue = (
+      await this.openValueLabel.locator("xpath=following-sibling::*[1]").innerText()
+    ).trim();
+    const uiUnitsIncoming = (
+      await this.unitsIncomingLabel
+        .locator("xpath=following-sibling::*[1]")
+        .innerText()
+    ).trim();
+    const uiOverdue = (
+      await this.overdueLabel.locator("xpath=following-sibling::*[1]").innerText()
+    ).trim();
+    const uiAcross = (
+      await this.page.getByText(/Across\s+\d+\s+purchase orders?/i).innerText()
+    )
+      .trim()
+      .match(/Across\s+(\d+)\s+purchase orders?/i)?.[1];
+
+    console.log(`PO KPI Open value UI=${uiOpenValue} API=${apiOpenValue}`);
+    console.log(
+      `PO KPI Units incoming UI=${uiUnitsIncoming} API=${apiUnitsIncoming}`,
+    );
+    console.log(`PO KPI Overdue UI=${uiOverdue} API=${apiOverdue}`);
+
+    expect(this.toNumber(uiOpenValue).toFixed(2)).toBe(
+      this.toNumber(apiOpenValue).toFixed(2),
+    );
+    expect(this.toNumber(uiUnitsIncoming)).toBe(this.toNumber(apiUnitsIncoming));
+    expect(this.toNumber(uiOverdue)).toBe(this.toNumber(apiOverdue));
+    console.log(`PO KPI Across UI=${uiAcross} API=${apiAcross}`);
+    expect(this.toNumber(uiAcross)).toBe(this.toNumber(apiAcross));
+  }
+
   async verifySearchBarVisible() {
     await expect(this.searchBar).toBeVisible();
     await expect(this.searchBar).toHaveAttribute(
@@ -223,6 +281,79 @@ class PurchaseOrder {
   async verifyStatusFilterTabsVisible() {
     for (const status of STATUS_FILTERS) {
       await expect(this.statusFilterTab(status)).toBeVisible();
+    }
+  }
+
+  getApiStatusCount(data, statusName) {
+    const lower = statusName.toLowerCase();
+    const aliases = [
+      `${lower}_po_count`,
+      lower,
+      `${lower}_count`,
+      statusName,
+      `${statusName}_count`,
+    ];
+    if (lower === "cancelled") {
+      aliases.unshift("void_po_count", "canceled_po_count");
+    }
+
+    const counts =
+      data?.total_count && typeof data.total_count === "object"
+        ? data.total_count
+        : data;
+
+    for (const key of aliases) {
+      if (
+        counts[key] != null &&
+        counts[key] !== "" &&
+        typeof counts[key] !== "object"
+      ) {
+        return counts[key];
+      }
+    }
+
+    const lowerMap = Object.fromEntries(
+      Object.entries(counts).map(([key, value]) => [
+        String(key).toLowerCase(),
+        value,
+      ]),
+    );
+    for (const key of aliases) {
+      const value = lowerMap[key.toLowerCase()];
+      if (value != null && value !== "" && typeof value !== "object") {
+        return value;
+      }
+    }
+    return undefined;
+  }
+
+  async getStatusTabCount(statusName) {
+    const tab = this.statusFilterTab(statusName);
+    await expect(tab).toBeVisible();
+    const text = ((await tab.innerText()) || "").trim();
+    const count = text.match(/(\d+)\s*$/);
+    expect(count, `${statusName} tab count not found in: ${text}`).toBeTruthy();
+    return this.toNumber(count[1]);
+  }
+
+  async verifyStatusCountsMatchAPI() {
+    const countData = sessionDataStorage.get("poListCount_data");
+    expect(
+      countData,
+      "PO list count API should be stored from poClick",
+    ).toBeDefined();
+    const keys = Object.keys(countData).join(", ");
+
+    for (const status of STATUS_FILTERS) {
+      const apiCount = this.getApiStatusCount(countData, status);
+      expect(
+        apiCount,
+        `${status} missing in list count API. Keys: ${keys}`,
+      ).toBeDefined();
+
+      const uiCount = await this.getStatusTabCount(status);
+      console.log(`PO status ${status} UI=${uiCount} API=${apiCount}`);
+      expect(uiCount).toBe(this.toNumber(apiCount));
     }
   }
 

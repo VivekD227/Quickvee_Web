@@ -523,7 +523,33 @@ class Dashboard {
     const poKPIResponse = await this.purchaseorderKPI;
     const poCountResponse = await this.purchaseOrderListCount;
 
-    //console.log(poCountResponse);
+    sessionDataStorage.set("poKPI", poKPIResponse);
+    const kpiData =
+      poKPIResponse?.data &&
+      typeof poKPIResponse.data === "object" &&
+      !Array.isArray(poKPIResponse.data)
+        ? poKPIResponse.data
+        : poKPIResponse;
+    sessionDataStorage.set("poKPI_data", kpiData);
+    for (const [key, value] of Object.entries(kpiData || {})) {
+      sessionDataStorage.set(`poKPI_${key}`, value);
+    }
+
+    sessionDataStorage.set("poListCount", poCountResponse);
+    const listCountData =
+      poCountResponse?.total_count &&
+      typeof poCountResponse.total_count === "object" &&
+      !Array.isArray(poCountResponse.total_count)
+        ? poCountResponse.total_count
+        : poCountResponse?.data &&
+            typeof poCountResponse.data === "object" &&
+            !Array.isArray(poCountResponse.data)
+          ? poCountResponse.data
+          : poCountResponse;
+    sessionDataStorage.set("poListCount_data", listCountData);
+    for (const [key, value] of Object.entries(listCountData || {})) {
+      sessionDataStorage.set(`poListCount_${key}`, value);
+    }
   }
 }
 
