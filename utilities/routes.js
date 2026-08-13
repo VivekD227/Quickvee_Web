@@ -82,7 +82,8 @@ module.exports = {
     purchaseOrderListCount: apiNode(
       "new_purchase_orders_api/new_purchase_orders_list_count",
     ),
-    generatePONumberAPI: apiNode("new_purchase_orders_api/generate_po_number")
+    generatePONumberAPI: apiNode("new_purchase_orders_api/generate_po_number"),
+    poVendorAPI: apiNode("new_purchase_orders_api/new_purchase_orders_vendor_list")
   },
 
   //   QA_URL: {

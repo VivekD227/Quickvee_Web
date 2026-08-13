@@ -79,14 +79,6 @@ test.describe("Purchase Order Module", () => {
   });
 
 
-
-  // test("Verify PO list rows render", async () => {
-  //   await purchaseOrder.verifyPOListRowsVisible();
-  //      await purchaseOrder.verifyShowingCountVisible();
-
-  // });
-
-
   test("Open Create Purchase Order form", async () => {
     await purchaseOrder.openCreatePOForm();
     await purchaseOrder.verifyCreatePageUrl();
@@ -99,8 +91,11 @@ test.describe("Purchase Order Module", () => {
     await purchaseOrder.verifyOrderTotalsVisible();
     await purchaseOrder.verifySaveAndCreateDisabledWhenEmpty();
     await purchaseOrder.cancelCreateForm();
+  });
 
-
+  test("Validation empty submit", async () => {
+    await purchaseOrder.openCreatePOForm();
+    await purchaseOrder.verifySaveAndCreateDisabledWhenEmpty();
   });
 
 

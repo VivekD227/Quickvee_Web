@@ -5,6 +5,7 @@ import {
   purchaseOrderList,
   purchaseOrderKPICount,
   purchaseOrderListCount,
+  poVendorAPIResponse,
 } from "../utilities/apiHelper/purchaseOrderAPI.js";
 import sessionDataStorage from "../utilities/helper/sessionDataStorage";
 
@@ -35,6 +36,7 @@ class PurchaseOrder {
     this.genratePOResponse = generatePONumber(page);
     this.getStoreResponse = getStores(page);
     this.purchaseOrderListResponse = purchaseOrderList(page);
+    this.poVendorAPI = poVendorAPIResponse(page);
     this.poText = page.getByRole("heading", {
       name: "Purchase Orders",
       level: 1,
@@ -436,6 +438,11 @@ class PurchaseOrder {
     await expect(poInput).toBeVisible();
     const value = await poInput.inputValue();
     expect(value).toMatch(/^PO/i);
+    const generateNumberResponse = await this.genratePOResponse;
+    const number =
+      generateNumberResponse?.po_number;
+    console.log(number);
+    expect(value).toBe(number);
   }
 
   async verifyProductTableHeadersVisible() {

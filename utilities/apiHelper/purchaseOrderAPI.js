@@ -39,3 +39,7 @@ export async function purchaseOrderListCount(page) {
 export async function generatePONumber(page) {
   return waitResponse(page, route.API_URL.generatePONumberAPI);
 }
+
+export async function poVendorAPIResponse(page) {
+  return waitResponse(page, route.API_URL.poVendorAPI);
+}

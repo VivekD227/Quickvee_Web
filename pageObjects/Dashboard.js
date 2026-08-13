@@ -8,6 +8,7 @@ import {
   purchaseOrderList,
   purchaseOrderKPICount,
   purchaseOrderListCount,
+  poVendorAPIResponse
 } from "../utilities/apiHelper/purchaseOrderAPI";
 import { getStores } from "../utilities/apiHelper/getStoresAPI.js";
 
@@ -18,6 +19,7 @@ class Dashboard {
     this.purchaseorderList = purchaseOrderList(page);
     this.purchaseorderKPI = purchaseOrderKPICount(page);
     this.purchaseOrderListCount = purchaseOrderListCount(page);
+    this.poVendorAPI = poVendorAPIResponse(page);
     this.getStoreAPI = getStores(page)
     this.store = page.locator(".admin_medium").first();
 
@@ -522,12 +524,14 @@ class Dashboard {
     const poListResponse = await this.purchaseorderList;
     const poKPIResponse = await this.purchaseorderKPI;
     const poCountResponse = await this.purchaseOrderListCount;
+    const poVendorResponse = await this.poVendorAPI;
+    // console.log(poVendorResponse);
 
     sessionDataStorage.set("poKPI", poKPIResponse);
     const kpiData =
       poKPIResponse?.data &&
-      typeof poKPIResponse.data === "object" &&
-      !Array.isArray(poKPIResponse.data)
+        typeof poKPIResponse.data === "object" &&
+        !Array.isArray(poKPIResponse.data)
         ? poKPIResponse.data
         : poKPIResponse;
     sessionDataStorage.set("poKPI_data", kpiData);
@@ -538,12 +542,12 @@ class Dashboard {
     sessionDataStorage.set("poListCount", poCountResponse);
     const listCountData =
       poCountResponse?.total_count &&
-      typeof poCountResponse.total_count === "object" &&
-      !Array.isArray(poCountResponse.total_count)
+        typeof poCountResponse.total_count === "object" &&
+        !Array.isArray(poCountResponse.total_count)
         ? poCountResponse.total_count
         : poCountResponse?.data &&
-            typeof poCountResponse.data === "object" &&
-            !Array.isArray(poCountResponse.data)
+          typeof poCountResponse.data === "object" &&
+          !Array.isArray(poCountResponse.data)
           ? poCountResponse.data
           : poCountResponse;
     sessionDataStorage.set("poListCount_data", listCountData);
