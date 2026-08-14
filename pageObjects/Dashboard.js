@@ -15,12 +15,6 @@ import { getStores } from "../utilities/apiHelper/getStoresAPI.js";
 class Dashboard {
   constructor(page) {
     this.page = page;
-
-    this.purchaseorderList = purchaseOrderList(page);
-    this.purchaseorderKPI = purchaseOrderKPICount(page);
-    this.purchaseOrderListCount = purchaseOrderListCount(page);
-    this.poVendorAPI = poVendorAPIResponse(page);
-    this.getStoreAPI = getStores(page)
     this.store = page.locator(".admin_medium").first();
 
     this.profileBtn = page.locator("#basic-button:visible");
@@ -519,13 +513,20 @@ class Dashboard {
   }
 
   async poClick() {
+    const getStoreAPI = getStores(this.page);
+    const poListWaiter = purchaseOrderList(this.page);
+    const poKPIWaiter = purchaseOrderKPICount(this.page);
+    const poCountWaiter = purchaseOrderListCount(this.page);
+    const poVendorWaiter = poVendorAPIResponse(this.page);
+
     await this.po.click();
-    const getStoreResponse = await this.getStoreAPI;
-    const poListResponse = await this.purchaseorderList;
-    const poKPIResponse = await this.purchaseorderKPI;
-    const poCountResponse = await this.purchaseOrderListCount;
-    const poVendorResponse = await this.poVendorAPI;
-    // console.log(poVendorResponse);
+    await getStoreAPI;
+    const poListResponse = await poListWaiter;
+    const poKPIResponse = await poKPIWaiter;
+    const poCountResponse = await poCountWaiter;
+    const poVendorResponse = await poVendorWaiter;
+    sessionDataStorage.set("poVendorList", poVendorResponse);
+    sessionDataStorage.set("poVendorList_data", poVendorResponse?.data);
 
     sessionDataStorage.set("poKPI", poKPIResponse);
     const kpiData =

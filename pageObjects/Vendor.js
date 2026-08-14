@@ -420,6 +420,14 @@ class Vendor {
     await this.verifyVendorListedAtTop(vendorName);
   }
 
+  async createVendorAndReturnName(phone = "5551234567") {
+    const vendorName = this.generateUniqueVendorName();
+    await this.createVendorWithRequiredFieldsOnly(vendorName, phone);
+    sessionDataStorage.set("createdPOVendorName", vendorName);
+    console.log(`Created vendor: ${vendorName}`);
+    return vendorName;
+  }
+
   async createVendor({
     vendorName,
     phone = "5551234567",

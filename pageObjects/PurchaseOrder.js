@@ -33,7 +33,6 @@ const LIST_COLUMNS = ["PO #", "Vendor", "Status", "Items", "Expected", "Total"];
 class PurchaseOrder {
   constructor(page) {
     this.page = page;
-    this.genratePOResponse = generatePONumber(page);
     this.getStoreResponse = getStores(page);
     this.purchaseOrderListResponse = purchaseOrderList(page);
     this.poVendorAPI = poVendorAPIResponse(page);
@@ -98,7 +97,16 @@ class PurchaseOrder {
       "Enter a Supplier Invoice Number",
     );
     this.noteInput = page.getByPlaceholder("Enter a note for this order");
-    this.noVendorBtn = page.getByRole("button", { name: /No Vendor/i });
+    this.noVendorBtn = page.getByRole("button", {
+      name: "No Vendor",
+      exact: true,
+    });
+    this.supplierVendorSearch = page.getByRole("textbox", {
+      name: "Search vendors",
+    });
+    this.noSupplierVendorsMessage = page.getByText(
+      /No vendors match|No vendors found|No results/i,
+    );
     this.addProductSearchBtn = page.getByRole("button", {
       name: /Search or scan to add a product/i,
     });
@@ -160,9 +168,11 @@ class PurchaseOrder {
   }
 
   async newPOBtnClick() {
+    if (!this.genratePOResponse) {
+      this.genratePOResponse = generatePONumber(this.page);
+    }
     await this.newPOBtn.click();
     await this.genratePOResponse;
-    await this.getStoreResponse;
   }
 
   async checkPOData() {
@@ -478,6 +488,115 @@ class PurchaseOrder {
     await this.cancelBtn.click();
     await expect(this.page).toHaveURL(PO_LIST_URL);
     await expect(this.poText).toBeVisible();
+  }
+
+  escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  supplierVendorOption(vendorName) {
+    return this.page.getByRole("button", {
+      name: new RegExp(
+        `^${this.escapeRegExp(vendorName)}[\\s\\S]*products`,
+        "i",
+      ),
+    });
+  }
+
+  async openSupplierDropdown() {
+    if (await this.supplierVendorSearch.isVisible().catch(() => false)) {
+      return;
+    }
+    await this.noVendorBtn.click();
+    await expect(this.supplierVendorSearch).toBeVisible({ timeout: 10_000 });
+  }
+
+  async verifyVendorInSupplierList(vendorName) {
+    const apiVendors = sessionDataStorage.get("poVendorList_data") || [];
+    const apiNames = apiVendors.map((vendor) => vendor.vendor_name);
+    expect(
+      apiNames,
+      `PO vendor API should include ${vendorName}. Got: ${apiNames.join(", ")}`,
+    ).toContain(vendorName);
+
+    await this.openSupplierDropdown();
+    const option = this.supplierVendorOption(vendorName);
+    await option.scrollIntoViewIfNeeded().catch(() => {});
+    await expect(option).toBeVisible({ timeout: 15_000 });
+  }
+
+  async searchSupplierVendor(vendorName) {
+    await this.openSupplierDropdown();
+    const searchPromise = poVendorAPIResponse(this.page);
+    await this.supplierVendorSearch.fill(vendorName);
+    const searchResponse = await searchPromise;
+    sessionDataStorage.set("poVendorSearchList", searchResponse);
+    sessionDataStorage.set("poVendorSearchList_data", searchResponse?.data);
+    return searchResponse;
+  }
+
+  async verifyVendorInSupplierSearchResults(vendorName) {
+    const searchVendors =
+      sessionDataStorage.get("poVendorSearchList_data") || [];
+    const apiNames = searchVendors.map((vendor) => vendor.vendor_name);
+    expect(
+      apiNames,
+      `PO vendor search API should include ${vendorName}. Got: ${apiNames.join(", ")}`,
+    ).toContain(vendorName);
+
+    await expect(this.supplierVendorOption(vendorName)).toBeVisible({
+      timeout: 15_000,
+    });
+
+    for (const name of apiNames) {
+      expect(name.toLowerCase()).toContain(vendorName.toLowerCase());
+    }
+  }
+
+  async verifySupplierVendorSearchNoResults() {
+    const searchResponse = sessionDataStorage.get("poVendorSearchList") || {};
+    const searchVendors = Array.isArray(searchResponse.data)
+      ? searchResponse.data
+      : [];
+    expect(
+      searchVendors.length,
+      `PO vendor search API should return no vendors. Message: ${searchResponse.message}`,
+    ).toBe(0);
+
+    await expect(
+      this.page.getByRole("button", { name: /products/i }),
+    ).toHaveCount(0);
+    await expect(this.noSupplierVendorsMessage).toBeVisible({
+      timeout: 15_000,
+    });
+  }
+
+  async searchSupplierVendorWithNoResults(
+    searchText = `ZZZNoVendorMatch${Date.now()}`,
+  ) {
+    await this.searchSupplierVendor(searchText);
+    await this.verifySupplierVendorSearchNoResults();
+  }
+
+  async selectSupplierVendor(vendorName) {
+    await this.openSupplierDropdown();
+    const option = this.supplierVendorOption(vendorName);
+    await expect(option).toBeVisible({ timeout: 15_000 });
+    await option.click();
+    await expect(this.supplierVendorSearch).toBeHidden({ timeout: 10_000 });
+    await expect(this.noVendorBtn).toBeHidden();
+    await expect(
+      this.page
+        .getByRole("button", {
+          name: new RegExp(this.escapeRegExp(vendorName), "i"),
+        })
+        .first(),
+    ).toBeVisible();
+  }
+
+  async verifySaveAndCreateDisabledAfterVendorSelect(vendorName) {
+    await this.selectSupplierVendor(vendorName);
+    await this.verifySaveAndCreateDisabledWhenEmpty();
   }
 }
 
