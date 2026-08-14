@@ -73,6 +73,15 @@ module.exports = {
     featureAnnouncement: apiCi(
       "Feature_announcements_api/show_feature_announcements",
     ),
+    merchantStoreAndCategory: apiCi(
+      "FindstoreReact/merchant_store_and_category",
+    ),
+    activeBogoList: apiCi("Bogoapi/active_bogo_list"),
+    mixMatchPricingList: apiCi(
+      "Mix_match_pricing_api/mix_match_pricing_list",
+    ),
+    getStateList: apiCi("FindstoreReact/getstatelist"),
+    merchantProducts: "Product_api_react/merchant-products",
   },
 
   //   QA_URL: {

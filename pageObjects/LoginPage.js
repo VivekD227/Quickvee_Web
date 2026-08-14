@@ -123,7 +123,10 @@ class LoginPage {
 
     const url = route.API_URL.login;
     const responseAPI = await apiClients.post(url, payload);
-    return responseAPI;
+    expect(responseAPI.ok()).toBeTruthy();
+    expect(responseAPI.status()).toBe(200);
+    const responseBodyAPI = await responseAPI.json();
+    return responseBodyAPI;
   }
 }
 

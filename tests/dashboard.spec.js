@@ -4,6 +4,7 @@ import { Dashboard } from "../pageObjects/Dashboard";
 import merchants from "../api/testData/merchants.json";
 import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
 import { getStores } from "../utilities/apiHelper/getStoresAPI";
+import sessionDataStorage from "../utilities/helper/sessionDataStorage";
 import {
   revenueAPI,
   totalTransaction,
@@ -23,6 +24,13 @@ import {
   avgItemSaleReportAPI,
   storeDiscountedReportAPI,
 } from "../utilities/apiHelper/dashboardAPI";
+import {
+  merchantStoreAndCategoryAPI,
+  activeBogoListAPI,
+  mixMatchPricingListAPI,
+  getStateListAPI,
+  merchantProductsAPI,
+} from "../utilities/apiHelper/onlineOrderingAPI";
 
 function getDate() {
   return new Date().toISOString().split("T")[0];
@@ -106,7 +114,10 @@ test.describe("DashBoard Module", () => {
       const discountPercentPromise = discountPercentAPI(page);
 
       await loginpage.login(sName, uName, pwd);
-
+      const loginData = await loginpage.createSessionAPIMerchant();
+      const merchantiD = loginData.data.merchant_id;
+      console.log(merchantiD);
+      sessionDataStorage.set("merchantId", merchantiD);
       [
         storeResponse,
         revenueResponses,
@@ -151,6 +162,13 @@ test.describe("DashBoard Module", () => {
     expect(storeLength).toBeGreaterThan(0);
 
     await dashboard.verifyDashboardUI(storeResponse);
+  });
+
+  test("Store Day dashboard data", async () => {
+    const dayData = await dashboard.storeDayDashboardData();
+    expect(dayData).toBeDefined();
+    expect(sessionDataStorage.get("dayDashboardData")).toEqual(dayData);
+    console.log("Merchant ID:", sessionDataStorage.get("merchantId"));
   });
 
   test("Checking Day filter Dashboard value", async () => {
@@ -560,7 +578,6 @@ test.describe("DashBoard Module", () => {
   });
 
   test("Recent Order Activity", async () => {
-
     const recentOrderPromise = recentOrders(page);
     await dashboard.dayView.first().click();
     let recentOrderResponses = await recentOrderPromise;
@@ -768,5 +785,31 @@ test.describe("DashBoard Module", () => {
     expect(normalizeMetric(UIDiscountAmount)).toBe(
       normalizeMetric(APIDiscountAmount),
     );
+  });
+
+  test("View Online Store APIs return 200", async () => {
+    const popupPromise = page.waitForEvent("popup");
+    await dashboard.viewStore.click();
+    const storePage = await popupPromise;
+
+    const [
+      storeAndCategory,
+      bogoList,
+      mixMatch,
+      stateList,
+      products,
+    ] = await Promise.all([
+      merchantStoreAndCategoryAPI(storePage),
+      activeBogoListAPI(storePage),
+      mixMatchPricingListAPI(storePage),
+      getStateListAPI(storePage),
+      merchantProductsAPI(storePage),
+    ]);
+
+    expect(storeAndCategory.status).toBe(200);
+    expect(bogoList).toBeDefined();
+    expect(mixMatch).toBeDefined();
+    expect(stateList).toBeDefined();
+    expect(products).toBeDefined();
   });
 });

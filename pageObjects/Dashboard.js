@@ -127,7 +127,7 @@ class Dashboard {
       .getByRole("link", { name: /View Discounts Given \$ report/i })
       .getByText(/^\$/);
 
-    this.clickLocation = page.getByTestId('ExpandMoreIcon')
+    this.clickLocation = page.getByTestId("ExpandMoreIcon");
     this.AllLocations = page.getByText("All Locations");
     this.backBtn = page.getByText("Back");
     this.doneBtn = page.getByText("Done");
@@ -158,6 +158,15 @@ class Dashboard {
 
   async viewStoreText(text) {
     await expect(this.viewStore).toHaveText(text);
+  }
+
+  async viewStoreClick() {
+    const popupPromise = this.page.waitForEvent("popup");
+    await this.viewStore.click();
+    const storePage = await popupPromise;
+    await storePage.waitForLoadState("domcontentloaded");
+    await storePage.waitForURL(/\/merchant\//);
+    return storePage;
   }
 
   async verifyLocationsDisplay(storeResponse) {
@@ -310,6 +319,29 @@ class Dashboard {
     const discountText = text.replace(/[$,]/g, "").trim();
     console.log(discountText);
     return discountText;
+  }
+
+  /** Reads Day KPI tiles only — Top Products and Recent Orders are excluded. */
+  async getDayDashboardData() {
+    await expect(this.revenueAmount.first()).toBeVisible();
+    return {
+      revenue: await this.UIRevenue(),
+      totalTransactions: await this.UITransaction(),
+      uniqueCustomers: await this.UIUniqueCustomers(),
+      profit: await this.UIProfit(),
+      avgOrderValue: await this.UIAvgOrderValue(),
+      itemsPerTransaction: await this.UIItemsPerTransaction(),
+      discountPercent: await this.UIDiscountPercent(),
+      discountAmount: await this.UIDiscountAmount(),
+    };
+  }
+
+  async storeDayDashboardData() {
+    await expect(this.dayViewLabel).toBeVisible();
+    const dayData = await this.getDayDashboardData();
+    sessionDataStorage.set("dayDashboardData", dayData);
+    console.log("Stored Day dashboard data:", dayData);
+    return dayData;
   }
 
   async UIRecentOrderIds() {
