@@ -82,6 +82,9 @@ module.exports = {
     ),
     getStateList: apiCi("FindstoreReact/getstatelist"),
     merchantProducts: "Product_api_react/merchant-products",
+    customerLogin: "CustomerLoginReact/login_new",
+    getProductById: "FindstoreReact/getProductById",
+    buyItAgain: "OnlineStoreReactNewUI/buyItAgain",
   },
 
   //   QA_URL: {
@@ -97,5 +100,6 @@ module.exports = {
     login: page("/merchants/login"),
     dashboard: page("/merchants/dashboard"),
     forgot_password: page("/merchants/forgot-password"),
+    customerLogin: page("/customer-login"),
   },
 };

@@ -18,5 +18,13 @@
     "storename": "chain",
     "otp": ""
   },
-  "default_Emp_Email": "vivekdemp@gmail.com"
+  "default_Emp_Email": "vivekdemp@gmail.com",
+  "customerLogin": {
+    "username": "sagarkolekar@gmail.com",
+    "password": "Sagar@123"
+  },
+  "incorrect_Customer_Login": {
+    "username": "sagarkolekar@gmail.com",
+    "password": "WrongPass@123"
+  }
 }

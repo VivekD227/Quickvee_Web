@@ -45,20 +45,29 @@ test.describe("Online Ordering Module", () => {
     await context?.close();
   });
 
-  test("Open View Online Store in new tab", async () => {
+  async function openOnlineStore() {
     const popupPromise = page.waitForEvent("popup");
     await dashboard.viewStore.click();
     onlineStorePage = await popupPromise;
     const storeApis = await waitForStorefrontApis(onlineStorePage);
     sessionDataStorage.set("storefrontApis", storeApis);
+    const storeData = OnlineOrdering.getStoreData(storeApis.storeAndCategory);
+    sessionDataStorage.set("storeData", storeData);
+    sessionDataStorage.set(
+      "storeCategories",
+      OnlineOrdering.getCategories(storeApis.storeAndCategory),
+    );
+    onlineOrdering = new OnlineOrdering(onlineStorePage);
+    return storeApis;
+  }
+
+  test("Open View Online Store in new tab", async () => {
+    const storeApis = await openOnlineStore();
     expect(storeApis.storeAndCategory).toBeDefined();
     expect(storeApis.storeAndCategory.status).toBe(200);
 
-    const storeData = OnlineOrdering.getStoreData(storeApis.storeAndCategory);
+    const storeData = sessionDataStorage.get("storeData");
     expect(storeData, "result.store_data should exist").toBeTruthy();
-    sessionDataStorage.set("storeData", storeData);
-    const categories = OnlineOrdering.getCategories(storeApis.storeAndCategory);
-    sessionDataStorage.set("storeCategories", categories);
     console.log("store_data:", {
       store_name: storeData.store_name,
       is_pickup: storeData.is_pickup,
@@ -70,10 +79,11 @@ test.describe("Online Ordering Module", () => {
     expect(storeApis.stateList).toBeDefined();
     expect(storeApis.products).toBeDefined();
 
-    onlineOrdering = new OnlineOrdering(onlineStorePage);
     const storeInfo = await onlineOrdering.verifyStoreUrl();
     expect(storeInfo.merchantId).toBe(sessionDataStorage.get("merchantId"));
-    expect(onlineStorePage.url()).toContain(`/merchant/${storeInfo.merchantId}`);
+    expect(onlineStorePage.url()).toContain(
+      `/merchant/${storeInfo.merchantId}`,
+    );
   });
 
   test("Age verification popup is visible with all text", async () => {
@@ -179,5 +189,48 @@ test.describe("Online Ordering Module", () => {
     await onlineOrdering.selectOrderMethod(method);
     await onlineOrdering.reloadStorefront();
     await onlineOrdering.verifyOrderMethod(method);
+  });
+
+  test("Empty cart then product list matches API", async () => {
+    await onlineOrdering.verifyEmptyCartUI();
+    await onlineOrdering.clickShopNowFromCart();
+    await onlineOrdering.verifyProductListFromApi(
+      sessionDataStorage.get("storefrontApis")?.products,
+    );
+  });
+
+  test("Open first product, change qty, and add to cart", async () => {
+    await onlineOrdering.openFirstProduct();
+    await onlineOrdering.verifyQty(1);
+    await onlineOrdering.increaseQty();
+    await onlineOrdering.verifyQty(2);
+    await onlineOrdering.decreaseQty();
+    await onlineOrdering.verifyQty(1);
+    await onlineOrdering.addProductToCartFromPdp();
+  });
+
+  test("Guest Buy it Again shows login card; after login API and buy work", async () => {
+    test.setTimeout(90_000);
+    if (!onlineOrdering) {
+      await openOnlineStore();
+    }
+    // await onlineStorePage.bringToFront();
+    // await onlineOrdering.ensureAgeConfirmed();
+    await onlineOrdering.verifyGuestLogInVisible();
+    await onlineOrdering.openBuyItAgain();
+    await onlineOrdering.verifyGuestBuyItAgainLoginCard();
+    await onlineOrdering.clickBuyItAgainLogIn();
+    await onlineOrdering.verifyCustomerLoginPrompt();
+    await onlineOrdering.loginAsCustomer(
+      merchants.customerLogin.username,
+      merchants.customerLogin.password,
+    );
+    //await onlineOrdering.ensureAgeConfirmed();
+    await onlineOrdering.verifyLoggedInAccount();
+    const buyItAgainBody = await onlineOrdering.openBuyItAgainAndValidateApi();
+    expect(buyItAgainBody).toBeTruthy();
+    const buyApi = await onlineOrdering.buyFromBuyItAgain();
+    expect(buyApi).toBeTruthy();
+    await onlineOrdering.navShopClick();
   });
 });

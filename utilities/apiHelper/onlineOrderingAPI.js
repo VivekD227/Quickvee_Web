@@ -43,3 +43,60 @@ export async function waitForStorefrontApis(page) {
 
   return { storeAndCategory, bogoList, mixMatch, stateList, products };
 }
+
+export async function customerLoginAPI(page, submitFn) {
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(route.API_URL.customerLogin),
+    ),
+    submitFn(),
+  ]);
+
+  expect(response.status()).toBe(200);
+  expect(response.ok()).toBeTruthy();
+  return response.json();
+}
+
+export async function waitForCustomerLoginResponse(page, submitFn) {
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(route.API_URL.customerLogin),
+    ),
+    submitFn(),
+  ]);
+  return { httpStatus: response.status(), body: await response.json() };
+}
+
+export async function buyItAgainAPI(page, clickFn) {
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(route.API_URL.buyItAgain),
+    ),
+    clickFn(),
+  ]);
+
+  expect(response.status()).toBe(200);
+  expect(response.ok()).toBeTruthy();
+  return response.json();
+}
+
+export async function buyNowProductAPI(page, clickFn) {
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(route.API_URL.getProductById),
+    ),
+    clickFn(),
+  ]);
+
+  expect(response.status()).toBe(200);
+  expect(response.ok()).toBeTruthy();
+  return response.json();
+}

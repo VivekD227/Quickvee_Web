@@ -1,7 +1,12 @@
 const { expect } = require("@playwright/test");
 import routes from "../utilities/routes.js";
 const sessionDataStorage = require("../utilities/helper/sessionDataStorage");
-import { waitForStorefrontApis } from "../utilities/apiHelper/onlineOrderingAPI";
+import {
+  waitForStorefrontApis,
+  customerLoginAPI,
+  buyNowProductAPI,
+  buyItAgainAPI,
+} from "../utilities/apiHelper/onlineOrderingAPI";
 
 class OnlineOrdering {
   constructor(page) {
@@ -39,36 +44,73 @@ class OnlineOrdering {
     this.startShopping = page.getByText("Start shopping");
     this.searchProduct = page.getByPlaceholder(/Search Product/i);
     this.cartBtn = page.getByRole("button", { name: /Cart/i }).first();
+    this.cartHeading = page.getByText(/YOUR CART/i);
+    this.emptyCartMessage = page.getByText("Your cart is empty");
+    this.emptyCartSubtext = page.getByText(
+      /haven't added anything to your cart yet/i,
+    );
+    this.shopNowBtn = page
+      .getByRole("button", { name: /Shop Now/i })
+      .or(page.getByRole("link", { name: /Shop Now/i }));
+    this.continueToCheckoutBtn = page
+      .getByRole("button", { name: /Continue to checkout/i })
+      .or(page.getByRole("link", { name: /Continue to checkout/i }));
+    this.closeCartBtn = page
+      .getByRole("button", { name: /close( shopping)? cart|^close$/i })
+      .or(page.getByTestId("CloseIcon"));
+    this.increaseQtyBtn = page.getByRole("button", { name: /increase/i });
+    this.decreaseQtyBtn = page.getByRole("button", { name: /decrease/i });
+    this.qtyInput = page.locator('input[type="number"]').first();
     this.addToCartBtns = page.getByRole("button", { name: /Add to cart/i });
     this.selectOptionsBtns = page.getByRole("button", {
       name: /Select options/i,
     });
     this.outOfStock = page.getByText("OUT OF STOCK");
-    this.logIn = page.getByText("Log In").first();
-    this.quickveeLogo = page.getByRole("img", { name: /Logo|Quickvee/i }).first();
+    this.logIn = page.getByText("Log In", { exact: true }).first();
+    this.account = page.getByText("Account", { exact: true }).first();
+    this.customerEmail = page.locator('input[name="username"]');
+    this.customerPassword = page.locator('input[name="password"]');
+    this.customerSignInBtn = page.locator('button[name="Login"]');
+    this.signInHeading = page.getByRole("heading", {
+      name: /Sign in to Quickvee/i,
+    });
+    this.buyItAgainPrivacyLabel = page.getByText(/YOUR HISTORY IS PRIVATE/i);
+    this.buyItAgainLoginHeading = page.getByText(
+      /Log in to see past favorites/i,
+    );
+    this.buyItAgainLoginCopy = page.getByText(
+      /Sign in to find products from your previous orders and quickly add them to a new cart/i,
+    );
+    this.buyItAgainLogInBtn = page.getByRole("link", {
+      name: "Log in",
+      exact: true,
+    });
+    this.quickveeLogo = page
+      .getByRole("img", { name: /Logo|Quickvee/i })
+      .first();
     this.storeNavigator = page.getByText("STORE NAVIGATOR");
     this.navShop = page.getByText("Shop", { exact: true }).first();
     this.navHours = page.getByText("View Full Hours");
     this.navCoupons = page.getByText("Coupons").first();
     this.navBogo = page.getByText("BOGO", { exact: true }).first();
     this.navMixMatch = page.getByText("Mix N' Match").first();
-    this.navBuyItAgain = page.getByText("Buy it Again");
+    this.navBuyItAgain = page
+      .getByText("Buy it Again", { exact: true })
+      .first();
     this.browseCategories = page.getByText("BROWSE CATEGORIES");
     this.shopByDepartment = page.getByText("SHOP BY DEPARTMENT");
     this.allAisles = page.getByText(/All aisles/i).first();
     this.quickveeStorefront = page.getByText("QUICKVEE STOREFRONT");
     this.storeHoursDialog = page.getByRole("dialog", { name: "Store Hours" });
-    this.closeHoursBtn = page.getByRole("button", { name: "Close store hours" });
+    this.closeHoursBtn = page.getByRole("button", {
+      name: "Close store hours",
+    });
   }
 
   static storefrontUrl({ orderMethod = "pickup", hash = "" } = {}) {
     const merchantId = sessionDataStorage.get("merchantId");
     expect(merchantId, "Merchant ID should be stored from login").toBeTruthy();
-    const hashPart = hash
-      ? hash.startsWith("#")
-        ? hash
-        : `#${hash}`
-      : "";
+    const hashPart = hash ? (hash.startsWith("#") ? hash : `#${hash}`) : "";
     return `${routes.webBaseUrl}/merchant/${merchantId}?orderMethod=${orderMethod}${hashPart}`;
   }
 
@@ -86,10 +128,7 @@ class OnlineOrdering {
   static getCategories(apiBody) {
     const result = apiBody?.result || apiBody || {};
     return (
-      result.categories ||
-      result.category_list ||
-      result.store_categories ||
-      []
+      result.categories || result.category_list || result.store_categories || []
     );
   }
 
@@ -255,6 +294,10 @@ class OnlineOrdering {
     await this.verifyAisleCountAcrossUI(categories);
   }
 
+  async navShopClick() {
+    await this.navShop.click();
+  }
+
   async verifyPageTitle() {
     await expect(this.page).toHaveTitle("Shop a Local Store | Quickvee");
   }
@@ -314,7 +357,9 @@ class OnlineOrdering {
       await expect(this.storeHoursDialog.getByText(day).first()).toBeVisible();
     }
 
-    await expect(this.storeHoursDialog.getByText(/Today/i).first()).toBeVisible();
+    await expect(
+      this.storeHoursDialog.getByText(/Today/i).first(),
+    ).toBeVisible();
     await expect(
       this.storeHoursDialog.getByText(/\d{1,2}:\d{2}\s*(AM|PM)/i).first(),
     ).toBeVisible();
@@ -338,7 +383,9 @@ class OnlineOrdering {
   async verifyOrderMethod(method) {
     const expected = method.toLowerCase();
     const methodLabel = expected === "pickup" ? "Pickup" : "Delivery";
-    await expect(this.page).toHaveURL(new RegExp(`orderMethod=${expected}`, "i"));
+    await expect(this.page).toHaveURL(
+      new RegExp(`orderMethod=${expected}`, "i"),
+    );
 
     const store = sessionDataStorage.get("storeData");
     const pickupOn = store ? OnlineOrdering.pickupEnabled(store) : true;
@@ -403,6 +450,179 @@ class OnlineOrdering {
       timeout: 15_000,
     });
     await this.verifyOrderMethod(expected);
+  }
+
+  async ensureAgeConfirmed() {
+    if (await this.ageYesBtn.isVisible()) {
+      await this.confirmAge21();
+    }
+  }
+
+  async verifyGuestLogInVisible() {
+    await expect(this.logIn).toBeVisible();
+    await expect(this.account).toHaveCount(0);
+  }
+
+  async openBuyItAgain() {
+    await expect(this.navBuyItAgain).toBeVisible();
+    await this.navBuyItAgain.click();
+    await expect(this.page).toHaveURL(/filter_type=buy-it-again/i);
+    await expect(this.buyItAgainLoginHeading).toBeVisible({ timeout: 15_000 });
+  }
+
+  async verifyGuestBuyItAgainLoginCard() {
+    await expect(this.buyItAgainPrivacyLabel).toBeVisible();
+    await expect(this.buyItAgainLoginHeading).toBeVisible();
+    await expect(this.buyItAgainLoginCopy).toBeVisible();
+    await expect(this.buyItAgainLogInBtn).toBeVisible();
+  }
+
+  async clickBuyItAgainLogIn() {
+    await expect(this.buyItAgainLogInBtn).toBeVisible();
+    await this.buyItAgainLogInBtn.click();
+  }
+
+  async verifyCustomerLoginPrompt() {
+    await expect(this.page).toHaveURL(/customer-login/);
+    await expect(this.signInHeading).toBeVisible();
+    await expect(this.customerEmail).toBeVisible();
+    await expect(this.customerPassword).toBeVisible();
+    await expect(this.customerSignInBtn).toBeVisible();
+  }
+
+  async loginAsCustomer(email, password) {
+    await this.customerEmail.fill(email);
+    await this.customerPassword.fill(password);
+    const body = await customerLoginAPI(this.page, () =>
+      this.customerSignInBtn.click(),
+    );
+    expect(body.status).toBe(200);
+    expect(String(body.message || "")).toMatch(/login successfully/i);
+    expect(body.record?.email).toBe(email);
+    await this.page.waitForURL(/\/merchant\//, { timeout: 20_000 });
+    await this.page.waitForLoadState("domcontentloaded");
+    return body;
+  }
+
+  async verifyLoggedInAccount() {
+    await expect(this.account).toBeVisible();
+    await expect(this.logIn).toHaveCount(0);
+  }
+
+  async openBuyItAgainAndValidateApi() {
+    await expect(this.navBuyItAgain).toBeVisible();
+    const body = await buyItAgainAPI(this.page, () =>
+      this.navBuyItAgain.click(),
+    );
+    await expect(this.page).toHaveURL(/filter_type=buy-it-again/i);
+    await expect(this.buyItAgainLoginHeading).toHaveCount(0);
+    return body;
+  }
+
+  visibleAddToCart() {
+    return this.page
+      .locator("button")
+      .filter({ hasText: /^Add to cart$/i })
+      .filter({ visible: true })
+      .first();
+  }
+
+  async buyFromBuyItAgain() {
+    await expect(this.visibleAddToCart()).toBeVisible({ timeout: 20_000 });
+    return buyNowProductAPI(this.page, () => this.visibleAddToCart().click());
+  }
+
+  static flattenProducts(apiBody) {
+    const grouped = apiBody?.result?.all_product || {};
+    return Object.values(grouped)
+      .flatMap((item) => (Array.isArray(item) ? item : Object.values(item || {})))
+      .filter((product) => product?.title);
+  }
+
+  async openCart() {
+    await expect(this.cartBtn).toBeVisible();
+    if (await this.cartHeading.first().isVisible()) {
+      return;
+    }
+    await this.cartBtn.click();
+    await expect(this.cartHeading.first()).toBeVisible();
+  }
+
+  async closeCartIfOpen() {
+    if (!(await this.cartHeading.first().isVisible())) {
+      return;
+    }
+    await this.closeCartBtn.first().click();
+    await this.expectCartClosed();
+  }
+
+  async verifyEmptyCartUI() {
+    await this.openCart();
+    await expect(this.page.getByText(/0 items/i).first()).toBeVisible();
+    await expect(this.emptyCartMessage).toBeVisible();
+    await expect(this.emptyCartSubtext).toBeVisible();
+    await expect(this.shopNowBtn).toBeVisible();
+    await expect(this.continueToCheckoutBtn).toBeHidden();
+    await expect(this.closeCartBtn.first()).toBeVisible();
+  }
+
+  async expectCartClosed() {
+    await expect(this.emptyCartMessage).toBeHidden();
+    await expect(this.cartHeading.first()).toBeHidden();
+  }
+
+  async clickShopNowFromCart() {
+    await expect(this.shopNowBtn).toBeVisible();
+    await this.shopNowBtn.click();
+    await this.expectCartClosed();
+  }
+
+  async verifyProductListFromApi(apiBody) {
+    const products = OnlineOrdering.flattenProducts(apiBody);
+    expect(products.length, "merchant-products API should return products").toBeGreaterThan(0);
+
+    for (const product of products.slice(0, 5)) {
+      await expect(
+        this.page.getByText(product.title, { exact: true }).first(),
+      ).toBeVisible();
+    }
+  }
+
+  async openFirstProduct() {
+    const products = OnlineOrdering.flattenProducts(
+      sessionDataStorage.get("storefrontApis")?.products,
+    );
+    expect(products.length, "merchant-products API should return products").toBeGreaterThan(0);
+    const title = products[0].title;
+    await this.page.getByText(title, { exact: true }).first().click();
+    await expect(
+      this.page.getByRole("heading", { name: title }).first(),
+    ).toBeVisible({ timeout: 15_000 });
+    return title;
+  }
+
+  async verifyQty(expected) {
+    if (await this.qtyInput.isVisible()) {
+      await expect(this.qtyInput).toHaveValue(String(expected));
+      return;
+    }
+    await expect(this.page.getByText(String(expected), { exact: true }).first()).toBeVisible();
+  }
+
+  async increaseQty() {
+    await expect(this.increaseQtyBtn).toBeVisible();
+    await this.increaseQtyBtn.click();
+  }
+
+  async decreaseQty() {
+    await expect(this.decreaseQtyBtn).toBeVisible();
+    await this.decreaseQtyBtn.click();
+  }
+
+  async addProductToCartFromPdp() {
+    await expect(this.visibleAddToCart()).toBeVisible();
+    await this.visibleAddToCart().click();
+    await expect(this.cartBtn).toContainText("1", { timeout: 15_000 });
   }
 }
 
