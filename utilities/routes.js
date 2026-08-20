@@ -73,6 +73,9 @@ module.exports = {
     featureAnnouncement: apiCi(
       "Feature_announcements_api/show_feature_announcements",
     ),
+    couponList: apiCi("Couponapi/get_coupon_list"),
+    addCoupon: apiCi("Couponapi_live/add_coupon"),
+    deleteCoupon: apiCi("Couponapi_live/delete_coupon"),
   },
 
   //   QA_URL: {
@@ -88,5 +91,7 @@ module.exports = {
     login: page("/merchants/login"),
     dashboard: page("/merchants/dashboard"),
     forgot_password: page("/merchants/forgot-password"),
+    orderCoupons: page("/merchants/promotions/coupons/order-coupons"),
+    itemCoupons: page("/merchants/promotions/coupons/item-coupons"),
   },
 };

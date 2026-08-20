@@ -39,6 +39,9 @@ class Dashboard {
 
     this.tags = page.getByText("Tags", { exact: true });
 
+    this.promotions = page.getByText("Promotions", { exact: true });
+    this.coupons = page.getByRole("link", { name: "Coupons", exact: true });
+
     // Dashboard page UI
     this.dashboardHeading = page.getByRole("heading", {
       name: "Merchant Dashboard",
@@ -493,6 +496,29 @@ class Dashboard {
     const tag_APIcount = Number(responseBody.total_count?.tag ?? 0);
     sessionDataStorage.set("tag_APIcount", tag_APIcount);
     console.log(`Tag API count (on navigation): ${tag_APIcount}`);
+  }
+
+  async promotionsClick() {
+    await this.promotions.click();
+    await expect(this.coupons).toBeVisible();
+  }
+
+  async couponsClick() {
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes(routes.API_URL.couponList),
+      ),
+      this.coupons.click(),
+    ]);
+    expect(response.status()).toBe(200);
+    const couponListBody = await response.json();
+    sessionDataStorage.set("couponListApi", couponListBody);
+    sessionDataStorage.set(
+      "coupon_APIcount",
+      Number(couponListBody.total_rows ?? couponListBody.data?.length ?? 0),
+    );
   }
 }
 
