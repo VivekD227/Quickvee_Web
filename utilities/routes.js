@@ -88,5 +88,6 @@ module.exports = {
     login: page("/merchants/login"),
     dashboard: page("/merchants/dashboard"),
     forgot_password: page("/merchants/forgot-password"),
+    products: page("/merchants/inventory/new-products"),
   },
 };

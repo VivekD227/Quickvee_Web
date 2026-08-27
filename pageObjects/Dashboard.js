@@ -31,6 +31,8 @@ class Dashboard {
 
     this.inventory = page.getByText("Inventory", { exact: true });
 
+    this.products = page.getByRole("link", { name: "Products", exact: true });
+
     this.brands = page.getByText("Brands", { exact: true });
 
     this.attributes = page.getByText("Attributes", { exact: true });
@@ -398,6 +400,13 @@ class Dashboard {
 
   async inventoryClick() {
     await this.inventory.click();
+  }
+
+  async productsClick() {
+    await this.products.click();
+    await expect(this.page).toHaveURL(/\/merchants\/inventory\/new-products/, {
+      timeout: 30_000,
+    });
   }
 
   async brandsClick() {
