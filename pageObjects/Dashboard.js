@@ -403,7 +403,50 @@ class Dashboard {
   }
 
   async productsClick() {
-    await this.products.click();
+    const [productListResponse, categoryListResponse] = await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes(routes.API_URL.productList_URL),
+      ),
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes(routes.API_URL.categoryList_URL),
+      ),
+      this.products.click(),
+    ]);
+
+    expect(productListResponse.status()).toBe(200);
+    const productList = await productListResponse.json();
+    const product_APIcount = Array.isArray(productList) ? productList.length : 0;
+    if (product_APIcount === 0) {
+      expect(
+        Array.isArray(productList),
+        "Products_list should return an empty array when there are 0 products",
+      ).toBeTruthy();
+    } else {
+      expect(Array.isArray(productList)).toBeTruthy();
+    }
+    sessionDataStorage.set("product_APIcount", product_APIcount);
+    console.log(`Product list API count (on navigation): ${product_APIcount}`);
+
+    expect(categoryListResponse.status()).toBe(200);
+    const categoryBody = await categoryListResponse.json();
+    expect(categoryBody.status).toBeTruthy();
+    expect(categoryBody.msg).toBe("Category Found Successfully.");
+    expect(
+      Array.isArray(categoryBody.result),
+      "Category list should be an array",
+    ).toBeTruthy();
+    const category_APIcount = categoryBody.result.length;
+    expect(
+      category_APIcount,
+      "Category list should never be empty",
+    ).toBeGreaterThan(0);
+    sessionDataStorage.set("category_APIcount", category_APIcount);
+    console.log(`Category list API count (on navigation): ${category_APIcount}`);
+
     await expect(this.page).toHaveURL(/\/merchants\/inventory\/new-products/, {
       timeout: 30_000,
     });

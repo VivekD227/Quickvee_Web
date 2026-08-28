@@ -3,18 +3,21 @@ const {
   apiCiBaseUrl,
   apiNodeBaseUrl,
   reportBaseUrl,
+  elasticsearchBaseUrl,
 } = require("./baseUrl");
 
 const apiCi = (path) => `${apiCiBaseUrl}/${path}`;
 const apiNode = (path) => `${apiNodeBaseUrl}/${path}`;
 const page = (path) => `${webBaseUrl}${path}`;
 const reportAPI = (path) => `${reportBaseUrl}/${path}`;
+const elasticsearch = (path) => `${elasticsearchBaseUrl}/${path}`;
 
 module.exports = {
   webBaseUrl,
   apiCiBaseUrl,
   apiNodeBaseUrl,
   reportBaseUrl,
+  elasticsearchBaseUrl,
 
   main_URL: {
     live_URL: page("/merchants/login"),
@@ -73,6 +76,10 @@ module.exports = {
     featureAnnouncement: apiCi(
       "Feature_announcements_api/show_feature_announcements",
     ),
+    productList_URL: elasticsearch("Product_api_react/Products_list"),
+    categoryList_URL: elasticsearch("InventoryReportPk/category_list"),
+    checkProductTitle: apiCi("Product_api_react/check_productTitle"),
+    formCategoryList_URL: apiCi("Categoryapi/category_list"),
   },
 
   //   QA_URL: {
@@ -89,5 +96,9 @@ module.exports = {
     dashboard: page("/merchants/dashboard"),
     forgot_password: page("/merchants/forgot-password"),
     products: page("/merchants/inventory/new-products"),
+    products_add_single: page("/merchants/inventory/new-products/add?type=single"),
+    products_add_variants: page(
+      "/merchants/inventory/new-products/add?type=variants",
+    ),
   },
 };

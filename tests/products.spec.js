@@ -53,10 +53,81 @@ test.describe("Products Module", () => {
     await context?.close();
   });
 
-  test("Validate Products page URL and UI elements", async () => {
+  test("Navigate to Products page", async () => {
     await products.verifyProductsPageLoaded();
     await products.verifyPageUrl();
     await products.verifyProductsMenuAndUrl();
-    await products.verifyProductsPageUIElements();
+    await products.productsHeadingDisplay();
+    await products.loadedCountDisplay();
+    await products.searchBarDisplay();
+    await products.addProductBtnDisplay();
+    await products.filtersDisplay();
+    await products.onlineOrderingDisplay();
+    await products.sortBtnDisplay();
+    await products.columnHeadersDisplay();
+    await products.verifySortOptionsDisplay();
+  });
+
+  test("Product list APIs on page load", async () => {
+    await products.verifyListApiOnPageLoad();
+    await products.verifyProductListOrEmptyState();
+  });
+
+  test("Click Add product and verify choose type dialog", async () => {
+    await products.addProductBtnClick();
+    await products.verifyAddProductTypeDialogUI();
+    await products.verifyContinueDisabled();
+  });
+
+  test("Continue disabled until type chosen", async () => {
+    await products.verifyContinueDisabled();
+  });
+
+  test("Select Single product then Continue", async () => {
+    await products.selectSingleProductType();
+    await products.continueAddProductType();
+    await products.verifyAddSingleProductUrl();
+  });
+
+  test("Verify Single product add form UI", async () => {
+    await products.verifyAddSingleProductFormUI();
+  });
+
+  test("Required: Save with no data shows validation errors", async () => {
+    await products.verifyRequiredAllEmptyValidation();
+  });
+
+  test("Required: Categories empty shows validation error", async () => {
+    await products.verifyRequiredCategoriesEmptyValidation();
+  });
+
+  test("Required: Price empty shows validation error", async () => {
+    await products.verifyRequiredPriceEmptyValidation();
+  });
+
+  test("Price does not accept negative value", async () => {
+    await products.verifyPriceRejectsNegative();
+    await products.verifyPriceZeroValidation();
+  });
+
+  test("Quantity does not accept negative value", async () => {
+    await products.verifyQuantityRejectsNegative();
+  });
+
+  test("Compare-at price must be greater than Price", async () => {
+    await products.verifyCompareAtLessThanPriceValidation();
+  });
+
+  test("Required: Name empty shows validation error", async () => {
+    await products.verifyRequiredNameEmptyValidation();
+  });
+
+  test("Select Product with variants then Continue", async () => {
+    await products.returnToProductsList();
+    await products.addProductBtnClick();
+    await products.verifyContinueDisabled();
+    await products.selectVariantsProductType();
+    await products.continueAddProductType();
+    await products.verifyAddVariantsProductUrl();
   });
 });

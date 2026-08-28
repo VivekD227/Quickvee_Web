@@ -10,10 +10,18 @@ const webBaseUrl = "https://quickvee.com";
 const apiCiBaseUrl = "https://api-ci.quickvee.us";
 const apiNodeBaseUrl = "https://api-node.quickvee.us";
 const reportBaseUrl = "https://reports-api.quickvee.us";
+const elasticsearchBaseUrl = "https://elasticsearch.quickvee.us";
 // ----- QA -----
 // const webBaseUrl = "https://quickvee-qa.com";
 // const apiCiBaseUrl = "https://api-ci.quickvee-qa.com";
 // const apiNodeBaseUrl = "https://qa-api-node.quickvee.us";
 // const reportBaseUrl = "https://reports-api-qa.quickvee.us";
+// const elasticsearchBaseUrl = "https://elasticsearch.quickvee.us";
 
-module.exports = { webBaseUrl, apiCiBaseUrl, apiNodeBaseUrl, reportBaseUrl };
+module.exports = {
+  webBaseUrl,
+  apiCiBaseUrl,
+  apiNodeBaseUrl,
+  reportBaseUrl,
+  elasticsearchBaseUrl,
+};
