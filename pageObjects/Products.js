@@ -121,7 +121,41 @@ class Products {
 
     this.productList = page.locator("[data-prod-list]");
     this.productRows = page.locator("[data-prod-row]");
-    this.showActionsBtns = page.getByRole("button", { name: "Show actions" });
+    this.showActionsBtns = page.getByRole("button", {
+      name: /Show actions|Hide actions/i,
+    });
+    this.editProductAction = page.getByRole("link", {
+      name: /Edit product/i,
+    });
+    this.viewDetailsAction = page.getByRole("button", {
+      name: /View details/i,
+    });
+    this.salesHistoryAction = page.getByRole("button", {
+      name: /Sales history/i,
+    });
+    this.instantPoAction = page.getByRole("button", {
+      name: /Instant Purchase Order/i,
+    });
+    this.stocktakeAction = page.getByRole("button", { name: /Stocktake/i });
+    this.deleteItemAction = page.getByRole("button", { name: /Delete item/i });
+    this.rowDeliveryToggle = page.getByRole("button", {
+      name: /^Delivery$/i,
+    });
+    this.rowPickupToggle = page.getByRole("button", { name: /^Pickup$/i });
+    this.rowOnlineOrderingHeading = page
+      .getByText("Online ordering", { exact: true })
+      .and(page.locator("span"));
+    this.productDetailsHeading = page.getByText("Product details", {
+      exact: true,
+    });
+    this.discardChangesBtn = page.getByRole("button", {
+      name: "Discard changes",
+      exact: true,
+    });
+    this.saveChangesBtn = page.getByRole("button", {
+      name: "Save changes",
+      exact: true,
+    });
     this.emptyStateTitle = page.getByText("Your shelf is empty", {
       exact: true,
     });
@@ -176,6 +210,15 @@ class Products {
       name: "Save product",
       exact: true,
     });
+    this.draftRestoredBanner = page.getByText(/Restored your unsaved draft/i);
+    this.startFreshBtn = page.getByRole("button", {
+      name: "Start fresh",
+      exact: true,
+    });
+    this.resetDraftConfirmBtn = page.getByRole("button", {
+      name: "Reset everything",
+      exact: true,
+    });
 
     this.productInformationHeading = page.getByRole("heading", {
       name: "Product Information",
@@ -216,6 +259,10 @@ class Products {
       exact: true,
     });
     this.descriptionCharCount = page.getByText(/0\s*\/\s*2,?000/);
+    this.descriptionEditor = this.formBody.locator("[contenteditable='true']");
+    this.descriptionPlaceholder = this.formBody.getByText(
+      /Tell customers about this product/i,
+    );
 
     this.pricingHeading = page.getByRole("heading", {
       name: "Pricing & Inventory",
@@ -223,13 +270,26 @@ class Products {
     this.upcLabel = page.getByText("UPC", { exact: true });
     this.upcInput = page.getByPlaceholder("Scan or enter UPC");
     this.generateUpcBtn = page.getByRole("button", { name: "Generate" });
+    this.missingUpcPrompt = page.getByText(/item has no UPC code/i);
+    this.missingUpcHelper = page.getByText(
+      /Every item needs a UPC to be scannable at the register/i,
+    );
+    this.fillUpcMyselfBtn = page.getByRole("button", {
+      name: /I.?ll fill them in/i,
+    });
+    this.generateAndSaveUpcBtn = page.getByRole("button", {
+      name: /Generate & save/i,
+    });
     this.costLabel = page.getByText("Cost", { exact: true });
+    this.costInput = page.getByPlaceholder("0.00").nth(0);
     this.priceLabel = page.getByText("Price*", { exact: true });
     this.priceInput = page.getByPlaceholder("0.00").nth(1);
     this.compareAtLabel = page.getByText("Compare-at price", { exact: true });
     this.compareAtInput = page.getByPlaceholder("0.00").nth(2);
     this.marginLabel = page.getByText("Margin", { exact: true });
     this.profitLabel = page.getByText("Profit", { exact: true });
+    this.marginInput = this.formBody.getByPlaceholder("—").nth(0);
+    this.profitInput = this.formBody.getByPlaceholder("—").nth(1);
     this.computedHelper = page.getByText("Computed from price and cost");
     this.availableToSellLabel = page.getByText("Available to sell", {
       exact: true,
@@ -596,13 +656,21 @@ class Products {
     await expect(this.reorderQtyLabel).toBeVisible();
   }
 
+  setStoreCount(count) {
+    sessionDataStorage.set("storeCount", Number(count) || 0);
+  }
+
   async verifyCopyToStoresSection() {
-    if ((await this.copyToStoresHeading.count()) === 0) {
+    const storeCount = Number(sessionDataStorage.get("storeCount") ?? 0);
+    if (storeCount > 1) {
+      await expect(this.copyToStoresHeading).toBeVisible();
+      await expect(this.copyToStoresHelper).toBeVisible();
+      await expect(this.selectAllStoresBtn).toBeVisible();
       return;
     }
-    await expect(this.copyToStoresHeading).toBeVisible();
-    await expect(this.copyToStoresHelper).toBeVisible();
-    await expect(this.selectAllStoresBtn).toBeVisible();
+    await expect(this.copyToStoresHeading).toBeHidden();
+    await expect(this.copyToStoresHelper).toBeHidden();
+    await expect(this.selectAllStoresBtn).toBeHidden();
   }
 
   async expectToggleChecked(locator, shouldBeChecked) {
@@ -694,8 +762,625 @@ class Products {
     await this.priceInput.fill(String(value));
   }
 
+  async fillCost(value) {
+    await this.costInput.fill(String(value));
+  }
+
+  parseMoney(text) {
+    const cleaned = String(text ?? "")
+      .replace(/[$,%\s]/g, "")
+      .replace(/—/g, "")
+      .trim();
+    if (!cleaned) return null;
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  expectedProfit(price, cost) {
+    return Number((Number(price) - Number(cost)).toFixed(2));
+  }
+
+  expectedMargin(price, cost) {
+    const priceNum = Number(price);
+    if (!priceNum) return 0;
+    return Number((((priceNum - Number(cost)) / priceNum) * 100).toFixed(2));
+  }
+
+  async readComputedNumber(input) {
+    const fromValue = this.parseMoney(await input.inputValue());
+    if (fromValue != null) return fromValue;
+    const fromText = this.parseMoney(await input.innerText());
+    if (fromText != null) return fromText;
+    const fromParent = this.parseMoney(
+      await input.locator("xpath=..").innerText(),
+    );
+    return fromParent;
+  }
+
+  async verifyMarginAndProfitComputed(cost, price) {
+    const expectedProfit = this.expectedProfit(price, cost);
+    const expectedMargin = this.expectedMargin(price, cost);
+
+    await this.priceInput.blur();
+
+    await expect
+      .poll(async () => this.readComputedNumber(this.marginInput), {
+        timeout: 10_000,
+        message: `Margin should be ${expectedMargin}% for cost ${cost} and price ${price}`,
+      })
+      .toBe(expectedMargin);
+
+    await expect
+      .poll(async () => this.readComputedNumber(this.profitInput), {
+        timeout: 10_000,
+        message: `Profit should be ${expectedProfit} for cost ${cost} and price ${price}`,
+      })
+      .toBe(expectedProfit);
+  }
+
+  async addSingleProductWithRequiredFieldsAndVerifyMarginProfit(product) {
+    const {
+      name,
+      category = "Quickadd",
+      cost = "10.00",
+      price = "20.00",
+    } = product;
+    await this.verifyAddSingleProductUrl();
+    await this.fillProductName(name);
+    await this.selectCategory(category);
+    const upc = await this.generateUpc();
+    product.upc = upc;
+    await this.fillCost(cost);
+    await this.fillPrice(price);
+    await this.compareAtInput.fill("");
+    await expect(this.compareAtLessThanPriceError).toHaveCount(0);
+    await this.verifyMarginAndProfitComputed(cost, price);
+
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 20_000 },
+    );
+
+    await this.saveProductClick();
+    const addResponse = await addPromise;
+    expect(addResponse.status()).toBe(200);
+
+    await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
+      timeout: 15_000,
+    });
+    await this.searchBar.fill(name);
+    await expect(
+      this.productRows.filter({ hasText: name }).first(),
+      `Product "${name}" should appear in the listing after save`,
+    ).toBeVisible({ timeout: 15_000 });
+    sessionDataStorage.set("createdProduct", {
+      name,
+      category,
+      cost: String(cost),
+      price: String(price),
+      upc,
+    });
+  }
+
+  async readUpcFromFrontend() {
+    await expect
+      .poll(
+        async () => {
+          const fromInput = (await this.upcInput.inputValue().catch(() => "")).trim();
+          if (/^\d{12}$/.test(fromInput)) return fromInput;
+          const fromPrompt = await this.missingUpcPrompt
+            .locator("xpath=ancestor::*[1]")
+            .innerText()
+            .catch(() => "");
+          const match = fromPrompt.match(/\b\d{12}\b/);
+          return match ? match[0] : "";
+        },
+        {
+          timeout: 10_000,
+          message: "Generate & save should show a 12-digit UPC on the form",
+        },
+      )
+      .toMatch(/^\d{12}$/);
+
+    const fromInput = (await this.upcInput.inputValue().catch(() => "")).trim();
+    if (/^\d{12}$/.test(fromInput)) return fromInput;
+    const fromPrompt = await this.missingUpcPrompt
+      .locator("xpath=ancestor::*[1]")
+      .innerText();
+    return fromPrompt.match(/\b\d{12}\b/)[0];
+  }
+
+  async addSingleProductWithoutUpcGenerateFromDialog(product) {
+    const {
+      name,
+      category = "Quickadd",
+      cost = "10.00",
+      price = "20.00",
+    } = product;
+    await this.verifyAddSingleProductUrl();
+    await this.fillProductName(name);
+    await this.selectCategory(category);
+    await expect(this.upcInput).toHaveValue("");
+    await this.fillCost(cost);
+    await this.fillPrice(price);
+    await this.compareAtInput.fill("");
+    await expect(this.compareAtLessThanPriceError).toHaveCount(0);
+    await this.verifyMarginAndProfitComputed(cost, price);
+
+    await this.saveProductClick();
+    await expect(this.missingUpcPrompt).toBeVisible({ timeout: 10_000 });
+    await expect(this.missingUpcHelper).toBeVisible();
+    await expect(
+      this.page.getByText(new RegExp(`·\\s*${name}`)),
+    ).toBeVisible();
+    await expect(this.fillUpcMyselfBtn).toBeVisible();
+    await expect(this.generateAndSaveUpcBtn).toBeVisible();
+
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 25_000 },
+    );
+    await this.generateAndSaveUpcBtn.click();
+    const upc = await this.readUpcFromFrontend();
+    product.upc = upc;
+
+    const addResponse = await addPromise;
+    expect(addResponse.status()).toBe(200);
+
+    await expect(this.missingUpcPrompt).toBeHidden({ timeout: 10_000 });
+    await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
+      timeout: 15_000,
+    });
+    await this.searchBar.fill(name);
+    await expect(
+      this.productRows.filter({ hasText: name }).first(),
+      `Product "${name}" should appear in the listing after Generate & save`,
+    ).toBeVisible({ timeout: 15_000 });
+    sessionDataStorage.set("createdProductWithoutUpc", {
+      name,
+      category,
+      cost: String(cost),
+      price: String(price),
+      upc,
+    });
+  }
+
+  async pickFirstOpenListOption() {
+    const closeList = this.page.getByRole("button", { name: "Close list" });
+    await expect(closeList.first()).toBeVisible({ timeout: 10_000 });
+    const firstOption = closeList.first().locator(
+      "xpath=following::*[(local-name()='button' or @role='button') and not(contains(normalize-space(.), 'Load more'))][1]",
+    );
+    await expect(firstOption).toBeVisible({ timeout: 10_000 });
+    const label = (await firstOption.innerText()).replace(/\s+/g, " ").trim();
+    await firstOption.click();
+    return label;
+  }
+
+  async selectFirstBrand() {
+    await this.brandInput.click();
+    return this.pickFirstOpenListOption();
+  }
+
+  async selectFirstTag() {
+    await this.tagsInput.click();
+    return this.pickFirstOpenListOption();
+  }
+
+  async fillDescription(text) {
+    const editor = this.descriptionEditor.first();
+    if (await editor.count()) {
+      await editor.click();
+      await editor.fill(text);
+      return;
+    }
+    await this.descriptionPlaceholder.click();
+    await this.page.keyboard.type(text);
+  }
+
+  async selectProductTaxes(product) {
+    await expect(this.defaultTaxName).toBeVisible();
+    const taxes = ["DefaultTax"];
+
+    await this.addAnotherTaxBtn.click();
+    const chooseTax = this.page.getByPlaceholder("Choose a tax");
+    const pickerVisible = await chooseTax
+      .waitFor({ state: "visible", timeout: 8_000 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (!pickerVisible) {
+      product.taxes = taxes;
+      return;
+    }
+
+    await chooseTax.click();
+    const label = await this.pickFirstOpenListOption();
+    const taxName = label.replace(/\s*[\d.]+%\s*$/, "").trim();
+    taxes.push(taxName);
+    await expect(
+      this.formBody.getByText(taxName, { exact: true }).first(),
+    ).toBeVisible();
+    product.taxes = taxes;
+  }
+
+  async selectFirstRelatedProduct() {
+    await this.relatedProductsSearch.click();
+    const closeList = this.page.getByRole("button", { name: "Close list" });
+    const opened = await closeList
+      .first()
+      .waitFor({ state: "visible", timeout: 8_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!opened) return "";
+    return this.pickFirstOpenListOption();
+  }
+
+  async addSingleProductWithAllDetails(product) {
+    const {
+      name,
+      category = "Quickadd",
+      cost = "10.00",
+      price = "20.00",
+      compareAt = "25.00",
+      quantity = "5",
+      reorderPoint = "2",
+      reorderQty = "10",
+      description = "Auto full product description",
+      customCode,
+    } = product;
+    await this.verifyAddSingleProductUrl();
+    await this.fillProductName(name);
+    product.brand = await this.selectFirstBrand();
+    product.tag = await this.selectFirstTag();
+    await this.selectCategory(category);
+    await this.fillDescription(description);
+    const upc = await this.generateUpc();
+    product.upc = upc;
+    await this.fillCost(cost);
+    await this.fillPrice(price);
+    await this.compareAtInput.fill(String(compareAt));
+    await expect(this.compareAtLessThanPriceError).toHaveCount(0);
+    await this.verifyMarginAndProfitComputed(cost, price);
+    await this.availableToSellInput.fill(String(quantity));
+    await this.reorderPointInput.fill(String(reorderPoint));
+    await this.reorderQtyInput.fill(String(reorderQty));
+    await this.customCodeInput.fill(String(customCode));
+    await this.foodStampableOption.click();
+    await this.expectToggleChecked(this.foodStampableOption, true);
+    await this.selectProductTaxes(product);
+    product.relatedProduct = await this.selectFirstRelatedProduct();
+
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 20_000 },
+    );
+    await this.saveProductClick();
+    const addResponse = await addPromise;
+    expect(addResponse.status()).toBe(200);
+
+    await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
+      timeout: 15_000,
+    });
+    await this.searchBar.fill(name);
+    await expect(
+      this.productRows.filter({ hasText: name }).first(),
+      `Product "${name}" should appear in the listing after save`,
+    ).toBeVisible({ timeout: 15_000 });
+    sessionDataStorage.set("createdFullProduct", { ...product });
+  }
+
+  formatPrice(value) {
+    return `$${Number(value).toFixed(2)}`;
+  }
+
+  getProductRow(name) {
+    return this.productRows.filter({ hasText: name }).first();
+  }
+
+  async waitForCatalogIdle() {
+    await expect(this.page.getByText(/Loading your catalog/i)).toHaveCount(0, {
+      timeout: 15_000,
+    });
+  }
+
+  isProductListResponse(res) {
+    return (
+      res.request().method() === "POST" &&
+      res.url().includes(routes.API_URL.productList_URL)
+    );
+  }
+
+  async searchCreatedProduct(name) {
+    await this.returnToProductsList();
+    const listResponse = this.page.waitForResponse(
+      (res) => this.isProductListResponse(res),
+      { timeout: 15_000 },
+    );
+    await this.searchBar.fill(name);
+    await listResponse.catch(() => { });
+    await expect(this.getProductRow(name)).toBeVisible({ timeout: 15_000 });
+    await this.page
+      .waitForResponse((res) => this.isProductListResponse(res), {
+        timeout: 2_000,
+      })
+      .catch(() => { });
+    await this.waitForCatalogIdle();
+    return this.getProductRow(name);
+  }
+
+  getRowActionsToggle(row) {
+    return row.getByRole("button", { name: /Show actions|Hide actions/i });
+  }
+
+  async openRowActionsMenu(row) {
+    await this.waitForCatalogIdle();
+    if (!(await this.editProductAction.first().isVisible())) {
+      await this.getRowActionsToggle(row).click({ force: true });
+    }
+    await expect(this.editProductAction.first()).toBeVisible({
+      timeout: 3_000,
+    });
+  }
+
+  async openRowActions(name) {
+    const row = await this.searchCreatedProduct(name);
+    await expect(async () => {
+      await this.openRowActionsMenu(row);
+    }).toPass({ timeout: 15_000 });
+    return row;
+  }
+
+  async expectRowActionsMenuVisible() {
+    await expect(this.editProductAction.first()).toBeVisible({ timeout: 2_000 });
+    await expect(this.page.getByText("Open the full product form")).toBeVisible({
+      timeout: 2_000,
+    });
+    await expect(this.viewDetailsAction.first()).toBeVisible({ timeout: 2_000 });
+    await expect(this.page.getByText("Quick look, no page change")).toBeVisible({
+      timeout: 2_000,
+    });
+    await expect(this.salesHistoryAction.first()).toBeVisible({ timeout: 2_000 });
+    await expect(this.instantPoAction.first()).toBeVisible({ timeout: 2_000 });
+    await expect(this.stocktakeAction.first()).toBeVisible({ timeout: 2_000 });
+    await expect(this.deleteItemAction.first()).toBeVisible({ timeout: 2_000 });
+    await expect(this.rowOnlineOrderingHeading).toBeVisible({ timeout: 2_000 });
+    await expect(this.rowDeliveryToggle).toBeVisible({ timeout: 2_000 });
+    await expect(this.rowPickupToggle).toBeVisible({ timeout: 2_000 });
+  }
+
+  async verifyCreatedProductInListing({
+    name,
+    category = "Quickadd",
+    price = "20.00",
+    upc,
+    quantity,
+  }) {
+    const row = await this.searchCreatedProduct(name);
+    await expect(row.locator("[data-prod-title]")).toHaveText(name);
+    await expect(row).toContainText(category);
+    if (upc) {
+      await expect(row).toContainText(upc);
+    }
+    await expect(row.locator("[data-prod-price]")).toContainText(
+      this.formatPrice(price),
+    );
+    await expect(row.getByLabel(/Delivery on/i)).toBeVisible();
+    await expect(row.getByLabel(/Pickup on/i)).toBeVisible();
+    const stockPattern = quantity
+      ? new RegExp(
+          `Low\\s*·\\s*${quantity}|${quantity} in stock|\\d+ in stock`,
+          "i",
+        )
+      : /Low\s*·\s*0|0 in stock|Out of stock|\d+ in stock/i;
+    await expect(row.getByText(stockPattern)).toBeVisible();
+    await expect(this.getRowActionsToggle(row)).toBeVisible();
+
+    await expect(async () => {
+      await this.openRowActionsMenu(row);
+      await this.expectRowActionsMenuVisible();
+    }).toPass({ timeout: 20_000 });
+    await this.page.keyboard.press("Escape");
+  }
+
+  getProductDetailsPanel() {
+    return this.productDetailsHeading.locator(
+      "xpath=ancestor::*[.//button[normalize-space()='Close']][1]",
+    );
+  }
+
+  async verifyCreatedProductViewDetails({
+    name,
+    category = "Quickadd",
+    cost = "10.00",
+    price = "20.00",
+    upc,
+    description,
+    customCode,
+    quantity,
+    reorderPoint,
+    reorderQty,
+  }) {
+    await this.openRowActions(name);
+    await this.viewDetailsAction.first().click();
+    await expect(this.productDetailsHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.page).toHaveURL(PRODUCTS_PAGE_URL);
+
+    const details = this.getProductDetailsPanel();
+    await expect(details.getByText(name, { exact: true })).toBeVisible();
+    await expect(details.getByText("Approved", { exact: true })).toBeVisible();
+    await expect(details.getByText("No images")).toBeVisible();
+    await expect(details.getByText("Category", { exact: true })).toBeVisible();
+    await expect(details.getByText(category, { exact: true })).toBeVisible();
+    await expect(details.getByText("Type", { exact: true })).toBeVisible();
+    await expect(details.getByText("Single product", { exact: true })).toBeVisible();
+    await expect(details.getByText("Price", { exact: true })).toBeVisible();
+    await expect(details.getByText(this.formatPrice(price))).toBeVisible();
+    await expect(details.getByText("Cost / margin", { exact: true })).toBeVisible();
+    await expect(details.getByText(this.formatPrice(cost))).toBeVisible();
+    await expect(
+      details.getByText(
+        new RegExp(
+          `${this.expectedMargin(price, cost).toFixed(2)}%\\s*margin`,
+          "i",
+        ),
+      ),
+    ).toBeVisible();
+    await expect(details.getByText("In stock", { exact: true })).toBeVisible();
+    if (quantity) {
+      await expect(
+        details.getByText(String(Number(quantity)), { exact: true }),
+      ).toBeVisible();
+    }
+    if (upc) {
+      await expect(details.getByText("UPC", { exact: true })).toBeVisible();
+      await expect(details.getByText(upc, { exact: true })).toBeVisible();
+    }
+    if (customCode) {
+      await expect(details.getByText("Custom code", { exact: true })).toBeVisible();
+      await expect(details.getByText(customCode, { exact: true })).toBeVisible();
+    }
+    if (reorderPoint && reorderQty) {
+      await expect(details.getByText(`${reorderPoint} / ${reorderQty}`)).toBeVisible();
+    }
+    if (description) {
+      await expect(details.getByText("Description", { exact: true })).toBeVisible();
+      await expect(details.getByText(description)).toBeVisible();
+    }
+    await expect(details.getByText("Online delivery")).toBeVisible();
+    await expect(details.getByText("Online pickup")).toBeVisible();
+    await expect(details.getByText("Sell when out of stock")).toBeVisible();
+    await expect(details.getByText("Food stampable (EBT)")).toBeVisible();
+    await details.getByRole("button", { name: "Close" }).click();
+    await expect(this.productDetailsHeading).toBeHidden({ timeout: 10_000 });
+  }
+
+  async verifyCreatedProductEditForm({
+    name,
+    category = "Quickadd",
+    cost = "10.00",
+    price = "20.00",
+    upc,
+    brand,
+    tag,
+    taxes,
+    description,
+    customCode,
+    quantity,
+    reorderPoint,
+    reorderQty,
+    compareAt,
+  }) {
+    await this.openRowActions(name);
+    const productDataPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.getProductDataById),
+      { timeout: 20_000 },
+    );
+    await this.editProductAction.first().click();
+    const productDataResponse = await productDataPromise;
+    expect(productDataResponse.status()).toBe(200);
+    await expect(this.page).toHaveURL(
+      /\/merchants\/inventory\/new-products\/edit\/\d+/,
+    );
+
+    await expect(this.backBtn).toBeVisible();
+    await expect(this.page.getByText(`Edit ${name}`)).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(this.singleProductBadge).toBeVisible();
+    await expect(this.discardChangesBtn).toBeVisible();
+    await expect(this.saveChangesBtn).toBeVisible();
+    await expect(this.newProductTitle).toHaveCount(0);
+    await expect(this.saveProductBtn).toHaveCount(0);
+
+    await expect(this.productNameInput).toHaveValue(name, { timeout: 15_000 });
+    await expect(this.formBody.getByText(category, { exact: true })).toBeVisible();
+    if (brand) {
+      await expect(this.formBody.getByText(brand, { exact: true })).toBeVisible();
+    }
+    if (tag) {
+      await expect(this.formBody.getByText(tag, { exact: true })).toBeVisible();
+    }
+    if (upc) {
+      await expect(this.upcInput).toHaveValue(upc);
+    }
+    await expect(this.costInput).toHaveValue(String(Number(cost).toFixed(2)));
+    await expect(this.priceInput).toHaveValue(String(Number(price).toFixed(2)));
+    if (compareAt) {
+      await expect(this.compareAtInput).toHaveValue(
+        String(Number(compareAt).toFixed(2)),
+      );
+    }
+    await this.verifyMarginAndProfitComputed(cost, price);
+    if (quantity) {
+      await expect(this.availableToSellInput).toHaveValue(String(quantity));
+    }
+    if (reorderPoint) {
+      await expect(this.reorderPointInput).toHaveValue(String(reorderPoint));
+    }
+    if (reorderQty) {
+      await expect(this.reorderQtyInput).toHaveValue(String(reorderQty));
+    }
+    if (customCode) {
+      await expect(this.customCodeInput).toHaveValue(String(customCode));
+    }
+    if (description) {
+      await expect(this.formBody.getByText(description)).toBeVisible();
+    }
+    if (Array.isArray(taxes)) {
+      for (const tax of taxes) {
+        await expect(
+          this.formBody.getByText(tax, { exact: true }).first(),
+        ).toBeVisible();
+      }
+    }
+    if (taxes?.length > 1) {
+      await expect(this.formBody.getByRole("button", { name: /Remove tax/i })).toHaveCount(
+        taxes.length,
+      );
+    }
+
+    await expect(this.copyToStoresHeading).toBeHidden();
+    await expect(this.vendorInfoHeading).toBeVisible();
+    await expect(this.vendorAssignAfterCreate).toHaveCount(0);
+
+    await expect(this.sellingChannelsHeading).toBeVisible();
+    await expect(this.posChannelBtn).toBeVisible();
+    await expect(this.deliveryChannelBtn).toBeVisible();
+    await expect(this.pickupChannelBtn).toBeVisible();
+    await this.expectToggleChecked(this.posChannelBtn, true);
+    await this.expectToggleChecked(this.deliveryChannelBtn, true);
+    await this.expectToggleChecked(this.pickupChannelBtn, true);
+    await this.expectToggleChecked(this.activeOption, true);
+    if (customCode || description) {
+      await this.expectToggleChecked(this.foodStampableOption, true);
+    }
+
+    await this.returnToProductsList();
+  }
+
   async fillUpc(value) {
     await this.upcInput.fill(String(value));
+  }
+
+  async generateUpc() {
+    await expect(this.generateUpcBtn).toBeVisible();
+    await this.generateUpcBtn.click();
+    await expect
+      .poll(async () => (await this.upcInput.inputValue()).trim(), {
+        timeout: 10_000,
+        message: "Generate should populate a 12-digit UPC",
+      })
+      .toMatch(/^\d{12}$/);
+    return (await this.upcInput.inputValue()).trim();
   }
 
   async selectCategory(categoryName) {
@@ -777,6 +1462,23 @@ class Products {
     await this.selectSingleProductType();
     await this.continueAddProductType();
     await this.verifyAddSingleProductUrl();
+    await this.discardRestoredDraft();
+  }
+
+  async discardRestoredDraft() {
+    const appeared = await this.startFreshBtn
+      .waitFor({ state: "visible", timeout: 3_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!appeared) return;
+    await this.startFreshBtn.click();
+    await expect(this.resetDraftConfirmBtn).toBeVisible({ timeout: 10_000 });
+    await this.resetDraftConfirmBtn.click();
+    await expect(this.resetDraftConfirmBtn).toBeHidden({ timeout: 10_000 });
+    await expect(this.draftRestoredBanner).toBeHidden({ timeout: 10_000 });
+    await expect(this.startFreshBtn).toBeHidden();
+    await expect(this.compareAtInput).toHaveValue("");
+    await expect(this.compareAtLessThanPriceError).toHaveCount(0);
   }
 
   async verifyProductNotCreatedInListing(searchText) {
@@ -788,7 +1490,7 @@ class Products {
       { timeout: 10_000 },
     );
     await this.searchBar.fill(searchText);
-    await listResponse.catch(() => {});
+    await listResponse.catch(() => { });
     await expect(
       this.productRows.filter({ hasText: searchText }),
       `Product "${searchText}" should not be created in the listing after invalid save`,
@@ -1001,11 +1703,11 @@ class Products {
     const actualHeadings = await this.collectVisibleTexts(
       this.formBody.getByRole("heading"),
     );
-    const expectedHeadings = ADD_SINGLE_HEADINGS.concat(
-      OPTIONAL_ADD_SINGLE_HEADINGS.filter((heading) =>
-        actualHeadings.includes(heading),
-      ),
-    );
+    const storeCount = Number(sessionDataStorage.get("storeCount") ?? 0);
+    const expectedHeadings =
+      storeCount > 1
+        ? ADD_SINGLE_HEADINGS.concat(OPTIONAL_ADD_SINGLE_HEADINGS)
+        : ADD_SINGLE_HEADINGS;
     this.assertExactList(
       actualHeadings,
       expectedHeadings,

@@ -80,6 +80,9 @@ module.exports = {
     categoryList_URL: elasticsearch("InventoryReportPk/category_list"),
     checkProductTitle: apiCi("Product_api_react/check_productTitle"),
     formCategoryList_URL: apiCi("Categoryapi/category_list"),
+    addProduct: apiCi("Product_api_react/add_product"),
+    getProductDataById: apiCi("Product_api_react/get_productdata_ById"),
+    checkUpc: apiCi("Product_api_react/check_upc"),
   },
 
   //   QA_URL: {
