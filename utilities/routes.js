@@ -80,7 +80,9 @@ module.exports = {
     categoryList_URL: elasticsearch("InventoryReportPk/category_list"),
     checkProductTitle: apiCi("Product_api_react/check_productTitle"),
     formCategoryList_URL: apiCi("Categoryapi/category_list"),
+    taxList_URL: "tax_list",
     addProduct: apiCi("Product_api_react/add_product"),
+    updateProduct: apiCi("Product_api_react/update_product"),
     getProductDataById: apiCi("Product_api_react/get_productdata_ById"),
     checkUpc: apiCi("Product_api_react/check_upc"),
   },
@@ -99,7 +101,9 @@ module.exports = {
     dashboard: page("/merchants/dashboard"),
     forgot_password: page("/merchants/forgot-password"),
     products: page("/merchants/inventory/new-products"),
-    products_add_single: page("/merchants/inventory/new-products/add?type=single"),
+    products_add_single: page(
+      "/merchants/inventory/new-products/add?type=single",
+    ),
     products_add_variants: page(
       "/merchants/inventory/new-products/add?type=variants",
     ),

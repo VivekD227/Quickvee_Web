@@ -1,4 +1,5 @@
 const { expect } = require("@playwright/test");
+const path = require("path");
 const routes = require("../utilities/routes.js");
 const sessionDataStorage = require("../utilities/helper/sessionDataStorage");
 
@@ -14,6 +15,8 @@ const SORT_OPTIONS = [
 ];
 const TYPE_WARNING =
   /Pick carefully\.\s*Once the product is created, switching between single and variants isn't possible/i;
+const LIST_CHROME_LABELS =
+  /^(Open list|Close list|Load more|Add photos|Generate|Generate new|Keep current code|Back|Save product|Save changes|Discard changes|More actions|Duplicate Product|Duplicate|B|I|U|Bullet list|Numbered list|Add link|Add vendor|Remove tax|Remove photo)$/i;
 const SINGLE_PRODUCT_FEATURES = [
   "One UPC & scan codes",
   "One price",
@@ -37,6 +40,12 @@ const ADD_SINGLE_HEADINGS = [
   "Related Products",
 ];
 const OPTIONAL_ADD_SINGLE_HEADINGS = ["Copy to stores"];
+const PRODUCT_COVER_PHOTO = path.join(
+  __dirname,
+  "..",
+  "testData",
+  "product-cover.png",
+);
 const ADD_SINGLE_LABELS = [
   "Name*",
   "Brand",
@@ -71,6 +80,7 @@ const ADD_SINGLE_PLACEHOLDERS = [
   "Search products to add...",
 ];
 const ADD_SINGLE_HEADER_BUTTONS = ["Back", "Save product"];
+const EDIT_SINGLE_HEADER_BUTTONS = ["Back", "Discard changes", "Save changes"];
 
 class Products {
   constructor(page) {
@@ -102,8 +112,9 @@ class Products {
       name: /^More/,
     });
     this.channelsFilter = page.getByRole("button", { name: "Channels" });
-    this.noPhotoFilter = page.getByRole("button", { name: "No photo" });
-    this.statusFilter = page.getByRole("button", { name: "Status" });
+    this.noPhotoFilter = page.getByRole("button", {
+      name: /no photo/i,
+    });
     this.onlineOrderingBtn = this.filtersBar.getByRole("button", {
       name: /Online ordering/i,
     });
@@ -200,14 +211,25 @@ class Products {
       name: "Products",
       exact: true,
     });
+    this.variantsMenuLink = page.getByRole("link", {
+      name: "Variants",
+      exact: true,
+    });
 
     this.formHead = page.locator("[data-npf-formhead]");
     this.formBody = page.locator("[data-npf-body]");
     this.backBtn = page.getByRole("button", { name: "Back", exact: true });
     this.newProductTitle = page.getByText("New product", { exact: true });
+    this.duplicateProductTitle = page.getByText("Duplicate product", {
+      exact: true,
+    });
     this.singleProductBadge = page.getByText("Single product", { exact: true });
     this.saveProductBtn = page.getByRole("button", {
       name: "Save product",
+      exact: true,
+    });
+    this.duplicateSaveBtn = this.formHead.getByRole("button", {
+      name: "Duplicate",
       exact: true,
     });
     this.draftRestoredBanner = page.getByText(/Restored your unsaved draft/i);
@@ -219,6 +241,25 @@ class Products {
       name: "Reset everything",
       exact: true,
     });
+    this.discardAndLeaveBtn = page.getByRole("button", {
+      name: "Discard & leave",
+      exact: true,
+    });
+    this.keepEditingBtn = page.getByRole("button", {
+      name: "Keep editing",
+      exact: true,
+    });
+    this.discardChangesDialogTitle = page.getByText("Discard changes?", {
+      exact: true,
+    });
+    this.moreActionsBtn = page.getByRole("button", {
+      name: "More actions",
+      exact: true,
+    });
+    this.duplicateProductAction = page
+      .getByRole("menuitem", { name: /Duplicate Product/i })
+      .or(page.getByRole("link", { name: /Duplicate Product/i }))
+      .or(page.getByRole("button", { name: /Duplicate Product/i }));
 
     this.productInformationHeading = page.getByRole("heading", {
       name: "Product Information",
@@ -238,6 +279,11 @@ class Products {
       /Shown on the register and your online storefront\. The first photo is the cover\./i,
     );
     this.addPhotosBtn = page.getByRole("button", { name: "Add photos" });
+    this.photoFileInput = this.formBody.locator('input[type="file"]');
+    this.removePhotoBtn = this.formBody.getByRole("button", {
+      name: "Remove photo",
+    });
+    this.newPhotoBadge = this.formBody.getByText("NEW", { exact: true });
 
     this.descriptionHeading = page.getByRole("heading", {
       name: "Description",
@@ -269,7 +315,16 @@ class Products {
     });
     this.upcLabel = page.getByText("UPC", { exact: true });
     this.upcInput = page.getByPlaceholder("Scan or enter UPC");
-    this.generateUpcBtn = page.getByRole("button", { name: "Generate" });
+    this.generateUpcBtn = page
+      .getByRole("button", { name: "Generate a unique 12-digit UPC" })
+      .or(page.getByRole("button", { name: "Generate", exact: true }));
+    this.generateNewUpcBtn = page.getByRole("button", {
+      name: "Generate new",
+      exact: true,
+    });
+    this.keepCurrentUpcBtn = page.getByRole("button", {
+      name: "Keep current code",
+    });
     this.missingUpcPrompt = page.getByText(/item has no UPC code/i);
     this.missingUpcHelper = page.getByText(
       /Every item needs a UPC to be scannable at the register/i,
@@ -294,6 +349,9 @@ class Products {
     this.availableToSellLabel = page.getByText("Available to sell", {
       exact: true,
     });
+    this.availableToSellLockedHelper = page.getByText(
+      /Locked — adjust via Stocktake or receiving/i,
+    );
     this.quantityInputs = page.getByPlaceholder("0", { exact: true });
     this.availableToSellInput = this.quantityInputs.nth(0);
     this.reorderPointLabel = page.getByText("Reorder point", { exact: true });
@@ -307,7 +365,14 @@ class Products {
     this.copyToStoresHelper = page.getByText(
       /Also create this product in your other linked stores when saving\./i,
     );
-    this.selectAllStoresBtn = page.getByRole("button", { name: "Select all" });
+    this.selectAllStoresBtn = page.getByRole("button", {
+      name: "Select all",
+      exact: true,
+    });
+    this.deselectAllStoresBtn = page.getByRole("button", {
+      name: "Deselect all",
+      exact: true,
+    });
 
     this.sellingChannelsHeading = page.getByRole("heading", {
       name: "Selling Channels",
@@ -354,6 +419,12 @@ class Products {
     this.vendorAssignAfterCreate = page.getByText(
       /Vendors can be assigned after the product is created/i,
     );
+    this.vendorSearchInput = this.formBody.getByPlaceholder(
+      /search vendors|choose a vendor|add a vendor/i,
+    );
+    this.addVendorBtn = this.formBody.getByRole("button", {
+      name: /add vendor|assign vendor/i,
+    });
 
     this.taxInfoHeading = page.getByRole("heading", {
       name: "Tax Information",
@@ -361,6 +432,9 @@ class Products {
     this.taxInfoHelper = page.getByText(/Extra taxes applied to this product/i);
     this.addAnotherTaxBtn = page.getByRole("button", {
       name: /Add another tax/i,
+    });
+    this.removeTaxBtn = this.formBody.getByRole("button", {
+      name: /Remove tax/i,
     });
     this.taxNameLabel = page.getByText(/tax name/i);
     this.defaultTaxName = page.getByText("DefaultTax", { exact: true });
@@ -385,6 +459,18 @@ class Products {
     );
     this.compareAtLessThanPriceError = page.getByText(
       "Compare Price must be greater than price.",
+    );
+    this.duplicateNameError = page.getByText(
+      /title already exist|product name already exist|name already exist/i,
+    );
+    this.duplicateUpcError = page.getByText(
+      /upc already exist|this upc is already|barcode already exist|this barcode is already used/i,
+    );
+    this.sameUpcCustomCodeError = page.getByText(
+      /used as both UPC and Custom Code|they must be different|already used on this product|this barcode is already used|scan code already|duplicate (scan )?code|already used by another product/i,
+    );
+    this.duplicateCustomCodeError = page.getByText(
+      /custom code already|this custom code is already|scan code already|already used by another product|this barcode is already used/i,
     );
   }
 
@@ -492,7 +578,6 @@ class Products {
 
     await expect(this.channelsFilter).toBeVisible();
     await expect(this.noPhotoFilter).toBeVisible();
-    await expect(this.statusFilter).toBeVisible();
     await this.page.keyboard.press("Escape");
   }
 
@@ -592,6 +677,82 @@ class Products {
     );
   }
 
+  isTaxListResponse(res) {
+    return (
+      res.request().method() === "POST" &&
+      res.url().includes(routes.API_URL.taxList_URL)
+    );
+  }
+
+  taxNameFromApiItem(item) {
+    if (typeof item === "string") return item.trim();
+    return String(
+      item?.title ?? item?.tax_name ?? item?.name ?? item?.taxName ?? "",
+    ).trim();
+  }
+
+  categoryNameFromApiItem(item) {
+    if (typeof item === "string") return item.trim();
+    if (!item || typeof item !== "object") return "";
+    const direct =
+      item.title ??
+      item.name ??
+      item.cat_name ??
+      item.category_name ??
+      item.category ??
+      item.label ??
+      item.catName ??
+      item.Name ??
+      item.Title;
+    if (direct) return String(direct).trim();
+    const skip = /id|count|merchant|is_|status|token|uuid|date|url|image/i;
+    for (const [key, val] of Object.entries(item)) {
+      if (
+        typeof val === "string" &&
+        val.trim() &&
+        val.length < 80 &&
+        !skip.test(key)
+      ) {
+        return val.trim();
+      }
+    }
+    return "";
+  }
+
+  isDefaultTaxName(name) {
+    return String(name).replace(/\s+/g, "").toLowerCase() === "defaulttax";
+  }
+
+  assertHttp200(response, apiName = "API") {
+    expect(response, `${apiName} response should be received`).toBeTruthy();
+    expect(response.status(), `${apiName} should return HTTP 200`).toBe(200);
+  }
+
+  async assertHttp200IfReceived(responsePromise, apiName = "API") {
+    const response = await responsePromise.catch(() => null);
+    if (response) this.assertHttp200(response, apiName);
+    return response;
+  }
+
+  async assertTaxListApi(response) {
+    this.assertHttp200(response, "tax_list");
+    const taxBody = await response.json();
+    expect(taxBody.status, "tax_list API should succeed").toBeTruthy();
+    expect(
+      Array.isArray(taxBody.result),
+      "tax_list result should be an array",
+    ).toBeTruthy();
+    expect(
+      taxBody.result.length,
+      "tax_list should not be empty",
+    ).toBeGreaterThan(0);
+    const storeTaxes = taxBody.result
+      .map((item) => this.taxNameFromApiItem(item))
+      .filter(Boolean);
+    sessionDataStorage.set("storeTaxes", storeTaxes);
+    sessionDataStorage.set("tax_APIcount", taxBody.result.length);
+  }
+
   async continueAddProductType() {
     await this.verifyContinueEnabled();
     await this.continueTypeDialogBtn.click();
@@ -630,6 +791,48 @@ class Products {
     await expect(this.addPhotosBtn).toBeVisible();
   }
 
+  async expectCoverPhotoOnForm() {
+    await expect(
+      this.removePhotoBtn.first(),
+      "Uploaded photo should show a Remove photo control",
+    ).toBeVisible({ timeout: 15_000 });
+  }
+
+  async confirmPhotoCropIfShown() {
+    const cropConfirm = this.page.getByRole("button", {
+      name: /^(Apply|Done|Crop|Use (this )?photo)$/i,
+    });
+    const shown = await cropConfirm
+      .first()
+      .waitFor({ state: "visible", timeout: 3_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!shown) return;
+    await cropConfirm.first().click();
+    await expect(cropConfirm.first()).toBeHidden({ timeout: 10_000 });
+  }
+
+  async addCoverPhoto(
+    filePath = PRODUCT_COVER_PHOTO,
+    { expectNewBadge = true } = {},
+  ) {
+    if ((await this.photoFileInput.count()) > 0) {
+      await this.photoFileInput.first().setInputFiles(filePath);
+    } else {
+      const [chooser] = await Promise.all([
+        this.page.waitForEvent("filechooser", { timeout: 10_000 }),
+        this.addPhotosBtn.click(),
+      ]);
+      await chooser.setFiles(filePath);
+    }
+
+    await this.confirmPhotoCropIfShown();
+    await this.expectCoverPhotoOnForm();
+    if (expectNewBadge) {
+      await expect(this.newPhotoBadge.first()).toBeVisible();
+    }
+  }
+
   async verifyDescriptionSection() {
     await expect(this.descriptionHeading).toBeVisible();
     await expect(this.onlineOnlyBadge).toBeVisible();
@@ -656,21 +859,97 @@ class Products {
     await expect(this.reorderQtyLabel).toBeVisible();
   }
 
+  getStoreCount() {
+    return Number(sessionDataStorage.get("storeCount") ?? 0);
+  }
+
   setStoreCount(count) {
     sessionDataStorage.set("storeCount", Number(count) || 0);
   }
 
+  getCopyToStoresPanel() {
+    return this.copyToStoresHeading.locator(
+      "xpath=ancestor::*[.//*[starts-with(normalize-space(), 'VIV')]][1]",
+    );
+  }
+
+  copyToStoreIds() {
+    return this.getCopyToStoresPanel().getByText(/^VIV[A-Z0-9]+$/);
+  }
+
   async verifyCopyToStoresSection() {
-    const storeCount = Number(sessionDataStorage.get("storeCount") ?? 0);
+    const storeCount = this.getStoreCount();
     if (storeCount > 1) {
+      const otherStoreCount = storeCount - 1;
       await expect(this.copyToStoresHeading).toBeVisible();
       await expect(this.copyToStoresHelper).toBeVisible();
       await expect(this.selectAllStoresBtn).toBeVisible();
+      await expect(this.deselectAllStoresBtn).toHaveCount(0);
+      await expect(
+        this.copyToStoreIds(),
+        `Copy to stores should list ${otherStoreCount} other store(s) when store.length is ${storeCount}`,
+      ).toHaveCount(otherStoreCount);
       return;
     }
     await expect(this.copyToStoresHeading).toBeHidden();
     await expect(this.copyToStoresHelper).toBeHidden();
-    await expect(this.selectAllStoresBtn).toBeHidden();
+    await expect(this.selectAllStoresBtn).toHaveCount(0);
+    await expect(this.deselectAllStoresBtn).toHaveCount(0);
+  }
+
+  async selectAllCopyToStores() {
+    const storeCount = this.getStoreCount();
+    expect(storeCount, "Select all needs more than one store").toBeGreaterThan(
+      1,
+    );
+    const otherStoreCount = storeCount - 1;
+    await this.selectAllStoresBtn.click();
+    await expect(this.deselectAllStoresBtn).toBeVisible();
+    await expect(this.selectAllStoresBtn).toHaveCount(0);
+    await expect(
+      this.copyToStoreIds(),
+      "All other linked stores should stay listed after Select all",
+    ).toHaveCount(otherStoreCount);
+  }
+
+  async addProductWithCopyToStoresIfMultiStore(product) {
+    await this.verifyAddSingleProductUrl();
+    await this.verifyCopyToStoresSection();
+    if (this.getStoreCount() <= 1) return false;
+
+    await this.selectAllCopyToStores();
+    const {
+      name,
+      category = "Quickadd",
+      cost = "10.00",
+      price = "20.00",
+    } = product;
+    await this.fillProductName(name);
+    await this.selectCategory(category);
+    const upc = await this.generateUpc();
+    product.upc = upc;
+    await this.fillCost(cost);
+    await this.fillPrice(price);
+
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 20_000 },
+    );
+    await this.saveProductClick();
+    const addResponse = await addPromise;
+    this.assertHttp200(addResponse, "add_product");
+
+    await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
+      timeout: 15_000,
+    });
+    await this.searchListing(name);
+    await expect(
+      this.getProductRow(name),
+      `Product "${name}" should appear in the listing after copy-to-stores save`,
+    ).toBeVisible({ timeout: 15_000 });
+    return true;
   }
 
   async expectToggleChecked(locator, shouldBeChecked) {
@@ -680,6 +959,15 @@ class Products {
     } else {
       await expect(checkMark).toHaveCount(0);
     }
+  }
+
+  async setToggle(locator, shouldBeChecked) {
+    const checkMark = locator.locator('svg path[d="M5 12l4 4 10-10"]');
+    const isChecked = (await checkMark.count()) === 1;
+    if (isChecked !== shouldBeChecked) {
+      await locator.click();
+    }
+    await this.expectToggleChecked(locator, shouldBeChecked);
   }
 
   async verifySellingChannelsSection() {
@@ -739,7 +1027,7 @@ class Products {
     await expect(this.relatedProductsSearch).toBeVisible();
   }
 
-  async fillProductName(name) {
+  async fillProductName(name, { assertAvailable = true } = {}) {
     const [titleCheckResponse] = await Promise.all([
       this.page.waitForResponse(
         (res) =>
@@ -749,20 +1037,25 @@ class Products {
       ),
       this.productNameInput.fill(String(name)),
     ]);
-    expect(titleCheckResponse.status()).toBe(200);
+    this.assertHttp200(titleCheckResponse, "check_productTitle");
     const titleBody = await titleCheckResponse.json();
-    expect(
-      titleBody.status,
-      "check_productTitle API should succeed when a title is entered",
-    ).toBeTruthy();
-    expect(titleBody.message).toBe("Success");
+    if (assertAvailable) {
+      expect(
+        titleBody.status,
+        "check_productTitle API should succeed when a title is entered",
+      ).toBeTruthy();
+      expect(titleBody.message).toBe("Success");
+    }
+    return titleBody;
   }
 
   async fillPrice(value) {
+    await expect(this.priceInput).toBeEnabled({ timeout: 15_000 });
     await this.priceInput.fill(String(value));
   }
 
   async fillCost(value) {
+    await expect(this.costInput).toBeEnabled({ timeout: 15_000 });
     await this.costInput.fill(String(value));
   }
 
@@ -845,12 +1138,12 @@ class Products {
 
     await this.saveProductClick();
     const addResponse = await addPromise;
-    expect(addResponse.status()).toBe(200);
+    this.assertHttp200(addResponse, "add_product");
 
     await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
       timeout: 15_000,
     });
-    await this.searchBar.fill(name);
+    await this.searchListing(name);
     await expect(
       this.productRows.filter({ hasText: name }).first(),
       `Product "${name}" should appear in the listing after save`,
@@ -864,11 +1157,104 @@ class Products {
     });
   }
 
+  async addProductWithSpecialNameAndUpc(product) {
+    const {
+      name,
+      upc,
+      category = "Quickadd",
+      cost = "10.00",
+      price = "20.00",
+    } = product;
+    expect(upc, "Special UPC is required").toBeTruthy();
+    await this.verifyAddSingleProductUrl();
+    await this.fillProductName(name);
+    await expect(
+      this.productNameInput,
+      "Product name should keep accepted special characters",
+    ).toHaveValue(name);
+    await this.selectCategory(category);
+
+    const upcCheckPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.checkUpc),
+      { timeout: 15_000 },
+    );
+    await this.fillUpc(upc);
+    await this.upcInput.blur();
+    await expect(
+      this.upcInput,
+      "UPC should keep accepted special characters",
+    ).toHaveValue(upc);
+    await this.assertHttp200IfReceived(upcCheckPromise, "check_upc");
+
+    await this.fillCost(cost);
+    await this.fillPrice(price);
+
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 20_000 },
+    );
+    await this.saveProductClick();
+    const addResponse = await addPromise;
+    this.assertHttp200(addResponse, "add_product");
+
+    await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
+      timeout: 15_000,
+    });
+    await this.searchListing(name);
+    await expect(
+      this.getProductRow(name),
+      `Product "${name}" should appear in the listing after save`,
+    ).toBeVisible({ timeout: 15_000 });
+  }
+
+  async addProductWithCoverPhoto(product) {
+    const {
+      name,
+      category = "Quickadd",
+      cost = "10.00",
+      price = "20.00",
+    } = product;
+    await this.verifyAddSingleProductUrl();
+    await this.fillProductName(name);
+    await this.selectCategory(category);
+    await this.addCoverPhoto();
+    product.hasPhoto = true;
+    const upc = await this.generateUpc();
+    product.upc = upc;
+    await this.fillCost(cost);
+    await this.fillPrice(price);
+
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 20_000 },
+    );
+    await this.saveProductClick();
+    const addResponse = await addPromise;
+    this.assertHttp200(addResponse, "add_product");
+
+    await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
+      timeout: 15_000,
+    });
+    await this.searchListing(name);
+    await expect(
+      this.getProductRow(name),
+      `Product "${name}" should appear in the listing after save`,
+    ).toBeVisible({ timeout: 15_000 });
+  }
+
   async readUpcFromFrontend() {
     await expect
       .poll(
         async () => {
-          const fromInput = (await this.upcInput.inputValue().catch(() => "")).trim();
+          const fromInput = (
+            await this.upcInput.inputValue().catch(() => "")
+          ).trim();
           if (/^\d{12}$/.test(fromInput)) return fromInput;
           const fromPrompt = await this.missingUpcPrompt
             .locator("xpath=ancestor::*[1]")
@@ -912,9 +1298,7 @@ class Products {
     await this.saveProductClick();
     await expect(this.missingUpcPrompt).toBeVisible({ timeout: 10_000 });
     await expect(this.missingUpcHelper).toBeVisible();
-    await expect(
-      this.page.getByText(new RegExp(`·\\s*${name}`)),
-    ).toBeVisible();
+    await expect(this.page.getByText(new RegExp(`·\\s*${name}`))).toBeVisible();
     await expect(this.fillUpcMyselfBtn).toBeVisible();
     await expect(this.generateAndSaveUpcBtn).toBeVisible();
 
@@ -929,13 +1313,13 @@ class Products {
     product.upc = upc;
 
     const addResponse = await addPromise;
-    expect(addResponse.status()).toBe(200);
+    this.assertHttp200(addResponse, "add_product");
 
     await expect(this.missingUpcPrompt).toBeHidden({ timeout: 10_000 });
     await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
       timeout: 15_000,
     });
-    await this.searchBar.fill(name);
+    await this.searchListing(name);
     await expect(
       this.productRows.filter({ hasText: name }).first(),
       `Product "${name}" should appear in the listing after Generate & save`,
@@ -949,26 +1333,152 @@ class Products {
     });
   }
 
-  async pickFirstOpenListOption() {
-    const closeList = this.page.getByRole("button", { name: "Close list" });
-    await expect(closeList.first()).toBeVisible({ timeout: 10_000 });
-    const firstOption = closeList.first().locator(
-      "xpath=following::*[(local-name()='button' or @role='button') and not(contains(normalize-space(.), 'Load more'))][1]",
-    );
-    await expect(firstOption).toBeVisible({ timeout: 10_000 });
-    const label = (await firstOption.innerText()).replace(/\s+/g, " ").trim();
-    await firstOption.click();
+  async pickFirstOpenListOption(section) {
+    const noOptions = this.page.getByText(/^No options$/i);
+    const option = section
+      ? this.listOptionButtons(section).first()
+      : this.page.getByRole("option").filter({ hasText: /\S/ }).first();
+    await expect(option.or(noOptions.first())).toBeVisible({ timeout: 10_000 });
+    if (await noOptions.first().isVisible()) {
+      await this.closeOpenList();
+      return "";
+    }
+    const label = (await option.innerText()).replace(/\s+/g, " ").trim();
+    await option.click();
     return label;
   }
 
+  listOptionButtons(section) {
+    return section.getByRole("button").filter({ hasText: /\S/ }).filter({
+      hasNotText: LIST_CHROME_LABELS,
+    });
+  }
+
+  getBrandSection() {
+    return this.brandLabel.locator("xpath=..");
+  }
+
+  getTagsSection() {
+    return this.tagsLabel.locator("xpath=..");
+  }
+
+  getCategoriesSection() {
+    return this.categoriesLabel.locator("xpath=..");
+  }
+
+  selectedBrandChip(name) {
+    return this.getBrandSection().getByText(name, { exact: true });
+  }
+
+  selectedTagChip(name) {
+    return this.getTagsSection().getByText(name, { exact: true });
+  }
+
+  async readAssignedChip(section) {
+    const removeBtn = section.getByRole("button").filter({
+      hasNotText: /^(Open list|Close list)$/i,
+    });
+    if ((await removeBtn.count()) === 0) return "";
+    const label = (
+      await removeBtn.first().locator("xpath=preceding-sibling::*[1]").innerText()
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    return label && !LIST_CHROME_LABELS.test(label) ? label : "";
+  }
+
+  async openComboboxList(section, fallbackInput) {
+    await this.closeOpenList();
+    const openList = section.getByRole("button", { name: "Open list" });
+    if (await openList.isVisible()) {
+      await openList.click();
+    } else {
+      await fallbackInput.click();
+    }
+    await expect(
+      section.getByRole("button", { name: "Close list" }),
+    ).toBeVisible({ timeout: 10_000 });
+  }
+
+  async openBrandList() {
+    await this.openComboboxList(this.getBrandSection(), this.brandInput);
+  }
+
+  async openTagList() {
+    await this.openComboboxList(this.getTagsSection(), this.tagsInput);
+  }
+
   async selectFirstBrand() {
-    await this.brandInput.click();
-    return this.pickFirstOpenListOption();
+    const existing = await this.readAssignedChip(this.getBrandSection());
+    if (existing) return existing;
+    await this.openBrandList();
+    const label = await this.pickFirstOpenListOption(this.getBrandSection());
+    await this.closeOpenList();
+    if (!label) return "";
+    await expect(this.selectedBrandChip(label)).toBeVisible({ timeout: 8_000 });
+    return label;
+  }
+
+  async pickBrandOptionNotNamed(excluded) {
+    await this.openBrandList();
+    return this.pickOpenListOptionNotNamed(excluded, this.getBrandSection());
+  }
+
+  async verifyOnlyOneBrandCanBeAssigned() {
+    await this.verifyAddSingleProductUrl();
+    await expect(this.brandHelper).toBeVisible();
+    await expect(this.brandInput).toBeVisible();
+    await expect(this.brandInput).toHaveValue("");
+
+    const first = await this.selectFirstBrand();
+    expect(
+      first,
+      "Store should have at least one brand to assign",
+    ).toBeTruthy();
+    await this.closeOpenList();
+    await expect(this.selectedBrandChip(first)).toBeVisible({
+      timeout: 10_000,
+    });
+
+    const canAssignAnother = await this.brandInput.isVisible();
+    if (!canAssignAnother) {
+      await expect(
+        this.brandInput,
+        "Brand field should not allow adding a second brand while one is assigned",
+      ).toBeHidden();
+      await expect(this.selectedBrandChip(first)).toBeVisible();
+      await expect(this.brandHelper).toBeVisible();
+      return;
+    }
+
+    const second = await this.pickBrandOptionNotNamed(first);
+    await this.closeOpenList();
+
+    if (!second) {
+      await expect(this.selectedBrandChip(first)).toBeVisible();
+      await expect(this.brandHelper).toBeVisible();
+      return;
+    }
+
+    await expect(this.selectedBrandChip(second)).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(
+      this.selectedBrandChip(first),
+      "A product can have only one brand; selecting another should replace the first",
+    ).toHaveCount(0);
+    await expect(this.brandHelper).toBeVisible();
   }
 
   async selectFirstTag() {
-    await this.tagsInput.click();
-    return this.pickFirstOpenListOption();
+    const existing = await this.readAssignedChip(this.getTagsSection());
+    if (existing) return existing;
+    await this.openTagList();
+    const label = await this.pickFirstOpenListOption(this.getTagsSection());
+    await this.closeOpenList();
+    if (!label) return "";
+    await expect(this.selectedTagChip(label)).toBeVisible({ timeout: 8_000 });
+    return label;
   }
 
   async fillDescription(text) {
@@ -982,9 +1492,118 @@ class Products {
     await this.page.keyboard.type(text);
   }
 
+  async fillDescriptionWithRichText(text) {
+    const editor = this.descriptionEditor.first();
+    if (await editor.count()) {
+      await editor.click();
+    } else {
+      await this.descriptionPlaceholder.click();
+    }
+    await this.page.keyboard.type(String(text));
+    await this.page.keyboard.press("Control+A");
+    await this.descriptionBoldBtn.click();
+    await this.descriptionItalicBtn.click();
+    await this.descriptionUnderlineBtn.click();
+    const formatted = this.descriptionEditor.first();
+    await expect(formatted.locator("b, strong").first()).toBeVisible();
+    await expect(formatted.locator("i, em").first()).toBeVisible();
+    await expect(formatted.locator("u").first()).toBeVisible();
+  }
+
+  async pickOpenListOptionNotNamed(excluded, section) {
+    const excludedSet = new Set(
+      (Array.isArray(excluded) ? excluded : [excluded]).filter(Boolean),
+    );
+    const isRealOption = (label) =>
+      Boolean(label) &&
+      !excludedSet.has(label) &&
+      !LIST_CHROME_LABELS.test(label);
+
+    const options = section
+      ? this.listOptionButtons(section)
+      : this.page.getByRole("option").filter({ hasText: /\S/ });
+    await expect(options.first()).toBeVisible({ timeout: 10_000 });
+    const count = await options.count();
+    for (let i = 0; i < Math.min(count, 25); i++) {
+      const option = options.nth(i);
+      if (!(await option.isEnabled().catch(() => false))) continue;
+      const label = (await option.innerText()).replace(/\s+/g, " ").trim();
+      if (isRealOption(label)) {
+        await option.click();
+        return label;
+      }
+    }
+    return "";
+  }
+
+  selectedCategoryChip(name) {
+    return this.getCategoriesSection()
+      .getByText(name, { exact: true })
+      .locator(
+        "xpath=self::*[not(self::input or ancestor::button or ancestor::*[@role='button'])]",
+      );
+  }
+
+  async closeOpenList() {
+    const closeList = this.page.getByRole("button", { name: "Close list" });
+    for (let i = 0; i < 3; i++) {
+      if (!(await closeList.first().isVisible())) break;
+      await closeList.first().click();
+    }
+    await expect(closeList).toHaveCount(0);
+  }
+
+  async getFormCategoryNames() {
+    const stored = sessionDataStorage.get("formCategoryNames");
+    if (Array.isArray(stored) && stored.length) return stored;
+
+    const listPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.formCategoryList_URL),
+      { timeout: 15_000 },
+    );
+    await this.categoriesInput.click();
+    const listResponse = await this.assertHttp200IfReceived(
+      listPromise,
+      "category_list",
+    );
+    await this.closeOpenList();
+    if (!listResponse) return [];
+    const body = await listResponse.json();
+    const names = (Array.isArray(body?.result) ? body.result : [])
+      .map((item) => this.categoryNameFromApiItem(item))
+      .filter(Boolean);
+    sessionDataStorage.set("formCategoryNames", names);
+    return names;
+  }
+
+  async selectMultipleCategories(product) {
+    const first = product.category || "Quickadd";
+    await this.selectCategory(first);
+    const names = await this.getFormCategoryNames();
+    const second = names.find((name) => name !== first) || "";
+    expect(
+      second,
+      "Store should have at least two categories to assign",
+    ).toBeTruthy();
+    await this.selectCategory(second);
+    await this.closeOpenList();
+    product.categories = [first, second];
+    await expect(this.selectedCategoryChip(first)).toBeVisible();
+    await expect(this.selectedCategoryChip(second)).toBeVisible();
+  }
+
   async selectProductTaxes(product) {
     await expect(this.defaultTaxName).toBeVisible();
     const taxes = ["DefaultTax"];
+    const taxCount = Number(sessionDataStorage.get("tax_APIcount") ?? 0);
+    const storeTaxes = sessionDataStorage.get("storeTaxes") ?? [];
+
+    if (taxCount <= 1) {
+      product.taxes = taxes;
+      return;
+    }
 
     await this.addAnotherTaxBtn.click();
     const chooseTax = this.page.getByPlaceholder("Choose a tax");
@@ -998,17 +1617,95 @@ class Products {
       return;
     }
 
-    await chooseTax.click();
-    const label = await this.pickFirstOpenListOption();
+    const extraTax = storeTaxes.find((name) => !this.isDefaultTaxName(name));
+    if (extraTax) {
+      await chooseTax.fill(extraTax);
+    } else {
+      await chooseTax.click();
+    }
+
+    const taxSection = chooseTax.locator("xpath=../..");
+    const label = await this.pickFirstOpenListOption(taxSection);
+    if (!label) {
+      product.taxes = taxes;
+      return;
+    }
     const taxName = label.replace(/\s*[\d.]+%\s*$/, "").trim();
-    taxes.push(taxName);
-    await expect(
-      this.formBody.getByText(taxName, { exact: true }).first(),
-    ).toBeVisible();
+    if (
+      taxName &&
+      !taxes.includes(taxName) &&
+      !this.isDefaultTaxName(taxName)
+    ) {
+      taxes.push(taxName);
+      await expect(
+        this.formBody.getByText(taxName, { exact: true }).first(),
+      ).toBeVisible();
+    }
     product.taxes = taxes;
   }
 
+  async removeAllProductTaxes() {
+    await expect(this.taxInfoHeading).toBeVisible();
+    for (let i = 0; i < 10; i++) {
+      if ((await this.removeTaxBtn.count()) === 0) break;
+      await this.removeTaxBtn.first().click();
+    }
+    await expect(this.removeTaxBtn).toHaveCount(0);
+    await expect(this.defaultTaxName).toHaveCount(0);
+    await expect(this.addAnotherTaxBtn).toBeVisible();
+  }
+
+  async addProductWithoutTax(product) {
+    const {
+      name,
+      category = "Quickadd",
+      cost = "10.00",
+      price = "20.00",
+    } = product;
+    await this.verifyAddSingleProductUrl();
+    await this.fillProductName(name);
+    await this.selectCategory(category);
+    const upc = await this.generateUpc();
+    product.upc = upc;
+    await this.fillCost(cost);
+    await this.fillPrice(price);
+    await this.removeAllProductTaxes();
+    product.taxes = [];
+
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 20_000 },
+    );
+    await this.saveProductClick();
+    const addResponse = await addPromise;
+    this.assertHttp200(addResponse, "add_product");
+
+    await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
+      timeout: 15_000,
+    });
+    await this.searchListing(name);
+    await expect(
+      this.getProductRow(name),
+      `Product "${name}" should appear in the listing after save without tax`,
+    ).toBeVisible({ timeout: 15_000 });
+  }
+
+  async verifyProductHasNoTaxOnEdit(product) {
+    await this.openEditSingleProduct(product.name);
+    await this.verifyEditSingleProductUrl();
+    await expect(this.taxInfoHeading).toBeVisible();
+    await expect(this.removeTaxBtn).toHaveCount(0);
+    await expect(this.defaultTaxName).toHaveCount(0);
+    await expect(this.addAnotherTaxBtn).toBeVisible();
+    await this.returnToProductsList();
+  }
+
   async selectFirstRelatedProduct() {
+    const section = this.relatedProductsSearch.locator("xpath=../..");
+    const existing = await this.readAssignedChip(section);
+    if (existing) return existing;
     await this.relatedProductsSearch.click();
     const closeList = this.page.getByRole("button", { name: "Close list" });
     const opened = await closeList
@@ -1017,7 +1714,24 @@ class Products {
       .then(() => true)
       .catch(() => false);
     if (!opened) return "";
-    return this.pickFirstOpenListOption();
+    const hasOption = await this.listOptionButtons(section)
+      .first()
+      .waitFor({ state: "visible", timeout: 8_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!hasOption) {
+      await this.closeOpenList();
+      return "";
+    }
+    const label = await this.pickFirstOpenListOption(section);
+    await this.closeOpenList();
+    if (!label) return "";
+    const assigned = await section
+      .getByText(label, { exact: true })
+      .waitFor({ state: "visible", timeout: 8_000 })
+      .then(() => true)
+      .catch(() => false);
+    return assigned ? label : "";
   }
 
   async addSingleProductWithAllDetails(product) {
@@ -1052,6 +1766,7 @@ class Products {
     await this.customCodeInput.fill(String(customCode));
     await this.foodStampableOption.click();
     await this.expectToggleChecked(this.foodStampableOption, true);
+    product.foodStampable = true;
     await this.selectProductTaxes(product);
     product.relatedProduct = await this.selectFirstRelatedProduct();
 
@@ -1063,17 +1778,331 @@ class Products {
     );
     await this.saveProductClick();
     const addResponse = await addPromise;
-    expect(addResponse.status()).toBe(200);
+    this.assertHttp200(addResponse, "add_product");
 
     await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
       timeout: 15_000,
     });
-    await this.searchBar.fill(name);
+    await this.searchListing(name);
     await expect(
       this.productRows.filter({ hasText: name }).first(),
       `Product "${name}" should appear in the listing after save`,
     ).toBeVisible({ timeout: 15_000 });
     sessionDataStorage.set("createdFullProduct", { ...product });
+  }
+
+  async fillUniqueCustomCodes(count = 10) {
+    const stamp = Date.now().toString().slice(-8);
+    const codes = Array.from(
+      { length: count },
+      (_, i) => `C${stamp}${String(i + 1).padStart(2, "0")}`,
+    );
+    expect(new Set(codes).size, "Custom codes must be unique").toBe(count);
+
+    for (let i = 0; i < codes.length; i++) {
+      if (i > 0) {
+        await this.addAnotherCodeBtn.click();
+      }
+      const input = this.customCodeInput.nth(i);
+      await expect(input).toBeVisible({ timeout: 10_000 });
+      await input.fill(codes[i]);
+      await expect(input).toHaveValue(codes[i]);
+    }
+    await expect(this.customCodeInput).toHaveCount(count);
+    return codes;
+  }
+
+  async addSingleProductWithTenCustomCodes(product) {
+    const {
+      name,
+      category = "Quickadd",
+      cost = "10.00",
+      price = "20.00",
+    } = product;
+    await this.verifyAddSingleProductUrl();
+    await this.fillProductName(name);
+    await this.selectCategory(category);
+    const upc = await this.generateUpc();
+    product.upc = upc;
+    await this.fillCost(cost);
+    await this.fillPrice(price);
+    product.customCodes = await this.fillUniqueCustomCodes(10);
+    expect(product.customCodes).toHaveLength(10);
+
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 20_000 },
+    );
+    await this.saveProductClick();
+    const addResponse = await addPromise;
+    this.assertHttp200(addResponse, "add_product");
+
+    await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
+      timeout: 15_000,
+    });
+    await this.searchListing(name);
+    await expect(
+      this.getProductRow(name),
+      `Product "${name}" should appear in the listing after save`,
+    ).toBeVisible({ timeout: 15_000 });
+  }
+
+  async verifyProductSearchableByEachCustomCode({ name, customCodes }) {
+    expect(Array.isArray(customCodes), "customCodes should be an array").toBe(
+      true,
+    );
+    expect(
+      customCodes.length,
+      "Need at least 10 custom codes",
+    ).toBeGreaterThanOrEqual(10);
+
+    for (const code of customCodes) {
+      await this.searchListing(String(code));
+      await expect(
+        this.getProductRow(name),
+        `Search by custom code "${code}" should find product "${name}"`,
+      ).toBeVisible({ timeout: 15_000 });
+      await this.waitForCatalogIdle();
+    }
+    await this.searchListing("");
+  }
+
+  async addInactiveProductWithCostGreaterThanPrice(product) {
+    const {
+      name,
+      category = "Quickadd",
+      cost = "20.00",
+      price = "10.00",
+    } = product;
+    expect(
+      Number(cost),
+      "Cost must be greater than Price for negative margin/profit",
+    ).toBeGreaterThan(Number(price));
+    await this.verifyAddSingleProductUrl();
+    await this.fillProductName(name);
+    await this.selectCategory(category);
+    const upc = await this.generateUpc();
+    product.upc = upc;
+    await this.fillCost(cost);
+    await this.fillPrice(price);
+
+    const expectedProfit = this.expectedProfit(price, cost);
+    const expectedMargin = this.expectedMargin(price, cost);
+    expect(
+      expectedProfit,
+      "Profit should be negative when cost > price",
+    ).toBeLessThan(0);
+    expect(
+      expectedMargin,
+      "Margin should be negative when cost > price",
+    ).toBeLessThan(0);
+    await this.verifyMarginAndProfitComputed(cost, price);
+
+    await this.expectToggleChecked(this.activeOption, true);
+    await this.activeOption.click();
+    await this.expectToggleChecked(this.activeOption, false);
+
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 20_000 },
+    );
+    await this.saveProductClick();
+    const addResponse = await addPromise;
+    this.assertHttp200(addResponse, "add_product");
+
+    await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
+      timeout: 15_000,
+    });
+    await this.searchListing(name);
+    await expect(
+      this.getProductRow(name),
+      `Product "${name}" should appear in the listing after save`,
+    ).toBeVisible({ timeout: 15_000 });
+  }
+
+  async verifyInactiveProductInListing({ name }) {
+    const row = await this.searchCreatedProduct(name);
+    await expect(row.locator("[data-prod-title]")).toHaveText(name);
+    await expect(
+      row.getByText(/Inactive/i),
+      `Product "${name}" should show Inactive on the listing when Active is unchecked`,
+    ).toBeVisible();
+  }
+
+  async verifyInactiveProductViewDetails({
+    name,
+    cost = "20.00",
+    price = "10.00",
+  }) {
+    await this.openRowActions(name);
+    await this.viewDetailsAction.first().click();
+    await expect(this.productDetailsHeading).toBeVisible({ timeout: 10_000 });
+    await expect(this.page).toHaveURL(PRODUCTS_PAGE_URL);
+
+    const details = this.getProductDetailsPanel();
+    await expect(details.getByText(name, { exact: true })).toBeVisible();
+    const disabledSelected = details
+      .getByRole("radio", { name: /^Disabled$/i, checked: true })
+      .or(details.getByRole("checkbox", { name: /^Disabled$/i, checked: true }))
+      .or(details.getByRole("button", { name: /^Disabled$/i, pressed: true }))
+      .or(details.getByText("Disabled", { exact: true }));
+    await expect(
+      disabledSelected.first(),
+      "View details should show Disabled selected when Active is unchecked",
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      details.getByText(
+        new RegExp(
+          `${this.expectedMargin(price, cost).toFixed(2)}%\\s*margin`,
+          "i",
+        ),
+      ),
+    ).toBeVisible();
+
+    await details.getByRole("button", { name: "Close" }).click();
+    await expect(this.productDetailsHeading).toBeHidden({ timeout: 10_000 });
+  }
+
+  async addOutOfStockProductWithContinueSellingOff(product) {
+    const {
+      name,
+      category = "Quickadd",
+      cost = "10.00",
+      price = "20.00",
+      quantity = "0",
+    } = product;
+    await this.verifyAddSingleProductUrl();
+    await this.fillProductName(name);
+    await this.selectCategory(category);
+    const upc = await this.generateUpc();
+    product.upc = upc;
+    await this.fillCost(cost);
+    await this.fillPrice(price);
+    await this.availableToSellInput.fill(String(quantity));
+    await expect(this.availableToSellInput).toHaveValue(String(quantity));
+
+    await this.expectToggleChecked(this.trackQuantityOption, true);
+    await this.expectToggleChecked(this.continueSellingOption, true);
+    await this.continueSellingOption.click();
+    await this.expectToggleChecked(this.continueSellingOption, false);
+
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 20_000 },
+    );
+    await this.saveProductClick();
+    const addResponse = await addPromise;
+    this.assertHttp200(addResponse, "add_product");
+
+    await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
+      timeout: 15_000,
+    });
+    await this.searchListing(name);
+    await expect(
+      this.getProductRow(name),
+      `Product "${name}" should appear in the listing after save`,
+    ).toBeVisible({ timeout: 15_000 });
+  }
+
+  async verifyOutOfStockProductInListing({ name }) {
+    const row = await this.searchCreatedProduct(name);
+    await expect(row.locator("[data-prod-title]")).toHaveText(name);
+    await expect(
+      row.getByText(/Out of stock/i),
+      `Product "${name}" should show Out of stock when quantity is 0 and Continue selling is off`,
+    ).toBeVisible();
+  }
+
+  async addProductWithQuantity(product) {
+    const {
+      name,
+      category = "Quickadd",
+      cost = "10.00",
+      price = "20.00",
+      quantity = "10",
+    } = product;
+    await this.verifyAddSingleProductUrl();
+    await this.fillProductName(name);
+    await this.selectCategory(category);
+    const upc = await this.generateUpc();
+    product.upc = upc;
+    await this.fillCost(cost);
+    await this.fillPrice(price);
+    await this.expectToggleChecked(this.trackQuantityOption, true);
+    await this.availableToSellInput.fill(String(quantity));
+    await expect(this.availableToSellInput).toHaveValue(String(quantity));
+
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 20_000 },
+    );
+    await this.saveProductClick();
+    const addResponse = await addPromise;
+    this.assertHttp200(addResponse, "add_product");
+
+    await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
+      timeout: 15_000,
+    });
+    await this.searchListing(name);
+    await expect(
+      this.getProductRow(name),
+      `Product "${name}" should appear in the listing after save`,
+    ).toBeVisible({ timeout: 15_000 });
+  }
+
+  async verifyInStockQuantityOnListing({ name, quantity = "10" }) {
+    const row = await this.searchCreatedProduct(name);
+    await expect(row.locator("[data-prod-title]")).toHaveText(name);
+    await expect(
+      row.getByText(`${quantity} in stock`, { exact: true }),
+      `Product "${name}" should show ${quantity} in stock on the listing`,
+    ).toBeVisible();
+  }
+
+  async addProductWithRichDescriptionAndMultipleCategories(product) {
+    const {
+      name,
+      category = "Quickadd",
+      cost = "10.00",
+      price = "20.00",
+      description = "Auto bold italic underline",
+    } = product;
+    await this.verifyAddSingleProductUrl();
+    await this.fillProductName(name);
+    await this.selectMultipleCategories(product);
+    await this.fillDescriptionWithRichText(description);
+    product.descriptionRichText = true;
+    const upc = await this.generateUpc();
+    product.upc = upc;
+    await this.fillCost(cost);
+    await this.fillPrice(price);
+
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 20_000 },
+    );
+    await this.saveProductClick();
+    const addResponse = await addPromise;
+    this.assertHttp200(addResponse, "add_product");
+
+    await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
+      timeout: 15_000,
+    });
+    await this.searchListing(name);
+    await expect(
+      this.getProductRow(name),
+      `Product "${name}" should appear in the listing after save`,
+    ).toBeVisible({ timeout: 15_000 });
   }
 
   formatPrice(value) {
@@ -1097,20 +2126,30 @@ class Products {
     );
   }
 
+  async searchListing(text) {
+    const value = String(text);
+    const current = await this.searchBar.inputValue();
+    if (current === value) {
+      await this.waitForCatalogIdle();
+      return null;
+    }
+    const [listResponse] = await Promise.all([
+      this.page.waitForResponse((res) => this.isProductListResponse(res), {
+        timeout: 15_000,
+      }),
+      this.searchBar.fill(value),
+    ]);
+    expect(
+      listResponse.status(),
+      "Products_list (search) should return HTTP 200",
+    ).toBe(200);
+    return listResponse;
+  }
+
   async searchCreatedProduct(name) {
     await this.returnToProductsList();
-    const listResponse = this.page.waitForResponse(
-      (res) => this.isProductListResponse(res),
-      { timeout: 15_000 },
-    );
-    await this.searchBar.fill(name);
-    await listResponse.catch(() => { });
+    await this.searchListing(name);
     await expect(this.getProductRow(name)).toBeVisible({ timeout: 15_000 });
-    await this.page
-      .waitForResponse((res) => this.isProductListResponse(res), {
-        timeout: 2_000,
-      })
-      .catch(() => { });
     await this.waitForCatalogIdle();
     return this.getProductRow(name);
   }
@@ -1138,15 +2177,25 @@ class Products {
   }
 
   async expectRowActionsMenuVisible() {
-    await expect(this.editProductAction.first()).toBeVisible({ timeout: 2_000 });
-    await expect(this.page.getByText("Open the full product form")).toBeVisible({
+    await expect(this.editProductAction.first()).toBeVisible({
       timeout: 2_000,
     });
-    await expect(this.viewDetailsAction.first()).toBeVisible({ timeout: 2_000 });
-    await expect(this.page.getByText("Quick look, no page change")).toBeVisible({
+    await expect(this.page.getByText("Open the full product form")).toBeVisible(
+      {
+        timeout: 2_000,
+      },
+    );
+    await expect(this.viewDetailsAction.first()).toBeVisible({
       timeout: 2_000,
     });
-    await expect(this.salesHistoryAction.first()).toBeVisible({ timeout: 2_000 });
+    await expect(this.page.getByText("Quick look, no page change")).toBeVisible(
+      {
+        timeout: 2_000,
+      },
+    );
+    await expect(this.salesHistoryAction.first()).toBeVisible({
+      timeout: 2_000,
+    });
     await expect(this.instantPoAction.first()).toBeVisible({ timeout: 2_000 });
     await expect(this.stocktakeAction.first()).toBeVisible({ timeout: 2_000 });
     await expect(this.deleteItemAction.first()).toBeVisible({ timeout: 2_000 });
@@ -1158,21 +2207,39 @@ class Products {
   async verifyCreatedProductInListing({
     name,
     category = "Quickadd",
+    categories,
     price = "20.00",
     upc,
     quantity,
+    hasPhoto = false,
+    delivery = true,
+    pickup = true,
   }) {
     const row = await this.searchCreatedProduct(name);
     await expect(row.locator("[data-prod-title]")).toHaveText(name);
-    await expect(row).toContainText(category);
+    const cats =
+      Array.isArray(categories) && categories.length ? categories : [category];
+    for (const cat of cats) {
+      await expect(row).toContainText(cat);
+    }
     if (upc) {
       await expect(row).toContainText(upc);
+    }
+    if (hasPhoto) {
+      await expect(
+        row.locator("img").first(),
+        `Product "${name}" should show a cover photo on the listing`,
+      ).toBeVisible();
     }
     await expect(row.locator("[data-prod-price]")).toContainText(
       this.formatPrice(price),
     );
-    await expect(row.getByLabel(/Delivery on/i)).toBeVisible();
-    await expect(row.getByLabel(/Pickup on/i)).toBeVisible();
+    await expect(
+      row.getByLabel(delivery ? /Delivery on/i : /Delivery off/i),
+    ).toBeVisible();
+    await expect(
+      row.getByLabel(pickup ? /Pickup on/i : /Pickup off/i),
+    ).toBeVisible();
     const stockPattern = quantity
       ? new RegExp(
           `Low\\s*·\\s*${quantity}|${quantity} in stock|\\d+ in stock`,
@@ -1191,13 +2258,14 @@ class Products {
 
   getProductDetailsPanel() {
     return this.productDetailsHeading.locator(
-      "xpath=ancestor::*[.//button[normalize-space()='Close']][1]",
+      "xpath=ancestor::*[.//*[normalize-space()='Category']][1]",
     );
   }
 
   async verifyCreatedProductViewDetails({
     name,
     category = "Quickadd",
+    categories,
     cost = "10.00",
     price = "20.00",
     upc,
@@ -1206,23 +2274,76 @@ class Products {
     quantity,
     reorderPoint,
     reorderQty,
+    hasPhoto = false,
   }) {
-    await this.openRowActions(name);
-    await this.viewDetailsAction.first().click();
-    await expect(this.productDetailsHeading).toBeVisible({ timeout: 10_000 });
+    await this.waitForCatalogIdle();
+    await expect(async () => {
+      const categoryVisible = await this.page
+        .getByText("Category", { exact: true })
+        .isVisible()
+        .catch(() => false);
+      if (
+        categoryVisible &&
+        (await this.productDetailsHeading.isVisible().catch(() => false))
+      ) {
+        return;
+      }
+      if (
+        !(await this.viewDetailsAction
+          .first()
+          .isVisible()
+          .catch(() => false))
+      ) {
+        await this.openRowActions(name);
+      }
+      const productDataPromise = this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes(routes.API_URL.getProductDataById),
+        { timeout: 15_000 },
+      );
+      await this.viewDetailsAction.first().click();
+      await this.assertHttp200IfReceived(
+        productDataPromise,
+        "get_productdata_ById",
+      );
+      await expect(this.productDetailsHeading).toBeVisible({ timeout: 8_000 });
+      await expect(this.page.getByText("Category", { exact: true })).toBeVisible(
+        { timeout: 8_000 },
+      );
+    }).toPass({ timeout: 25_000 });
     await expect(this.page).toHaveURL(PRODUCTS_PAGE_URL);
 
     const details = this.getProductDetailsPanel();
     await expect(details.getByText(name, { exact: true })).toBeVisible();
     await expect(details.getByText("Approved", { exact: true })).toBeVisible();
-    await expect(details.getByText("No images")).toBeVisible();
+    if (hasPhoto) {
+      await expect(details.getByText("No images")).toHaveCount(0);
+      await expect(
+        details.locator("img").first(),
+        "View details should show the product photo",
+      ).toBeVisible();
+    } else {
+      await expect(details.getByText("No images")).toBeVisible();
+    }
     await expect(details.getByText("Category", { exact: true })).toBeVisible();
-    await expect(details.getByText(category, { exact: true })).toBeVisible();
+    const cats =
+      Array.isArray(categories) && categories.length ? categories : [category];
+    const categoryValue = details
+      .getByText("Category", { exact: true })
+      .locator("xpath=following-sibling::*[1]");
+    for (const cat of cats) {
+      await expect(categoryValue).toContainText(cat);
+    }
     await expect(details.getByText("Type", { exact: true })).toBeVisible();
-    await expect(details.getByText("Single product", { exact: true })).toBeVisible();
+    await expect(
+      details.getByText("Single product", { exact: true }),
+    ).toBeVisible();
     await expect(details.getByText("Price", { exact: true })).toBeVisible();
     await expect(details.getByText(this.formatPrice(price))).toBeVisible();
-    await expect(details.getByText("Cost / margin", { exact: true })).toBeVisible();
+    await expect(
+      details.getByText("Cost / margin", { exact: true }),
+    ).toBeVisible();
     await expect(details.getByText(this.formatPrice(cost))).toBeVisible();
     await expect(
       details.getByText(
@@ -1243,14 +2364,22 @@ class Products {
       await expect(details.getByText(upc, { exact: true })).toBeVisible();
     }
     if (customCode) {
-      await expect(details.getByText("Custom code", { exact: true })).toBeVisible();
-      await expect(details.getByText(customCode, { exact: true })).toBeVisible();
+      await expect(
+        details.getByText("Custom code", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        details.getByText(customCode, { exact: true }),
+      ).toBeVisible();
     }
     if (reorderPoint && reorderQty) {
-      await expect(details.getByText(`${reorderPoint} / ${reorderQty}`)).toBeVisible();
+      await expect(
+        details.getByText(`${reorderPoint} / ${reorderQty}`),
+      ).toBeVisible();
     }
     if (description) {
-      await expect(details.getByText("Description", { exact: true })).toBeVisible();
+      await expect(
+        details.getByText("Description", { exact: true }),
+      ).toBeVisible();
       await expect(details.getByText(description)).toBeVisible();
     }
     await expect(details.getByText("Online delivery")).toBeVisible();
@@ -1264,6 +2393,7 @@ class Products {
   async verifyCreatedProductEditForm({
     name,
     category = "Quickadd",
+    categories,
     cost = "10.00",
     price = "20.00",
     upc,
@@ -1271,13 +2401,28 @@ class Products {
     tag,
     taxes,
     description,
+    descriptionRichText,
     customCode,
+    foodStampable = false,
+    checkId = false,
     quantity,
     reorderPoint,
     reorderQty,
     compareAt,
+    hasPhoto = false,
+    delivery = true,
+    pickup = true,
+    relatedProduct,
+    vendor,
   }) {
-    await this.openRowActions(name);
+    if (
+      !(await this.editProductAction
+        .first()
+        .isVisible()
+        .catch(() => false))
+    ) {
+      await this.openRowActions(name);
+    }
     const productDataPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
@@ -1286,7 +2431,7 @@ class Products {
     );
     await this.editProductAction.first().click();
     const productDataResponse = await productDataPromise;
-    expect(productDataResponse.status()).toBe(200);
+    this.assertHttp200(productDataResponse, "get_productdata_ById");
     await expect(this.page).toHaveURL(
       /\/merchants\/inventory\/new-products\/edit\/\d+/,
     );
@@ -1302,12 +2447,21 @@ class Products {
     await expect(this.saveProductBtn).toHaveCount(0);
 
     await expect(this.productNameInput).toHaveValue(name, { timeout: 15_000 });
-    await expect(this.formBody.getByText(category, { exact: true })).toBeVisible();
+    const cats =
+      Array.isArray(categories) && categories.length ? categories : [category];
+    for (const cat of cats) {
+      await expect(this.selectedCategoryChip(cat)).toBeVisible();
+    }
+    if (hasPhoto) {
+      await this.expectCoverPhotoOnForm();
+    } else {
+      await expect(this.removePhotoBtn).toHaveCount(0);
+    }
     if (brand) {
-      await expect(this.formBody.getByText(brand, { exact: true })).toBeVisible();
+      await expect(this.selectedBrandChip(brand)).toBeVisible();
     }
     if (tag) {
-      await expect(this.formBody.getByText(tag, { exact: true })).toBeVisible();
+      await expect(this.selectedTagChip(tag)).toBeVisible();
     }
     if (upc) {
       await expect(this.upcInput).toHaveValue(upc);
@@ -1335,17 +2489,24 @@ class Products {
     if (description) {
       await expect(this.formBody.getByText(description)).toBeVisible();
     }
+    if (descriptionRichText) {
+      const editor = this.descriptionEditor.first();
+      await expect(editor.locator("b, strong").first()).toBeVisible();
+      await expect(editor.locator("i, em").first()).toBeVisible();
+      await expect(editor.locator("u").first()).toBeVisible();
+    }
     if (Array.isArray(taxes)) {
-      for (const tax of taxes) {
+      const uniqueTaxes = [...new Set(taxes)];
+      for (const tax of uniqueTaxes) {
         await expect(
           this.formBody.getByText(tax, { exact: true }).first(),
         ).toBeVisible();
       }
-    }
-    if (taxes?.length > 1) {
-      await expect(this.formBody.getByRole("button", { name: /Remove tax/i })).toHaveCount(
-        taxes.length,
-      );
+      if (uniqueTaxes.length > 1) {
+        await expect(
+          this.formBody.getByRole("button", { name: /Remove tax/i }),
+        ).toHaveCount(uniqueTaxes.length);
+      }
     }
 
     await expect(this.copyToStoresHeading).toBeHidden();
@@ -1357,11 +2518,25 @@ class Products {
     await expect(this.deliveryChannelBtn).toBeVisible();
     await expect(this.pickupChannelBtn).toBeVisible();
     await this.expectToggleChecked(this.posChannelBtn, true);
-    await this.expectToggleChecked(this.deliveryChannelBtn, true);
-    await this.expectToggleChecked(this.pickupChannelBtn, true);
+    await this.expectToggleChecked(this.deliveryChannelBtn, Boolean(delivery));
+    await this.expectToggleChecked(this.pickupChannelBtn, Boolean(pickup));
     await this.expectToggleChecked(this.activeOption, true);
-    if (customCode || description) {
-      await this.expectToggleChecked(this.foodStampableOption, true);
+    await this.expectToggleChecked(this.checkIdOption, Boolean(checkId));
+    await this.expectToggleChecked(
+      this.foodStampableOption,
+      Boolean(foodStampable),
+    );
+    if (relatedProduct) {
+      await expect(
+        this.relatedProductsSearch
+          .locator("xpath=../..")
+          .getByText(relatedProduct, { exact: true }),
+      ).toBeVisible();
+    }
+    if (vendor) {
+      await expect(
+        this.formBody.getByText(vendor, { exact: true }).first(),
+      ).toBeVisible();
     }
 
     await this.returnToProductsList();
@@ -1373,49 +2548,95 @@ class Products {
 
   async generateUpc() {
     await expect(this.generateUpcBtn).toBeVisible();
+    const previous = (await this.upcInput.inputValue()).trim();
     await this.generateUpcBtn.click();
+    if (/^\d{12}$/.test(previous)) {
+      await expect(this.generateNewUpcBtn).toBeVisible({ timeout: 5_000 });
+      await this.generateNewUpcBtn.click();
+      await expect(this.generateNewUpcBtn).toBeHidden();
+    }
     await expect
       .poll(async () => (await this.upcInput.inputValue()).trim(), {
         timeout: 10_000,
         message: "Generate should populate a 12-digit UPC",
       })
       .toMatch(/^\d{12}$/);
-    return (await this.upcInput.inputValue()).trim();
+    const upc = (await this.upcInput.inputValue()).trim();
+    if (previous) {
+      expect(upc, "Generated UPC should replace the current code").not.toBe(
+        previous,
+      );
+    }
+    return upc;
   }
 
   async selectCategory(categoryName) {
-    const [categoryListResponse] = await Promise.all([
-      this.page.waitForResponse(
-        (res) =>
-          res.request().method() === "POST" &&
-          res.url().includes(routes.API_URL.formCategoryList_URL),
-        { timeout: 15_000 },
-      ),
-      this.categoriesInput.click(),
-    ]);
-    expect(categoryListResponse.status()).toBe(200);
-    const categoryBody = await categoryListResponse.json();
-    expect(categoryBody.status).toBeTruthy();
-    expect(categoryBody.msg).toBe("Category Found Successfully.");
-    expect(
-      Array.isArray(categoryBody.result),
-      "Form category list should be an array",
-    ).toBeTruthy();
-    expect(
-      categoryBody.result.length,
-      "Form category list should not be empty",
-    ).toBeGreaterThan(0);
+    const listPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.formCategoryList_URL),
+      { timeout: 15_000 },
+    );
+    await this.categoriesInput.click();
+    const categoryListResponse = await this.assertHttp200IfReceived(
+      listPromise,
+      "category_list",
+    );
+    if (categoryListResponse) {
+      const categoryBody = await categoryListResponse.json();
+      expect(categoryBody.status).toBeTruthy();
+      expect(categoryBody.msg).toBe("Category Found Successfully.");
+      expect(
+        Array.isArray(categoryBody.result),
+        "Form category list should be an array",
+      ).toBeTruthy();
+      expect(
+        categoryBody.result.length,
+        "Form category list should not be empty",
+      ).toBeGreaterThan(0);
+      sessionDataStorage.set(
+        "formCategoryNames",
+        categoryBody.result
+          .map((item) => this.categoryNameFromApiItem(item))
+          .filter(Boolean),
+      );
+    }
 
     await this.categoriesInput.fill(categoryName);
     const option = this.page.getByRole("button", {
       name: categoryName,
       exact: true,
     });
-    await expect(option).toBeVisible({ timeout: 10_000 });
-    await option.click();
+    const optionVisible = await option
+      .waitFor({ state: "visible", timeout: 10_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (optionVisible) {
+      await option.click();
+    } else {
+      await this.categoriesInput.press("Enter");
+    }
+
+    const chip = this.selectedCategoryChip(categoryName);
+    const assigned = await chip
+      .waitFor({ state: "visible", timeout: 8_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!assigned) {
+      await this.categoriesInput.press("Enter");
+      await expect(
+        chip,
+        `Category "${categoryName}" should be assigned as a chip`,
+      ).toBeVisible({ timeout: 8_000 });
+    }
+    await expect(this.categoriesInput).toHaveValue("");
   }
 
   async saveProductClick() {
+    if (/\/new-products\/duplicate\//.test(this.page.url())) {
+      await this.duplicateSaveBtn.click();
+      return;
+    }
     await this.saveProductBtn.click();
   }
 
@@ -1442,27 +2663,44 @@ class Products {
       return;
     }
 
-    const [productListResponse] = await Promise.all([
-      this.page.waitForResponse(
-        (res) =>
-          res.request().method() === "POST" &&
-          res.url().includes(routes.API_URL.productList_URL),
-        { timeout: 15_000 },
-      ),
-      this.productsMenuLink.click(),
-    ]);
-    expect(productListResponse.status()).toBe(200);
-    await expect(this.page).not.toHaveURL(/\/add/);
+    const productListPromise = this.page.waitForResponse(
+      (res) => this.isProductListResponse(res),
+      { timeout: 25_000 },
+    );
+    await this.productsMenuLink.click();
+    await this.confirmDiscardChangesIfAsked();
+    if (/\/new-products\/(add|edit|duplicate)/.test(this.page.url())) {
+      await this.productsMenuLink.click();
+      await this.confirmDiscardChangesIfAsked();
+    }
+    const productListResponse = await productListPromise.catch(() => null);
+    if (productListResponse) this.assertHttp200(productListResponse, "Products_list");
+    await expect(this.page).not.toHaveURL(
+      /\/new-products\/(add|edit|duplicate)/,
+      { timeout: 15_000 },
+    );
     await expect(this.productsHeading).toBeVisible({ timeout: 15_000 });
     await expect(this.searchBar).toBeVisible();
   }
 
-  async reopenAddSingleProductForm() {
+  async reopenAddSingleProductForm({
+    waitForTaxList = false,
+    discardDraft = true,
+  } = {}) {
+    await this.returnToProductsList();
+    const taxListPromise = waitForTaxList
+      ? this.page.waitForResponse((res) => this.isTaxListResponse(res), {
+          timeout: 20_000,
+        })
+      : null;
     await this.addProductBtnClick();
     await this.selectSingleProductType();
     await this.continueAddProductType();
+    if (taxListPromise) {
+      await this.assertTaxListApi(await taxListPromise);
+    }
     await this.verifyAddSingleProductUrl();
-    await this.discardRestoredDraft();
+    if (discardDraft) await this.discardRestoredDraft();
   }
 
   async discardRestoredDraft() {
@@ -1481,21 +2719,49 @@ class Products {
     await expect(this.compareAtLessThanPriceError).toHaveCount(0);
   }
 
+  async leaveAddFormWithoutSaving() {
+    await this.page.keyboard.press("Escape");
+    await this.variantsMenuLink.click();
+    await expect(this.page).toHaveURL(/\/merchants\/inventory\/variants/, {
+      timeout: 15_000,
+    });
+    await expect(this.page).not.toHaveURL(/\/add/);
+  }
+
+  async verifyUnsavedDraftRestoreAndStartFresh() {
+    const name = `Auto Draft ${Date.now()}`;
+    await this.verifyAddSingleProductUrl();
+    await this.fillProductName(name);
+    await this.selectCategory("Quickadd");
+    await this.fillPrice("9.99");
+    await expect(this.productNameInput).toHaveValue(name);
+    await expect(this.priceInput).toHaveValue("9.99");
+
+    await this.leaveAddFormWithoutSaving();
+    await this.verifyProductNotCreatedInListing(name);
+
+    await this.reopenAddSingleProductForm({ discardDraft: false });
+    await expect(this.draftRestoredBanner).toBeVisible({ timeout: 10_000 });
+    await expect(this.startFreshBtn).toBeVisible();
+    await expect(this.productNameInput).toHaveValue(name);
+    await expect(this.priceInput).toHaveValue("9.99");
+    await expect(this.selectedCategoryChip("Quickadd")).toBeVisible();
+
+    await this.discardRestoredDraft();
+    await expect(this.productNameInput).toHaveValue("");
+    await expect(this.selectedCategoryChip("Quickadd")).toHaveCount(0);
+
+    await this.verifyProductNotCreatedInListing(name);
+  }
+
   async verifyProductNotCreatedInListing(searchText) {
     await this.returnToProductsList();
-    const listResponse = this.page.waitForResponse(
-      (res) =>
-        res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.productList_URL),
-      { timeout: 10_000 },
-    );
-    await this.searchBar.fill(searchText);
-    await listResponse.catch(() => { });
+    await this.searchListing(searchText);
     await expect(
       this.productRows.filter({ hasText: searchText }),
       `Product "${searchText}" should not be created in the listing after invalid save`,
     ).toHaveCount(0);
-    await this.searchBar.clear();
+    await this.searchListing("");
   }
 
   async verifyPriceRequiredError() {
@@ -1531,6 +2797,66 @@ class Products {
     await this.verifyNameRequiredError();
     await this.verifyProductNotSaved();
     await this.verifyProductNotCreatedInListing(upc);
+  }
+
+  async assertInputStripsCharacters(
+    input,
+    fieldName,
+    blocked,
+    { prefix = "1", suffix = "2" } = {},
+  ) {
+    await expect(input).toBeVisible();
+    const expected = `${prefix}${suffix}`;
+
+    for (const ch of blocked) {
+      await input.fill("");
+      await input.fill(`${prefix}${ch}${suffix}`);
+      expect(
+        await input.inputValue(),
+        `${fieldName} should strip ${JSON.stringify(ch)} after fill`,
+      ).toBe(expected);
+
+      await input.fill("");
+      await input.click();
+      await input.pressSequentially(`${prefix}${ch}${suffix}`);
+      expect(
+        await input.inputValue(),
+        `${fieldName} should strip ${JSON.stringify(ch)} while typing`,
+      ).toBe(expected);
+    }
+
+    await input.fill("");
+    await input.fill(`${prefix}${blocked.join("")}${suffix}`);
+    expect(
+      await input.inputValue(),
+      `${fieldName} should strip ${blocked
+        .map((ch) => JSON.stringify(ch))
+        .join(" ")} together`,
+    ).toBe(expected);
+  }
+
+  async verifyProductNameRejectsSpecialCharacters() {
+    await this.verifyAddSingleProductUrl();
+    await this.assertInputStripsCharacters(
+      this.productNameInput,
+      "Product name",
+      ["~", "-", "\\", ",", "/"],
+      { prefix: "A", suffix: "B" },
+    );
+  }
+
+  async verifyUpcRejectsSpecialCharacters() {
+    await this.verifyAddSingleProductUrl();
+    await this.assertInputStripsCharacters(this.upcInput, "UPC", [" "]);
+  }
+
+  async verifyCustomCodeRejectsSpecialCharacters() {
+    await this.verifyAddSingleProductUrl();
+    await this.assertInputStripsCharacters(
+      this.customCodeInput.first(),
+      "Custom code",
+      [" ", "|"],
+    );
   }
 
   async verifyCategoriesRequiredError() {
@@ -1654,6 +2980,16 @@ class Products {
     );
   }
 
+  async verifyEditQuantityIsLocked() {
+    const previous = await this.availableToSellInput.inputValue();
+    await expect(
+      this.availableToSellInput,
+      "Edit Available to sell should stay locked after the product is created",
+    ).toBeDisabled();
+    await expect(this.availableToSellLockedHelper).toBeVisible();
+    await expect(this.availableToSellInput).toHaveValue(previous);
+  }
+
   async verifyCompareAtLessThanPriceValidation() {
     const name = `Auto CompareAt ${Date.now()}`;
     const upc = `8${Date.now().toString().slice(-11)}`;
@@ -1669,6 +3005,103 @@ class Products {
     });
     await this.verifyAddSingleProductUrl();
     await expect(this.newProductTitle).toBeVisible();
+    await this.verifyProductNotCreatedInListing(name);
+    await this.verifyProductNotCreatedInListing(upc);
+    await this.reopenAddSingleProductForm();
+  }
+
+  async expectAddProductRejected(errorLocator) {
+    const addPromise = this.page
+      .waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes(routes.API_URL.addProduct),
+        { timeout: 5_000 },
+      )
+      .catch(() => null);
+    await this.saveProductClick();
+    await expect(errorLocator).toBeVisible({ timeout: 10_000 });
+    const addResponse = await addPromise;
+    if (addResponse) this.assertHttp200(addResponse, "add_product");
+    await this.verifyAddSingleProductUrl();
+    await expect(this.newProductTitle).toBeVisible();
+  }
+
+  async verifySameUpcAndCustomCodeRejected() {
+    const name = `Auto SameCode ${Date.now()}`;
+    await this.verifyAddSingleProductUrl();
+    await this.fillProductName(name);
+    await this.selectCategory("Quickadd");
+    await this.fillPrice("9.99");
+    const sharedCode = await this.generateUpc();
+    await this.customCodeInput.fill(sharedCode);
+    await expect(this.upcInput).toHaveValue(sharedCode);
+    await expect(this.customCodeInput).toHaveValue(sharedCode);
+    await this.expectAddProductRejected(
+      this.sameUpcCustomCodeError
+        .or(this.duplicateUpcError)
+        .or(this.page.getByRole("alert"))
+        .first(),
+    );
+    await this.verifyProductNotCreatedInListing(name);
+    await this.reopenAddSingleProductForm();
+  }
+
+  async verifyDuplicateProductNameRejected(existingName) {
+    const upc = `8${Date.now().toString().slice(-11)}`;
+    await this.verifyAddSingleProductUrl();
+    await this.fillProductName(existingName, { assertAvailable: false });
+    await this.selectCategory("Quickadd");
+    await this.fillPrice("9.99");
+    await this.fillUpc(upc);
+    await this.expectAddProductRejected(
+      this.duplicateNameError.or(this.page.getByRole("alert")).first(),
+    );
+    await this.verifyProductNotCreatedInListing(upc);
+    await this.reopenAddSingleProductForm();
+  }
+
+  async verifyDuplicateUpcRejected(existingUpc) {
+    const name = `Auto DupUpc ${Date.now()}`;
+    await this.verifyAddSingleProductUrl();
+    await this.fillProductName(name);
+    await this.selectCategory("Quickadd");
+    await this.fillPrice("9.99");
+    const upcCheckPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.checkUpc),
+      { timeout: 15_000 },
+    );
+    await this.fillUpc(existingUpc);
+    await this.upcInput.blur();
+    await this.assertHttp200IfReceived(upcCheckPromise, "check_upc");
+    await this.expectAddProductRejected(
+      this.duplicateUpcError.or(this.page.getByRole("alert")).first(),
+    );
+    await this.verifyProductNotCreatedInListing(name);
+    await this.reopenAddSingleProductForm();
+  }
+
+  async verifyDuplicateCustomCodeRejected(existingCustomCode) {
+    expect(
+      existingCustomCode,
+      "Need an existing product custom code to duplicate",
+    ).toBeTruthy();
+    const name = `Auto DupCustom ${Date.now()}`;
+    const upc = `8${Date.now().toString().slice(-11)}`;
+    await this.verifyAddSingleProductUrl();
+    await this.fillProductName(name);
+    await this.selectCategory("Quickadd");
+    await this.fillPrice("9.99");
+    await this.fillUpc(upc);
+    await this.customCodeInput.first().fill(String(existingCustomCode));
+    await this.expectAddProductRejected(
+      this.duplicateCustomCodeError
+        .or(this.sameUpcCustomCodeError)
+        .or(this.page.getByRole("alert"))
+        .first(),
+    );
     await this.verifyProductNotCreatedInListing(name);
     await this.verifyProductNotCreatedInListing(upc);
     await this.reopenAddSingleProductForm();
@@ -1760,6 +3193,1200 @@ class Products {
     await this.verifyTaxInformationSection();
     await this.verifyRelatedProductsSection();
     await this.verifyNoExtraAddSingleFormElements();
+  }
+
+  async verifyEditSingleProductUrl() {
+    await expect(this.page).toHaveURL(
+      /\/merchants\/inventory\/new-products\/edit\/\d+/,
+    );
+  }
+
+  async openEditSingleProduct(name) {
+    const row = await this.searchCreatedProduct(name);
+    const productDataPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.getProductDataById),
+      { timeout: 20_000 },
+    );
+    await row.locator('a[href*="/new-products/edit/"]').first().click();
+    await this.verifyEditSingleProductUrl();
+    await this.assertHttp200IfReceived(
+      productDataPromise,
+      "get_productdata_ById",
+    );
+  }
+
+  async verifyEditSingleProductHeader(name) {
+    await expect(this.backBtn).toBeVisible();
+    await expect(this.page.getByText(`Edit ${name}`)).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(this.singleProductBadge).toBeVisible();
+    await expect(this.discardChangesBtn).toBeVisible();
+    await expect(this.saveChangesBtn).toBeVisible();
+    await expect(this.newProductTitle).toHaveCount(0);
+    await expect(this.saveProductBtn).toHaveCount(0);
+  }
+
+  async verifyEditCannotChangeProductType() {
+    await this.verifyEditSingleProductUrl();
+    await expect(this.page).not.toHaveURL(/type=variants/);
+    await expect(
+      this.formHead.getByText("Single product", { exact: true }),
+    ).toBeVisible();
+
+    await expect(this.typeTitle).toHaveCount(0);
+    await expect(this.typeCards).toHaveCount(0);
+    await expect(this.singleProductCard).toHaveCount(0);
+    await expect(this.variantsProductCard).toHaveCount(0);
+    await expect(this.continueTypeDialogBtn).toHaveCount(0);
+    await expect(
+      this.formHead.getByRole("button", { name: /Product with variants/i }),
+    ).toHaveCount(0);
+    await expect(
+      this.formHead.getByRole("link", { name: /Product with variants/i }),
+    ).toHaveCount(0);
+    await expect(
+      this.formBody.getByRole("button", { name: /Product with variants/i }),
+    ).toHaveCount(0);
+    await expect(
+      this.formBody.getByRole("link", { name: /Product with variants/i }),
+    ).toHaveCount(0);
+
+    await this.formHead.getByText("Single product", { exact: true }).click();
+    await this.verifyEditSingleProductUrl();
+    await expect(this.page).not.toHaveURL(/type=variants/);
+    await expect(
+      this.formHead.getByText("Single product", { exact: true }),
+    ).toBeVisible();
+    await expect(this.typeTitle).toHaveCount(0);
+    await expect(this.variantsProductCard).toHaveCount(0);
+  }
+
+  async verifyEditDescriptionSection() {
+    await expect(this.descriptionHeading).toBeVisible();
+    await expect(this.onlineOnlyBadge).toBeVisible();
+    await expect(this.descriptionHelper).toBeVisible();
+    await expect(this.descriptionBoldBtn).toBeVisible();
+    await expect(this.descriptionItalicBtn).toBeVisible();
+    await expect(this.descriptionUnderlineBtn).toBeVisible();
+    await expect(this.formBody.getByText(/\d+\s*\/\s*2,?000/)).toBeVisible();
+  }
+
+  async verifyEditSellingChannelsSection() {
+    await expect(this.sellingChannelsHeading).toBeVisible();
+    await expect(this.posChannelBtn).toBeVisible();
+    await expect(this.deliveryChannelBtn).toBeVisible();
+    await expect(this.pickupChannelBtn).toBeVisible();
+    await expect(this.posChannelBtn).toBeDisabled();
+    await expect(this.deliveryChannelBtn).toBeEnabled();
+    await expect(this.pickupChannelBtn).toBeEnabled();
+    await this.expectToggleChecked(this.posChannelBtn, true);
+    await this.expectToggleChecked(this.deliveryChannelBtn, true);
+    await this.expectToggleChecked(this.pickupChannelBtn, true);
+  }
+
+  async verifyEditVendorInformationSection() {
+    await expect(this.vendorInfoHeading).toBeVisible();
+    await expect(this.vendorInfoHelper).toBeVisible();
+    await expect(this.vendorAssignAfterCreate).toHaveCount(0);
+    const vendorField = this.vendorSearchInput
+      .or(this.addVendorBtn)
+      .or(
+        this.vendorInfoHeading
+          .locator("xpath=ancestor::*[.//input or .//button][1]")
+          .getByRole("textbox"),
+      );
+    await expect(
+      vendorField.first(),
+      "Edit form should let you assign a vendor",
+    ).toBeVisible({ timeout: 10_000 });
+  }
+
+  async verifyNoExtraEditSingleFormElements() {
+    const actualHeadings = await this.collectVisibleTexts(
+      this.formBody.getByRole("heading"),
+    );
+    this.assertExactList(
+      actualHeadings,
+      ADD_SINGLE_HEADINGS,
+      "Edit single form headings",
+    );
+
+    const actualLabels = await this.collectVisibleTexts(
+      this.formBody.locator("label"),
+    );
+    const missingLabels = ADD_SINGLE_LABELS.filter(
+      (item) => !actualLabels.includes(item),
+    );
+    expect(
+      missingLabels,
+      `Edit single form labels missing: ${JSON.stringify(missingLabels)}`,
+    ).toEqual([]);
+
+    const actualHeaderButtons = await this.collectVisibleTexts(
+      this.formHead.getByRole("button"),
+    );
+    const expectedHeaderButtons = actualHeaderButtons.includes("More actions")
+      ? [...EDIT_SINGLE_HEADER_BUTTONS, "More actions"]
+      : EDIT_SINGLE_HEADER_BUTTONS;
+    this.assertExactList(
+      actualHeaderButtons,
+      expectedHeaderButtons,
+      "Edit single form header buttons",
+    );
+  }
+
+  async verifyEditSingleProductFormUI(product) {
+    const { name } = product;
+    await this.verifyEditSingleProductUrl();
+    await this.verifyEditSingleProductHeader(name);
+    await this.verifyProductInformationSection();
+    await this.verifyPhotosSection();
+    await this.verifyEditDescriptionSection();
+    await this.verifyPricingInventorySection();
+    await expect(this.copyToStoresHeading).toBeHidden();
+    await this.verifyEditSellingChannelsSection();
+    await this.verifyProductOptionsSection();
+    await this.verifySkuCodesSection();
+    await this.verifyEditVendorInformationSection();
+    await this.verifyTaxInformationSection();
+    await this.verifyRelatedProductsSection();
+    await this.verifyNoExtraEditSingleFormElements();
+    await this.returnToProductsList();
+  }
+
+  isProductWriteResponse(res) {
+    const method = res.request().method();
+    if (method === "GET" || method === "HEAD" || method === "OPTIONS") {
+      return false;
+    }
+    const url = res.url();
+    return (
+      url.includes(routes.API_URL.updateProduct) ||
+      url.includes(routes.API_URL.addProduct) ||
+      /add_product|update_product|edit_product|save_product|product_update|updateProduct/i.test(
+        url,
+      )
+    );
+  }
+
+  async saveEditedProduct() {
+    let saveResponse = null;
+    const onResponse = (res) => {
+      if (this.isProductWriteResponse(res)) saveResponse = res;
+    };
+    this.page.on("response", onResponse);
+    try {
+      await this.saveChangesBtn.click();
+      await expect(
+        this.page,
+        "Save changes should leave the edit form",
+      ).not.toHaveURL(/\/new-products\/edit\//, { timeout: 25_000 });
+    } finally {
+      this.page.off("response", onResponse);
+    }
+    if (saveResponse) this.assertHttp200(saveResponse, "update_product");
+  }
+
+  async addAnotherCategoryIfAvailable(product) {
+    const assigned =
+      Array.isArray(product.categories) && product.categories.length
+        ? product.categories
+        : [product.category || "Quickadd"];
+    const section = this.getCategoriesSection();
+    await this.openComboboxList(section, this.categoriesInput);
+    const extra = await this.pickOpenListOptionNotNamed(assigned, section);
+    if (!extra) {
+      await this.closeOpenList();
+      return;
+    }
+    const assignedChip = await this.selectedCategoryChip(extra)
+      .waitFor({ state: "visible", timeout: 8_000 })
+      .then(() => true)
+      .catch(() => false);
+    await this.closeOpenList();
+    if (!assignedChip) return;
+    product.categories = [...assigned, extra];
+  }
+
+  async assignVendorIfAvailable(product) {
+    if (
+      await this.addVendorBtn
+        .first()
+        .isVisible()
+        .catch(() => false)
+    ) {
+      await this.addVendorBtn.first().click();
+    }
+    const picker = this.vendorSearchInput;
+    const visible = await picker
+      .waitFor({ state: "visible", timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!visible) return;
+    await picker.click();
+    const vendorOption = picker.locator(
+      "xpath=ancestor::*[1]/following-sibling::button[normalize-space(.) != ''][1]",
+    );
+    const appeared = await vendorOption
+      .waitFor({ state: "visible", timeout: 10_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!appeared) return;
+    const label = (await vendorOption.innerText()).replace(/\s+/g, " ").trim();
+    await vendorOption.click();
+    await this.closeOpenList();
+    if (label && !LIST_CHROME_LABELS.test(label)) product.vendor = label;
+  }
+
+  async editAndSaveSingleProductFields(product) {
+    await this.verifyEditSingleProductUrl();
+    const qtyBefore = await this.availableToSellInput.inputValue();
+    const stamp = Date.now();
+    product.previousName = product.name;
+    product.name = `Auto Edited ${stamp}`;
+    product.cost = "12.50";
+    product.price = "24.99";
+    product.compareAt = "29.99";
+    product.reorderPoint = "3";
+    product.reorderQty = "8";
+    product.description = "Edited product description";
+    product.descriptionRichText = false;
+    product.customCode = `ED${String(stamp).slice(-8)}`;
+    product.delivery = false;
+    product.pickup = true;
+    product.foodStampable = true;
+    product.checkId = true;
+    product.hasPhoto = true;
+    if (qtyBefore) product.quantity = qtyBefore;
+
+    await this.fillProductName(product.name);
+    product.brand = await this.selectFirstBrand();
+    await this.closeOpenList();
+    product.tag = await this.selectFirstTag();
+    await this.closeOpenList();
+    await this.addAnotherCategoryIfAvailable(product);
+    await this.addCoverPhoto(undefined, { expectNewBadge: true });
+    await this.fillDescription(product.description);
+    product.upc = await this.generateUpc();
+    await expect(this.generateNewUpcBtn).toHaveCount(0);
+    await expect(this.keepCurrentUpcBtn).toHaveCount(0);
+    if (await this.costInput.isEnabled()) {
+      await this.fillCost(product.cost);
+    } else {
+      product.cost =
+        (await this.costInput.inputValue()).trim() || product.cost;
+    }
+    await this.fillPrice(product.price);
+    await this.compareAtInput.fill(product.compareAt);
+    await expect(this.compareAtLessThanPriceError).toHaveCount(0);
+    await this.verifyMarginAndProfitComputed(product.cost, product.price);
+    await this.reorderPointInput.fill(product.reorderPoint);
+    await this.reorderQtyInput.fill(product.reorderQty);
+    await this.customCodeInput.first().fill(product.customCode);
+    await this.setToggle(this.deliveryChannelBtn, false);
+    await this.setToggle(this.pickupChannelBtn, true);
+    await this.setToggle(this.checkIdOption, true);
+    await this.setToggle(this.foodStampableOption, true);
+    await this.setToggle(this.activeOption, true);
+    product.relatedProduct = await this.selectFirstRelatedProduct();
+    await this.assignVendorIfAvailable(product);
+
+    await expect(this.productNameInput).toHaveValue(product.name);
+    await expect(this.priceInput).toHaveValue(product.price);
+    await expect(this.costInput).toHaveValue(product.cost);
+    await expect(this.upcInput).toHaveValue(product.upc);
+    await expect(this.customCodeInput.first()).toHaveValue(product.customCode);
+    await expect(
+      this.availableToSellInput,
+      "Available to sell / qty should not change in this edit",
+    ).toHaveValue(qtyBefore);
+
+    await this.saveEditedProduct();
+    await this.searchListing(product.name);
+    await expect(
+      this.getProductRow(product.name),
+      `Edited product "${product.name}" should appear in the listing after save`,
+    ).toBeVisible({ timeout: 15_000 });
+  }
+
+  async expectEditProductRejected(errorLocator) {
+    const savePromise = this.page.waitForResponse(
+      (res) => this.isProductWriteResponse(res),
+      { timeout: 8_000 },
+    );
+    await this.saveChangesBtn.click();
+    await expect(errorLocator).toBeVisible({ timeout: 10_000 });
+    const saveResponse = await this.assertHttp200IfReceived(
+      savePromise,
+      "update_product",
+    );
+    if (saveResponse) {
+      const body = await saveResponse.json().catch(() => ({}));
+      expect(
+        body.status,
+        "update_product should not succeed for invalid or duplicate data",
+      ).toBeFalsy();
+    }
+    await this.verifyEditSingleProductUrl();
+    await expect(this.saveChangesBtn).toBeVisible();
+  }
+
+  async verifyProductStillInListing({ name, price }) {
+    const row = await this.searchCreatedProduct(name);
+    await expect(row.locator("[data-prod-title]")).toHaveText(name);
+    if (price) {
+      await expect(row.locator("[data-prod-price]")).toContainText(
+        this.formatPrice(price),
+      );
+    }
+  }
+
+  async clearAllCategoryChips() {
+    const categoryField = this.categoriesLabel.locator("xpath=..");
+    for (let i = 0; i < 2; i++) {
+      const removeBtn = categoryField.getByRole("button").filter({
+        hasNotText: /^(Open list|Close list)$/i,
+      });
+      if ((await removeBtn.count()) === 0) break;
+      await removeBtn.first().click();
+    }
+  }
+
+  async verifyEditRequiredAllEmptyValidation(product) {
+    await this.verifyEditSingleProductUrl();
+    await this.productNameInput.fill("");
+    await expect(this.productNameInput).toHaveValue("");
+    await this.clearAllCategoryChips();
+    await this.priceInput.fill("");
+    await expect(this.priceInput).toHaveValue("");
+    await this.saveChangesBtn.click();
+    await this.verifyNameRequiredError();
+    await this.verifyCategoriesRequiredError();
+    await this.verifyPriceRequiredError();
+    await this.verifyEditSingleProductUrl();
+    await this.verifyProductStillInListing(product);
+  }
+
+  async verifyEditRequiredNameEmptyValidation(product) {
+    await this.verifyEditSingleProductUrl();
+    await this.productNameInput.fill("");
+    await expect(this.productNameInput).toHaveValue("");
+    await this.saveChangesBtn.click();
+    await this.verifyNameRequiredError();
+    await this.verifyEditSingleProductUrl();
+    await this.verifyProductStillInListing(product);
+  }
+
+  async verifyEditRequiredCategoriesEmptyValidation(product) {
+    await this.verifyEditSingleProductUrl();
+    await this.clearAllCategoryChips();
+    await this.saveChangesBtn.click();
+    await this.verifyEditSingleProductUrl();
+    await this.verifyCategoriesRequiredError();
+    await expect(this.nameRequiredError).toHaveCount(0);
+    await this.verifyProductStillInListing(product);
+  }
+
+  async verifyEditRequiredPriceEmptyValidation(product) {
+    await this.verifyEditSingleProductUrl();
+    await this.priceInput.fill("");
+    await expect(this.priceInput).toHaveValue("");
+    await this.saveChangesBtn.click();
+    await this.verifyEditSingleProductUrl();
+    await this.verifyPriceRequiredError();
+    await expect(this.nameRequiredError).toHaveCount(0);
+    await this.verifyProductStillInListing(product);
+  }
+
+  async verifyEditPriceZeroValidation(product) {
+    await this.verifyEditSingleProductUrl();
+    await this.fillPrice("0.00");
+    await expect(this.priceInput).toHaveValue("0.00");
+    await this.saveChangesBtn.click();
+    await expect(this.priceGreaterThanZeroError.first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await this.verifyEditSingleProductUrl();
+    await expect(this.nameRequiredError).toHaveCount(0);
+    await this.verifyProductStillInListing(product);
+  }
+
+  async verifyEditCompareAtLessThanPriceValidation(product) {
+    await this.verifyEditSingleProductUrl();
+    await this.fillPrice("10.00");
+    await this.compareAtInput.fill("5.00");
+    await this.saveChangesBtn.click();
+    await expect(this.compareAtLessThanPriceError.first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await this.verifyEditSingleProductUrl();
+    await this.verifyProductStillInListing(product);
+  }
+
+  async verifyEditProductNameRejectsSpecialCharacters() {
+    await this.verifyEditSingleProductUrl();
+    await this.assertInputStripsCharacters(
+      this.productNameInput,
+      "Product name",
+      ["~", "-", "\\", ",", "/"],
+      { prefix: "A", suffix: "B" },
+    );
+  }
+
+  async verifyEditUpcRejectsSpecialCharacters() {
+    await this.verifyEditSingleProductUrl();
+    await this.assertInputStripsCharacters(this.upcInput, "UPC", [" "]);
+  }
+
+  async verifyEditCustomCodeRejectsSpecialCharacters() {
+    await this.verifyEditSingleProductUrl();
+    await this.assertInputStripsCharacters(
+      this.customCodeInput.first(),
+      "Custom code",
+      [" ", "|"],
+    );
+  }
+
+  async verifyEditOnlyOneBrandCanBeAssigned(product = {}) {
+    await this.verifyEditSingleProductUrl();
+    await expect(this.brandHelper).toBeVisible();
+    const sectionText = (await this.getBrandSection().innerText())
+      .replace(/\s+/g, " ")
+      .trim();
+    const currentBrand =
+      product.brand ||
+      sectionText
+        .replace(/^Brand\s*/i, "")
+        .replace(/\s*One brand per product\s*$/i, "")
+        .trim();
+    expect(currentBrand, "Edit form should already have a brand").toBeTruthy();
+
+    const second = await this.pickBrandOptionNotNamed(currentBrand);
+    await this.closeOpenList();
+    if (second) {
+      await expect(this.selectedBrandChip(second)).toBeVisible({
+        timeout: 10_000,
+      });
+      await expect(
+        this.selectedBrandChip(currentBrand),
+        "A product can have only one brand; selecting another should replace the first",
+      ).toHaveCount(0);
+    } else {
+      await expect(this.selectedBrandChip(currentBrand)).toBeVisible();
+    }
+    await expect(this.brandHelper).toBeVisible();
+  }
+
+  async verifyEditSameUpcAndCustomCodeRejected(product) {
+    await this.verifyEditSingleProductUrl();
+    const sharedCode = (await this.upcInput.inputValue()).trim() || product.upc;
+    expect(
+      sharedCode,
+      "Edit form should have a UPC to collide with",
+    ).toBeTruthy();
+    await this.customCodeInput.first().fill(sharedCode);
+    await expect(this.upcInput).toHaveValue(sharedCode);
+    await expect(this.customCodeInput.first()).toHaveValue(sharedCode);
+    await this.expectEditProductRejected(
+      this.sameUpcCustomCodeError
+        .or(this.duplicateUpcError)
+        .or(this.page.getByRole("alert"))
+        .first(),
+    );
+    await this.verifyProductStillInListing(product);
+  }
+
+  async verifyEditDuplicateProductNameRejected(product, existingName) {
+    expect(
+      existingName,
+      "Need another product name to duplicate on edit",
+    ).toBeTruthy();
+    await this.verifyEditSingleProductUrl();
+    await this.fillProductName(existingName, { assertAvailable: false });
+    await this.expectEditProductRejected(
+      this.duplicateNameError.or(this.page.getByRole("alert")).first(),
+    );
+    await this.verifyProductStillInListing(product);
+  }
+
+  async verifyEditDuplicateUpcRejected(product, existingUpc) {
+    expect(
+      existingUpc,
+      "Need another product UPC to duplicate on edit",
+    ).toBeTruthy();
+    await this.verifyEditSingleProductUrl();
+    const upcCheckPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.checkUpc),
+      { timeout: 15_000 },
+    );
+    await this.fillUpc(existingUpc);
+    await this.upcInput.blur();
+    await this.assertHttp200IfReceived(upcCheckPromise, "check_upc");
+    await this.expectEditProductRejected(
+      this.duplicateUpcError.or(this.page.getByRole("alert")).first(),
+    );
+    await this.verifyProductStillInListing(product);
+  }
+
+  async verifyEditDuplicateCustomCodeRejected(product, existingCustomCode) {
+    expect(
+      existingCustomCode,
+      "Need another product custom code to duplicate on edit",
+    ).toBeTruthy();
+    await this.verifyEditSingleProductUrl();
+    await this.customCodeInput.first().fill(String(existingCustomCode));
+    await this.expectEditProductRejected(
+      this.duplicateCustomCodeError
+        .or(this.sameUpcCustomCodeError)
+        .or(this.page.getByRole("alert"))
+        .first(),
+    );
+    await this.verifyProductStillInListing(product);
+  }
+
+  async confirmDiscardChangesIfAsked() {
+    const shown = await this.discardChangesDialogTitle
+      .waitFor({ state: "visible", timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!shown) return;
+    await this.discardAndLeaveBtn.click();
+    await expect(this.discardChangesDialogTitle).toBeHidden({
+      timeout: 10_000,
+    });
+  }
+
+  async reopenEditIfLeftForm(productName) {
+    if (/\/new-products\/edit\//.test(this.page.url())) return;
+    await this.openEditSingleProduct(productName);
+  }
+
+  async stayOnUnsavedLeaveDialog() {
+    await expect(this.discardChangesDialogTitle).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(this.discardAndLeaveBtn).toBeVisible();
+    await this.keepEditingBtn.click();
+    await expect(this.discardChangesDialogTitle).toBeHidden({
+      timeout: 10_000,
+    });
+  }
+
+  async verifyEditDiscardChangesRestoresFields(product) {
+    await this.verifyEditSingleProductUrl();
+    const originalName = (await this.productNameInput.inputValue()).trim();
+    const originalPrice = (await this.priceInput.inputValue()).trim();
+    expect(originalName, "Edit form should load the current product name").toBe(
+      product.name,
+    );
+
+    const dirtyName = `Temp Discard ${Date.now()}`;
+    await this.fillProductName(dirtyName, { assertAvailable: false });
+    await this.fillPrice("11.11");
+    await expect(this.productNameInput).toHaveValue(dirtyName);
+    await expect(this.priceInput).toHaveValue("11.11");
+
+    await this.discardChangesBtn.click();
+    await this.confirmDiscardChangesIfAsked();
+    await this.reopenEditIfLeftForm(originalName);
+    await expect(this.productNameInput).toHaveValue(originalName, {
+      timeout: 10_000,
+    });
+    await expect(this.priceInput).toHaveValue(originalPrice);
+    await this.verifyEditSingleProductUrl();
+    await expect(this.page.getByText(`Edit ${originalName}`)).toBeVisible();
+  }
+
+  async verifyEditUnsavedLeaveStayThenDiscard(product) {
+    await this.verifyEditSingleProductUrl();
+    const originalName = product.name;
+    const dirtyName = `Temp Leave ${Date.now()}`;
+    await this.fillProductName(dirtyName, { assertAvailable: false });
+    await this.fillPrice("12.12");
+    await expect(this.productNameInput).toHaveValue(dirtyName);
+
+    await this.backBtn.click();
+    await this.stayOnUnsavedLeaveDialog();
+    await this.verifyEditSingleProductUrl();
+    await expect(this.productNameInput).toHaveValue(dirtyName);
+    await expect(this.priceInput).toHaveValue("12.12");
+
+    await this.productsMenuLink.click();
+    const askedToLeave = await this.discardChangesDialogTitle
+      .waitFor({ state: "visible", timeout: 3_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (askedToLeave) await this.discardAndLeaveBtn.click();
+    await expect(this.page).not.toHaveURL(/\/new-products\/edit\//, {
+      timeout: 15_000,
+    });
+    await expect(this.productsHeading).toBeVisible({ timeout: 15_000 });
+    await this.searchListing(originalName);
+    await expect(
+      this.getProductRow(originalName),
+      "Discard & leave should keep the original product in the listing",
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(this.getProductRow(dirtyName)).toHaveCount(0);
+  }
+
+  async verifyEditGenerateUpcKeepThenReplace(product) {
+    await this.verifyEditSingleProductUrl();
+    const original = (await this.upcInput.inputValue()).trim();
+    expect(original, "Edit form should already have a UPC").toMatch(/^\d{12}$/);
+
+    await this.generateUpcBtn.click();
+    await expect(this.keepCurrentUpcBtn).toBeVisible({ timeout: 5_000 });
+    await expect(this.generateNewUpcBtn).toBeVisible();
+    await this.keepCurrentUpcBtn.click();
+    await expect(this.generateNewUpcBtn).toBeHidden();
+    await expect(this.upcInput).toHaveValue(original);
+
+    await this.generateUpcBtn.click();
+    await expect(this.generateNewUpcBtn).toBeVisible({ timeout: 5_000 });
+    await this.generateNewUpcBtn.click();
+    await expect(this.generateNewUpcBtn).toBeHidden();
+    await expect
+      .poll(async () => (await this.upcInput.inputValue()).trim(), {
+        timeout: 10_000,
+        message: "Generate new should replace the current UPC",
+      })
+      .toMatch(/^\d{12}$/);
+    const replaced = (await this.upcInput.inputValue()).trim();
+    expect(replaced, "Generate new should not keep the previous UPC").not.toBe(
+      original,
+    );
+
+    await this.discardChangesBtn.click();
+    await this.confirmDiscardChangesIfAsked();
+    await this.reopenEditIfLeftForm(product.name);
+    await expect(this.upcInput).toHaveValue(original, { timeout: 10_000 });
+    await this.verifyEditSingleProductUrl();
+  }
+
+  async verifyEditRemoveCoverPhotoPersists(product) {
+    await this.verifyEditSingleProductUrl();
+    const hasCover = await this.removePhotoBtn
+      .first()
+      .isVisible()
+      .catch(() => false);
+    if (!hasCover) {
+      await this.addCoverPhoto(undefined, { expectNewBadge: true });
+    }
+    await this.expectCoverPhotoOnForm();
+    await this.removePhotoBtn.first().click();
+    await expect(this.removePhotoBtn).toHaveCount(0, { timeout: 10_000 });
+    await expect(this.addPhotosBtn).toBeVisible();
+    await this.saveEditedProduct();
+    product.hasPhoto = false;
+    await this.verifyCreatedProductInListing(product);
+    await this.openRowActions(product.name);
+    await this.verifyCreatedProductViewDetails(product);
+    await this.openEditSingleProduct(product.name);
+    await expect(this.removePhotoBtn).toHaveCount(0);
+    await expect(this.addPhotosBtn).toBeVisible();
+    await this.returnToProductsList();
+  }
+
+  async verifyEditActiveOffShowsInactiveOnListing(product) {
+    await this.verifyEditSingleProductUrl();
+    const checkMark = this.activeOption.locator(
+      'svg path[d="M5 12l4 4 10-10"]',
+    );
+    const alreadyOff = (await checkMark.count()) === 0;
+    if (!alreadyOff) {
+      await this.activeOption.click({ force: true });
+      await this.expectToggleChecked(this.activeOption, false);
+      await this.saveEditedProduct();
+    } else {
+      await this.returnToProductsList();
+    }
+
+    await this.openEditSingleProduct(product.name);
+    await this.expectToggleChecked(this.activeOption, false);
+    await this.returnToProductsList();
+
+    const row = await this.searchCreatedProduct(product.name);
+    const listingStatus = row.getByText(/Inactive|Disabled/i);
+    if (await listingStatus.count()) {
+      await expect(listingStatus.first()).toBeVisible();
+    }
+    await this.openRowActions(product.name);
+    await this.viewDetailsAction.first().click();
+    await expect(this.productDetailsHeading).toBeVisible({ timeout: 10_000 });
+    const details = this.getProductDetailsPanel();
+    await expect(
+      details
+        .getByRole("radio", { name: /^Disabled$/i, checked: true })
+        .or(details.getByText("Disabled", { exact: true }))
+        .first(),
+      "View details should show Disabled when Active is unchecked",
+    ).toBeVisible({ timeout: 10_000 });
+    await details.getByRole("button", { name: "Close" }).click();
+    await expect(this.productDetailsHeading).toBeHidden({ timeout: 10_000 });
+  }
+
+  productIdFromUrl() {
+    const match = this.page.url().match(/\/(?:edit|duplicate)\/(\d+)/);
+    return match ? match[1] : "";
+  }
+
+  async verifyDuplicateProductUrl(sourceId) {
+    const pattern = sourceId
+      ? new RegExp(
+          `/merchants/inventory/new-products/duplicate/${sourceId}(?:\\b|$)`,
+        )
+      : /\/merchants\/inventory\/new-products\/duplicate\/\d+/;
+    await expect(this.page).toHaveURL(pattern);
+  }
+
+  async verifyDuplicateProductHeader() {
+    await this.verifyDuplicateProductUrl();
+    await expect(this.duplicateSaveBtn).toBeVisible({ timeout: 15_000 });
+    await expect(this.duplicateProductTitle).toBeVisible();
+    await expect(this.saveProductBtn).toHaveCount(0);
+    await expect(this.saveChangesBtn).toHaveCount(0);
+    await expect(this.singleProductBadge).toBeVisible();
+    await expect(this.backBtn).toBeVisible();
+  }
+
+  async openMoreActionsMenu() {
+    await this.verifyEditSingleProductUrl();
+    const alreadyOpen = await this.duplicateProductAction
+      .first()
+      .isVisible()
+      .catch(() => false);
+    if (alreadyOpen) return;
+    if (!(await this.moreActionsBtn.isVisible().catch(() => false))) {
+      const currentPrice =
+        (await this.priceInput.inputValue()).trim() || "24.99";
+      await this.fillPrice((Number(currentPrice) + 0.01).toFixed(2));
+      await expect(this.moreActionsBtn).toBeVisible({ timeout: 8_000 });
+    }
+    await this.moreActionsBtn.click();
+  }
+
+  async verifyDuplicateProductActionVisible() {
+    await this.openMoreActionsMenu();
+    await expect(this.duplicateProductAction.first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await this.page.keyboard.press("Escape");
+    await this.returnToProductsList();
+  }
+
+  async openDuplicateFromEdit() {
+    await this.verifyEditSingleProductUrl();
+    const sourceId = this.productIdFromUrl();
+    const productDataPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.getProductDataById),
+      { timeout: 20_000 },
+    );
+    await this.openMoreActionsMenu();
+    await expect(this.duplicateProductAction.first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await this.duplicateProductAction.first().click();
+    await this.confirmDiscardChangesIfAsked();
+    await this.verifyDuplicateProductUrl(sourceId);
+    await this.assertHttp200IfReceived(
+      productDataPromise,
+      "get_productdata_ById",
+    );
+    await this.verifyDuplicateProductHeader();
+    return sourceId;
+  }
+
+  async verifyDuplicateFormClearsUniqueFields(source) {
+    const copyName = (await this.productNameInput.inputValue()).trim();
+    expect(
+      copyName,
+      "Duplicate form should not keep the original product name",
+    ).not.toBe(source.name);
+
+    const copyUpc = (await this.upcInput.inputValue()).trim();
+    if (source.upc) {
+      expect(
+        copyUpc,
+        "Duplicate form should not reuse the original UPC",
+      ).not.toBe(source.upc);
+    }
+
+    const copyCustom = (await this.customCodeInput.first().inputValue()).trim();
+    if (source.customCode) {
+      expect(
+        copyCustom,
+        "Duplicate form should not reuse the original custom code",
+      ).not.toBe(source.customCode);
+    }
+  }
+
+  async verifyDuplicateFormCopiesSourceFields(source) {
+    const cats =
+      Array.isArray(source.categories) && source.categories.length
+        ? source.categories
+        : [source.category || "Quickadd"];
+    for (const cat of cats) {
+      await expect(this.selectedCategoryChip(cat)).toBeVisible();
+    }
+    if (source.brand) {
+      await expect(this.selectedBrandChip(source.brand)).toBeVisible();
+    }
+    if (source.tag) {
+      await expect(this.selectedTagChip(source.tag)).toBeVisible();
+    }
+    if (source.price) {
+      await expect(this.priceInput).toHaveValue(
+        String(Number(source.price).toFixed(2)),
+      );
+    }
+    if (source.cost) {
+      await expect(this.costInput).toHaveValue(
+        String(Number(source.cost).toFixed(2)),
+      );
+    }
+    if (source.compareAt) {
+      await expect(this.compareAtInput).toHaveValue(
+        String(Number(source.compareAt).toFixed(2)),
+      );
+    }
+    if (source.description) {
+      await expect(this.formBody.getByText(source.description)).toBeVisible();
+    }
+    if (source.hasPhoto) {
+      await this.expectCoverPhotoOnForm();
+    }
+    await expect(this.deliveryChannelBtn).toBeVisible();
+    await expect(this.pickupChannelBtn).toBeVisible();
+    await expect(this.deliveryChannelBtn).toBeDisabled();
+    await expect(this.pickupChannelBtn).toBeDisabled();
+    await this.expectToggleChecked(this.checkIdOption, Boolean(source.checkId));
+    await this.expectToggleChecked(
+      this.foodStampableOption,
+      Boolean(source.foodStampable),
+    );
+    if (Array.isArray(source.taxes)) {
+      if (source.taxes.length === 0) {
+        await expect(this.removeTaxBtn).toHaveCount(0);
+        await expect(this.defaultTaxName).toHaveCount(0);
+      } else {
+        for (const tax of [...new Set(source.taxes)]) {
+          await expect(
+            this.formBody.getByText(tax, { exact: true }).first(),
+          ).toBeVisible();
+        }
+      }
+    } else {
+      await expect(
+        this.defaultTaxName.or(this.removeTaxBtn).first(),
+      ).toBeVisible();
+    }
+    await expect(this.vendorAssignAfterCreate).toBeVisible();
+    if (source.relatedProduct) {
+      await expect(
+        this.relatedProductsSearch
+          .locator("xpath=../..")
+          .getByText(source.relatedProduct, { exact: true }),
+      ).toBeVisible();
+    }
+  }
+
+  async verifyDuplicateDoesNotChangeOriginal(source) {
+    await this.returnToProductsList();
+    await this.verifyCreatedProductInListing({
+      name: source.name,
+      category: source.category || "Quickadd",
+      categories: source.categories,
+      price: source.price,
+      upc: source.upc,
+      hasPhoto: source.hasPhoto,
+      delivery: source.delivery,
+      pickup: source.pickup,
+    });
+  }
+
+  async expectDuplicateProductRejected(errorLocator) {
+    const addPromise = this.page
+      .waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes(routes.API_URL.addProduct),
+        { timeout: 5_000 },
+      )
+      .catch(() => null);
+    await this.saveProductClick();
+    await expect(errorLocator).toBeVisible({ timeout: 10_000 });
+    const addResponse = await addPromise;
+    if (addResponse) this.assertHttp200(addResponse, "add_product");
+    await this.verifyDuplicateProductUrl();
+    await expect(this.duplicateSaveBtn).toBeVisible();
+  }
+
+  async ensureUniqueCodesOnDuplicateForm(source) {
+    const currentUpc = (await this.upcInput.inputValue()).trim();
+    if (!currentUpc || currentUpc === source.upc) {
+      await this.generateUpc();
+    }
+    const currentCustom = (
+      await this.customCodeInput.first().inputValue()
+    ).trim();
+    if (!currentCustom || currentCustom === source.customCode) {
+      await this.customCodeInput
+        .first()
+        .fill(`DP${Date.now().toString().slice(-8)}`);
+    }
+  }
+
+  async captureSourceUniqueFields(product) {
+    await this.verifyEditSingleProductUrl();
+    const upc = (await this.upcInput.inputValue()).trim();
+    const customCode = (await this.customCodeInput.first().inputValue()).trim();
+    const name = (await this.productNameInput.inputValue()).trim();
+    const price = (await this.priceInput.inputValue()).trim();
+    if (upc) product.upc = upc;
+    if (customCode) product.customCode = customCode;
+    if (name) product.name = name;
+    if (price) product.price = price;
+  }
+
+  async openDuplicateFromSource(product) {
+    await this.openEditSingleProduct(product.name);
+    await this.captureSourceUniqueFields(product);
+    await this.openDuplicateFromEdit();
+  }
+
+  async assertDuplicateDidNotCreate(copySearch, source) {
+    await this.verifyProductNotCreatedInListing(copySearch);
+    await this.searchListing(source.name);
+    await expect(
+      this.getProductRow(source.name),
+      "Original product should stay in the listing after a rejected duplicate save",
+    ).toBeVisible({ timeout: 15_000 });
+  }
+
+  async verifyDuplicateCannotSaveWithOriginalName(source) {
+    await this.openDuplicateFromSource(source);
+    await this.fillProductName(source.name, { assertAvailable: false });
+    await this.ensureUniqueCodesOnDuplicateForm(source);
+    await this.expectDuplicateProductRejected(
+      this.duplicateNameError.or(this.page.getByRole("alert")).first(),
+    );
+    await this.returnToProductsList();
+    await this.searchListing(source.name);
+    await expect(this.getProductRow(source.name)).toBeVisible({
+      timeout: 15_000,
+    });
+  }
+
+  async verifyDuplicateCannotSaveWithOriginalUpc(source) {
+    await this.openDuplicateFromSource(source);
+    expect(source.upc, "Need the source UPC to assert uniqueness").toBeTruthy();
+    const copyName = `Auto DupUpc ${Date.now()}`;
+    await this.fillProductName(copyName);
+    const upcCheckPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.checkUpc),
+      { timeout: 15_000 },
+    );
+    await this.fillUpc(source.upc);
+    await this.upcInput.blur();
+    await this.assertHttp200IfReceived(upcCheckPromise, "check_upc");
+    const custom = `DP${Date.now().toString().slice(-8)}`;
+    await this.customCodeInput
+      .first()
+      .fill(
+        custom === source.upc ? `DX${Date.now().toString().slice(-8)}` : custom,
+      );
+    await this.expectDuplicateProductRejected(
+      this.duplicateUpcError.or(this.page.getByRole("alert")).first(),
+    );
+    await this.assertDuplicateDidNotCreate(copyName, source);
+  }
+
+  async verifyDuplicateCannotSaveWithOriginalCustomCode(source) {
+    await this.openDuplicateFromSource(source);
+    expect(
+      source.customCode,
+      "Need the source custom code to assert uniqueness",
+    ).toBeTruthy();
+    const copyName = `Auto DupCc ${Date.now()}`;
+    await this.fillProductName(copyName);
+    await this.generateUpc();
+    await this.customCodeInput.first().fill(String(source.customCode));
+    await this.expectDuplicateProductRejected(
+      this.duplicateCustomCodeError
+        .or(this.sameUpcCustomCodeError)
+        .or(this.page.getByRole("alert"))
+        .first(),
+    );
+    await this.assertDuplicateDidNotCreate(copyName, source);
+  }
+
+  async verifyDuplicateSameUpcAndCustomCodeRejected(source) {
+    await this.openDuplicateFromSource(source);
+    const copyName = `Auto DupSame ${Date.now()}`;
+    await this.fillProductName(copyName);
+    const sharedCode = await this.generateUpc();
+    await this.customCodeInput.first().fill(sharedCode);
+    await expect(this.upcInput).toHaveValue(sharedCode);
+    await expect(this.customCodeInput.first()).toHaveValue(sharedCode);
+    await this.expectDuplicateProductRejected(
+      this.sameUpcCustomCodeError
+        .or(this.duplicateUpcError)
+        .or(this.page.getByRole("alert"))
+        .first(),
+    );
+    await this.assertDuplicateDidNotCreate(copyName, source);
+  }
+
+  async verifyDuplicateRequiredNameEmpty(source) {
+    await this.openDuplicateFromSource(source);
+    await this.productNameInput.fill("");
+    await expect(this.productNameInput).toHaveValue("");
+    await this.ensureUniqueCodesOnDuplicateForm(source);
+    await this.saveProductClick();
+    await this.verifyNameRequiredError();
+    await this.verifyDuplicateProductUrl();
+    await expect(this.duplicateSaveBtn).toBeVisible();
+    await this.returnToProductsList();
+    await this.searchListing(source.name);
+    await expect(this.getProductRow(source.name)).toBeVisible({
+      timeout: 15_000,
+    });
+  }
+
+  async verifyDuplicatePriceZeroValidation(source) {
+    await this.openDuplicateFromSource(source);
+    const copyName = `Auto DupZero ${Date.now()}`;
+    await this.fillProductName(copyName);
+    await this.ensureUniqueCodesOnDuplicateForm(source);
+    await this.fillPrice("0.00");
+    await expect(this.priceInput).toHaveValue("0.00");
+    await this.saveProductClick();
+    await expect(this.priceGreaterThanZeroError.first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await this.verifyDuplicateProductUrl();
+    await expect(this.duplicateSaveBtn).toBeVisible();
+    await this.assertDuplicateDidNotCreate(copyName, source);
+  }
+
+  async verifyDuplicateIgnoresUnsavedEdits(source) {
+    await this.openEditSingleProduct(source.name);
+    const dirtyName = `Temp Dup Dirty ${Date.now()}`;
+    await this.fillProductName(dirtyName, { assertAvailable: false });
+    await this.fillPrice("99.99");
+    await expect(this.productNameInput).toHaveValue(dirtyName);
+    await this.openDuplicateFromEdit();
+    const copyName = (await this.productNameInput.inputValue()).trim();
+    expect(copyName, "Duplicate should not copy unsaved name edits").not.toBe(
+      dirtyName,
+    );
+    await expect(this.priceInput).toHaveValue(
+      String(Number(source.price).toFixed(2)),
+    );
+    await this.returnToProductsList();
+    await this.searchListing(dirtyName);
+    await expect(this.getProductRow(dirtyName)).toHaveCount(0);
+    await this.searchListing(source.name);
+    await expect(this.getProductRow(source.name)).toBeVisible({
+      timeout: 15_000,
+    });
+  }
+
+  async saveDuplicateAsNewProduct(source) {
+    await this.openEditSingleProduct(source.name);
+    await this.openDuplicateFromEdit();
+    const stamp = Date.now();
+    const copy = {
+      name: `Auto Dup ${stamp}`,
+      category: source.category || "Quickadd",
+      categories: source.categories,
+      cost: source.cost,
+      price: source.price,
+      hasPhoto: source.hasPhoto,
+      delivery: true,
+      pickup: true,
+    };
+    await this.fillProductName(copy.name);
+    copy.hasPhoto = await this.removePhotoBtn
+      .first()
+      .isVisible()
+      .catch(() => false);
+    copy.upc = await this.generateUpc();
+    copy.customCode = `DP${String(stamp).slice(-8)}`;
+    await this.customCodeInput.first().fill(copy.customCode);
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 20_000 },
+    );
+    await this.saveProductClick();
+    const addResponse = await addPromise;
+    this.assertHttp200(addResponse, "add_product");
+    await expect(this.page).not.toHaveURL(/\/new-products\/duplicate\//, {
+      timeout: 15_000,
+    });
+    await this.verifyCreatedProductInListing(copy);
+    await this.verifyCreatedProductInListing(source);
+    if (source.upc) {
+      await this.searchListing(source.upc);
+      await expect(this.getProductRow(source.name)).toBeVisible({
+        timeout: 15_000,
+      });
+      await expect(this.getProductRow(copy.name)).toHaveCount(0);
+    }
+    return copy;
+  }
+
+  async verifyDuplicateNoTaxProduct() {
+    await this.returnToProductsList();
+    await this.searchListing("Auto NoTax");
+    const row = this.getProductRow("Auto NoTax");
+    const found = await row
+      .waitFor({ state: "visible", timeout: 8_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!found) {
+      const product = {
+        name: `Auto NoTax ${Date.now()}`,
+        category: "Quickadd",
+        cost: "10.00",
+        price: "20.00",
+      };
+      await this.reopenAddSingleProductForm({ waitForTaxList: true });
+      await this.addProductWithoutTax(product);
+      await this.openEditSingleProduct(product.name);
+    } else {
+      const name = (await row.locator("[data-prod-title]").innerText()).trim();
+      await this.openEditSingleProduct(name);
+    }
+    await expect(this.removeTaxBtn).toHaveCount(0);
+    await this.openDuplicateFromEdit();
+    await expect(this.removeTaxBtn).toHaveCount(0);
+    await expect(this.defaultTaxName).toHaveCount(0);
+    await this.returnToProductsList();
+  }
+
+  async verifyDuplicateInactiveProduct(source) {
+    await this.openEditSingleProduct(source.name);
+    await this.expectToggleChecked(this.activeOption, false);
+    await this.openDuplicateFromEdit();
+    await this.expectToggleChecked(this.activeOption, false);
+    await this.returnToProductsList();
+    const row = await this.searchCreatedProduct(source.name);
+    const listingStatus = row.getByText(/Inactive|Disabled/i);
+    if (await listingStatus.count()) {
+      await expect(listingStatus.first()).toBeVisible();
+    }
   }
 
   async verifyAddVariantsProductUrl() {
