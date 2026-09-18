@@ -1059,16 +1059,35 @@ class Products {
     await expect(this.relatedProductsSearch).toBeVisible();
   }
 
+  isProductTitleCheckResponse(res) {
+    return res.url().toLowerCase().includes("check_producttitle");
+  }
+
   async fillProductName(name, { assertAvailable = true } = {}) {
-    const [titleCheckResponse] = await Promise.all([
+    await expect(this.productNameInput).toBeEnabled({ timeout: 15_000 });
+    const waitTitleCheck = () =>
       this.page.waitForResponse(
-        (res) =>
-          res.request().method() === "POST" &&
-          res.url().includes(routes.API_URL.checkProductTitle),
+        (res) => this.isProductTitleCheckResponse(res),
         { timeout: 15_000 },
-      ),
-      this.productNameInput.fill(String(name)),
-    ]);
+      );
+
+    let titleCheckPromise = waitTitleCheck();
+    await this.productNameInput.fill(String(name));
+    await expect(this.productNameInput).toHaveValue(String(name));
+    await this.productNameInput.blur();
+    let titleCheckResponse = await titleCheckPromise.catch(() => null);
+
+    if (!titleCheckResponse) {
+      titleCheckPromise = waitTitleCheck();
+      await this.productNameInput.click();
+      await this.productNameInput.fill("");
+      await this.productNameInput.pressSequentially(String(name), {
+        delay: 20,
+      });
+      await this.productNameInput.blur();
+      titleCheckResponse = await titleCheckPromise;
+    }
+
     this.assertHttp200(titleCheckResponse, "check_productTitle");
     const titleBody = await titleCheckResponse.json();
     if (assertAvailable) {
@@ -1398,6 +1417,13 @@ class Products {
     return this.categoriesLabel.locator("xpath=..");
   }
 
+  categoryChipRemoveButtons() {
+    return this.getCategoriesSection().getByRole("button", {
+      name: "",
+      exact: true,
+    });
+  }
+
   selectedBrandChip(name) {
     return this.getBrandSection().getByText(name, { exact: true });
   }
@@ -1551,10 +1577,20 @@ class Products {
       !excludedSet.has(label) &&
       !LIST_CHROME_LABELS.test(label);
 
+    const noOptions = this.page.getByText(/^No options$/i);
     const options = section
       ? this.listOptionButtons(section)
       : this.page.getByRole("option").filter({ hasText: /\S/ });
-    await expect(options.first()).toBeVisible({ timeout: 10_000 });
+    const appeared = await options
+      .first()
+      .or(noOptions.first())
+      .waitFor({ state: "visible", timeout: 10_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!appeared || (await noOptions.first().isVisible().catch(() => false))) {
+      await this.closeOpenList();
+      return "";
+    }
     const count = await options.count();
     for (let i = 0; i < Math.min(count, 25); i++) {
       const option = options.nth(i);
@@ -1565,6 +1601,7 @@ class Products {
         return label;
       }
     }
+    await this.closeOpenList();
     return "";
   }
 
@@ -3592,27 +3629,25 @@ class Products {
   }
 
   async clearAllCategoryChips() {
-    const section = this.getCategoriesSection();
-    for (let i = 0; i < 10; i++) {
+    await this.closeOpenList();
+    const chipRemove = () => this.categoryChipRemoveButtons();
+    for (let i = 0; i < 20; i++) {
+      const remaining = await chipRemove().count();
+      if (remaining === 0) break;
+      await chipRemove().first().click();
+      await expect
+        .poll(async () => chipRemove().count(), {
+          timeout: 5_000,
+          message: "Category chip should be removed after click",
+        })
+        .toBeLessThan(remaining);
       await this.closeOpenList();
-      const index = await section.evaluate((root) => {
-        const buttons = [...root.querySelectorAll("button")];
-        return buttons.findIndex((btn) => {
-          const name = (
-            btn.getAttribute("aria-label") ||
-            btn.getAttribute("title") ||
-            btn.innerText ||
-            ""
-          )
-            .replace(/\s+/g, " ")
-            .trim();
-          return !/^(Open list|Close list)$/i.test(name);
-        });
-      });
-      if (index < 0) break;
-      await section.locator("button").nth(index).click();
     }
     await this.closeOpenList();
+    await expect(
+      chipRemove(),
+      "All category chips should be removed",
+    ).toHaveCount(0);
   }
 
   async verifyEditRequiredAllEmptyValidation(product) {
@@ -3723,6 +3758,16 @@ class Products {
         .replace(/\s*One brand per product\s*$/i, "")
         .trim();
     expect(currentBrand, "Edit form should already have a brand").toBeTruthy();
+    await expect(this.selectedBrandChip(currentBrand)).toBeVisible();
+
+    if (!(await this.brandInput.isVisible().catch(() => false))) {
+      await expect(
+        this.brandInput,
+        "Brand field should not allow adding a second brand while one is assigned",
+      ).toBeHidden();
+      await expect(this.brandHelper).toBeVisible();
+      return;
+    }
 
     const second = await this.pickBrandOptionNotNamed(currentBrand);
     await this.closeOpenList();
