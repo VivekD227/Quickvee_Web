@@ -85,6 +85,7 @@ module.exports = {
     updateProduct: apiCi("Product_api_react/update_product"),
     getProductDataById: apiCi("Product_api_react/get_productdata_ById"),
     checkUpc: apiCi("Product_api_react/check_upc"),
+    deleteProduct: apiCi("Product_api_react/delete_product"),
   },
 
   //   QA_URL: {

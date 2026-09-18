@@ -155,6 +155,26 @@ class Products {
     });
     this.stocktakeAction = page.getByRole("button", { name: /Stocktake/i });
     this.deleteItemAction = page.getByRole("button", { name: /Delete item/i });
+    this.deleteProductDialogTitle = page.getByText("Delete this product?", {
+      exact: true,
+    });
+    this.deleteProductDialogBody = page.getByText(
+      /will be permanently removed from your catalog\. This can't be undone/i,
+    );
+    this.deleteProductConfirmBtn = page.getByRole("button", {
+      name: "Delete product",
+      exact: true,
+    });
+    this.deleteProductCancelBtn = this.deleteProductConfirmBtn
+      .locator("xpath=preceding-sibling::button[normalize-space()='Cancel']")
+      .or(
+        this.deleteProductDialogTitle
+          .locator(
+            "xpath=ancestor::*[.//button[normalize-space()='Delete product']][1]",
+          )
+          .getByRole("button", { name: "Cancel", exact: true }),
+      );
+    this.deleteProductSuccessToast = page.getByText("Deleted Successfully");
     this.rowDeliveryToggle = page.getByRole("button", {
       name: /^Delivery$/i,
     });
@@ -1438,7 +1458,10 @@ class Products {
     });
     if ((await removeBtn.count()) === 0) return "";
     const label = (
-      await removeBtn.first().locator("xpath=preceding-sibling::*[1]").innerText()
+      await removeBtn
+        .first()
+        .locator("xpath=preceding-sibling::*[1]")
+        .innerText()
     )
       .replace(/\s+/g, " ")
       .trim();
@@ -1587,7 +1610,13 @@ class Products {
       .waitFor({ state: "visible", timeout: 10_000 })
       .then(() => true)
       .catch(() => false);
-    if (!appeared || (await noOptions.first().isVisible().catch(() => false))) {
+    if (
+      !appeared ||
+      (await noOptions
+        .first()
+        .isVisible()
+        .catch(() => false))
+    ) {
       await this.closeOpenList();
       return "";
     }
@@ -2273,6 +2302,70 @@ class Products {
     await expect(this.rowPickupToggle).toBeVisible({ timeout: 2_000 });
   }
 
+  isDeleteProductResponse(res) {
+    return (
+      res.request().method() === "POST" &&
+      res.url().includes(routes.API_URL.deleteProduct)
+    );
+  }
+
+  async openDeleteProductDialog(name) {
+    await this.openRowActions(name);
+    await this.deleteItemAction.first().click();
+    await expect(this.deleteProductDialogTitle).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(this.deleteProductDialogBody).toBeVisible();
+    await expect(
+      this.page.getByText(
+        `${name} will be permanently removed from your catalog. This can't be undone.`,
+      ),
+    ).toBeVisible();
+    await expect(this.deleteProductCancelBtn).toBeVisible();
+    await expect(this.deleteProductConfirmBtn).toBeVisible();
+  }
+
+  async cancelDeleteProduct(name) {
+    await this.openDeleteProductDialog(name);
+    await this.deleteProductCancelBtn.click();
+    await expect(this.deleteProductDialogTitle).toBeHidden({ timeout: 10_000 });
+    await expect(this.deleteProductConfirmBtn).toHaveCount(0);
+    await expect(
+      this.getProductRow(name),
+      `Product "${name}" should remain after canceling delete`,
+    ).toBeVisible();
+  }
+
+  async deleteProductFromRowActions(name) {
+    await this.openDeleteProductDialog(name);
+    const deletePromise = this.page.waitForResponse(
+      (res) => this.isDeleteProductResponse(res),
+      { timeout: 20_000 },
+    );
+    const listPromise = this.page.waitForResponse(
+      (res) => this.isProductListResponse(res),
+      { timeout: 20_000 },
+    );
+    await this.deleteProductConfirmBtn.click();
+    const deleteResponse = await deletePromise;
+    this.assertHttp200(deleteResponse, "delete_product");
+    const deleteBody = await deleteResponse.json().catch(() => ({}));
+    expect(
+      deleteBody.status,
+      "delete_product should succeed",
+    ).toBeTruthy();
+    await this.assertHttp200IfReceived(listPromise, "Products_list");
+    await expect(this.deleteProductDialogTitle).toBeHidden({ timeout: 15_000 });
+    await expect(this.deleteProductSuccessToast.first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await this.searchListing(name);
+    await expect(
+      this.productRows.filter({ hasText: name }),
+      `Deleted product "${name}" should not appear in the listing`,
+    ).toHaveCount(0);
+  }
+
   async verifyCreatedProductInListing({
     name,
     category = "Quickadd",
@@ -2379,9 +2472,9 @@ class Products {
         this.assertHttp200(productDataResponse, "get_productdata_ById");
       }
       await expect(this.productDetailsHeading).toBeVisible({ timeout: 8_000 });
-      await expect(this.page.getByText("Category", { exact: true })).toBeVisible(
-        { timeout: 8_000 },
-      );
+      await expect(
+        this.page.getByText("Category", { exact: true }),
+      ).toBeVisible({ timeout: 8_000 });
     }).toPass({ timeout: 25_000 });
     await expect(this.page).toHaveURL(PRODUCTS_PAGE_URL);
 
@@ -2749,7 +2842,8 @@ class Products {
       await this.confirmDiscardChangesIfAsked();
     }
     const productListResponse = await productListPromise.catch(() => null);
-    if (productListResponse) this.assertHttp200(productListResponse, "Products_list");
+    if (productListResponse)
+      this.assertHttp200(productListResponse, "Products_list");
     await expect(this.page).not.toHaveURL(
       /\/new-products\/(add|edit|duplicate)/,
       { timeout: 15_000 },
@@ -3560,8 +3654,7 @@ class Products {
     if (await this.costInput.isEnabled()) {
       await this.fillCost(product.cost);
     } else {
-      product.cost =
-        (await this.costInput.inputValue()).trim() || product.cost;
+      product.cost = (await this.costInput.inputValue()).trim() || product.cost;
     }
     await this.fillPrice(product.price);
     await this.compareAtInput.fill(product.compareAt);
@@ -3631,7 +3724,7 @@ class Products {
   async clearAllCategoryChips() {
     await this.closeOpenList();
     const chipRemove = () => this.categoryChipRemoveButtons();
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 5; i++) {
       const remaining = await chipRemove().count();
       if (remaining === 0) break;
       await chipRemove().first().click();
