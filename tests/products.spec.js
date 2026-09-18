@@ -676,7 +676,7 @@ test.describe("Products Module", () => {
         name: (await row.locator("[data-prod-title]").innerText()).trim(),
         hasPhoto: true,
         price: "24.99",
-        cost: "12.50",
+        cost: "10.00",
         delivery: false,
         pickup: true,
         category: "Quickadd",
