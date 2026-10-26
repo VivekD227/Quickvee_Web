@@ -225,12 +225,12 @@ class AddEmployee {
   }
 
   getSelectedStoreChip(storeName) {
-    // Once a store is selected the "Add a store +" input is replaced by a
-    // chip containing the store name and a "delete" icon.
+    // Once a store is selected it is listed under "Assigned Stores" with a
+    // "Remove store" button (replaced the old "delete" icon).
     return this.modal
       .locator("div")
       .filter({ has: this.page.getByText(storeName, { exact: true }) })
-      .filter({ has: this.page.getByRole("img", { name: "delete" }) })
+      .filter({ has: this.page.getByRole("button", { name: "Remove store" }) })
       .last();
   }
 
@@ -243,12 +243,14 @@ class AddEmployee {
 
   async verifySelectedStoreHasDeleteOption(storeName) {
     const chip = this.getSelectedStoreChip(storeName);
-    await expect(chip.getByRole("img", { name: "delete" })).toBeVisible();
+    await expect(
+      chip.getByRole("button", { name: "Remove store" }),
+    ).toBeVisible();
   }
 
   async removeSelectedStore(storeName) {
     const chip = this.getSelectedStoreChip(storeName);
-    await chip.getByRole("img", { name: "delete" }).click();
+    await chip.getByRole("button", { name: "Remove store" }).click();
     await this.page.waitForTimeout(500);
   }
 

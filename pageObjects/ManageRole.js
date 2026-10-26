@@ -42,7 +42,8 @@ class ManageRole {
       "Search permissions by name or category...",
     );
 
-    this.editRole = page.getByText("Edit Role", { exact: true });
+    // "Edit Role" is also a permission name now, so target the modal heading span.
+    this.editRole = page.locator("span").filter({ hasText: /^Edit Role$/ });
     this.editing = page.getByText(/^Editing:\s*/i);
     this.roleNameFieldText = page.getByPlaceholder(
       "e.g., Store Manager, Assistant",
@@ -359,12 +360,12 @@ class ManageRole {
   }
 
   async checkEmployeeDeleteForever() {
-    await this.searchText("Permanently Delete Employee");
-    const permission = this.page.getByText("Permanently Delete Employee", {
+    await this.searchText("Employee Delete Forever");
+    const permission = this.page.getByText("Employee Delete Forever", {
       exact: true,
     });
     const checkbox = this.page.getByRole("checkbox", {
-      name: "Permanently Delete Employee",
+      name: "Employee Delete Forever",
     });
 
     await permission.scrollIntoViewIfNeeded();
@@ -377,12 +378,12 @@ class ManageRole {
   }
 
   async uncheckEmployeeDeleteForever() {
-    await this.searchText("Permanently Delete Employee");
-    const permission = this.page.getByText("Permanently Delete Employee", {
+    await this.searchText("Employee Delete Forever");
+    const permission = this.page.getByText("Employee Delete Forever", {
       exact: true,
     });
     const checkbox = this.page.getByRole("checkbox", {
-      name: "Permanently Delete Employee",
+      name: "Employee Delete Forever",
     });
 
     await permission.scrollIntoViewIfNeeded();

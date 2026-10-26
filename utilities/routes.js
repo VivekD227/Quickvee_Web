@@ -33,7 +33,7 @@ module.exports = {
     deleteEmployeeList_URL: apiCi(
       "Store_setting_react_api/deleted_employee_list",
     ),
-    managerStore_URL: apiCi("Store_setting_react_api/getManagerStores"),
+    managerStore_URL: apiNode("ci/Store_setting_react_api/getManagerStores"),
     deleteEmployee_URL: apiCi("Store_setting_react_api/delete_employee"),
     addEmployee_URL: apiCi("Store_setting_react_api/addEdit_employee"),
     forverDeleteEmployee_URL: apiCi(
@@ -51,7 +51,7 @@ module.exports = {
     addVendor_URL: apiNode("Vendor_api_new/create_vendor"),
     updateVendor_URL: apiNode("Vendor_api_new/update_vendor"),
     deleteVendor_URL: apiNode("Vendor_api_new/delete_vendor"),
-    getStoresManagement: apiCi("Store_setting_react_api/getManagerStores"),
+    getStoresManagement: apiNode("ci/Store_setting_react_api/getManagerStores"),
     revenueDataAPI: reportAPI("api/reports/revenue_data_api"),
     totalTransaction: reportAPI("api/reports/sales_count_api"),
     customerCountAPI: reportAPI("api/reports/customer_count_api"),

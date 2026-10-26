@@ -73,7 +73,7 @@ class EmployeeManagement {
     this.confirmRestoreText = page.getByText(
       "Your data has been restored successfully. To continue, you must set a new PIN.",
     );
-    this.closeBtn = page.getByTestId("CloseIcon");
+    this.closeBtn = page.getByRole("button", { name: "Close" }).first();
   }
 
   async yesDeleteBtnClick() {
@@ -482,7 +482,7 @@ class EmployeeManagement {
     }
 
     await expect(
-      this.addEmployeeModal.modal.getByRole("img", { name: "delete" }),
+      this.addEmployeeModal.modal.getByRole("button", { name: "Remove store" }),
     ).toHaveCount(0);
     await expect(this.addEmployeeModal.noAssignStore).toBeHidden();
     await this.addEmployeeModal.cancel();
