@@ -20,6 +20,8 @@ test.describe("Products Module", () => {
   let pwd;
   let createdProduct;
   let otherProduct;
+  let variantAttributes = [];
+  let variantProduct;
 
   test.beforeAll(
     async ({ browser }) => {
@@ -765,6 +767,280 @@ test.describe("Products Module", () => {
       await products.selectVariantsProductType();
       await products.continueAddProductType();
       await products.verifyAddVariantsProductUrl();
+    });
+
+    test("Verify variant add form UI", async () => {
+      await products.discardRestoredDraft();
+      await products.verifyAddVariantsProductFormUI();
+    });
+
+    test("Required: Save with no data shows validation errors", async () => {
+      await products.verifyRequiredVariantAllEmptyValidation();
+    });
+
+    test("One saved attribute and one value generates 1 variant", async () => {
+      variantAttributes = [
+        await products.verifyOneAttributeOneValueGeneratesOneVariant(),
+      ];
+    });
+
+    test("Second value on the same attribute generates 2 variants", async () => {
+      await products.verifySecondValueGeneratesTwoVariants();
+    });
+
+    test("Removing a value updates generated combinations", async () => {
+      await products.verifyRemovingValueUpdatesCombinations();
+    });
+
+    test("Two attributes generate cartesian combinations", async () => {
+      const second = await products.verifyTwoAttributesGenerateCartesianProduct(
+        variantAttributes[0],
+      );
+      variantAttributes.push(second);
+    });
+
+    test("Cannot add more than 3 attributes", async () => {
+      await products.verifyCannotAddMoreThanThreeAttributes(variantAttributes);
+    });
+
+    test("Variant price is required to save", async () => {
+      await products.verifyVariantPriceRequiredValidation();
+    });
+
+    test("Add variant product with one combination", async () => {
+      createdProduct = {
+        name: `Auto Var Single ${Date.now()}`,
+        category: "Quickadd",
+        cost: "10.00",
+        price: "20.00",
+        attributes: [{ values: ["111"] }],
+        customCode: `VC${Date.now().toString().slice(-8)}`,
+      };
+      await products.reopenAddVariantsProductForm();
+      await products.addVariantProductWithRequiredFields(createdProduct);
+      await products.verifyVariantProductInListing(createdProduct);
+      variantProduct = { ...createdProduct };
+    });
+
+    test("Add variant product with two values on one attribute", async () => {
+      createdProduct = {
+        name: `Auto Var Multi ${Date.now()}`,
+        category: "Quickadd",
+        cost: "10.00",
+        price: "20.00",
+        attributes: [{ values: ["S", "M"] }],
+      };
+      await products.reopenAddVariantsProductForm();
+      await products.addVariantProductWithRequiredFields(createdProduct);
+      await products.verifyVariantProductInListing(createdProduct);
+    });
+
+    test("Add variant product with two attributes", async () => {
+      createdProduct = {
+        name: `Auto Var Grid ${Date.now()}`,
+        category: "Quickadd",
+        cost: "10.00",
+        price: "20.00",
+        attributes: [{ values: ["S", "M"] }, { values: ["Red", "Blue"] }],
+      };
+      await products.reopenAddVariantsProductForm();
+      await products.addVariantProductWithRequiredFields(createdProduct);
+      await products.verifyVariantProductInListing(createdProduct);
+    });
+
+    test("Variant product name does not accept ~ - \\ , /", async () => {
+      await products.verifyVariantProductNameRejectsSpecialCharacters();
+    });
+
+    test("Variant attribute value does not accept ~ - \\ , /", async () => {
+      await products.verifyVariantAttributeValueRejectsSpecialCharacters();
+    });
+
+    test("Variant UPC does not accept space", async () => {
+      await products.verifyVariantUpcRejectsSpecialCharacters();
+    });
+
+    test("Variant custom code does not accept space or |", async () => {
+      await products.verifyVariantCustomCodeRejectsSpecialCharacters();
+    });
+
+    test("Same variant UPC and custom code is not accepted", async () => {
+      await products.verifyVariantSameUpcAndCustomCodeRejected();
+    });
+
+    test("One variant UPC cannot be another variant custom code", async () => {
+      await products.verifyVariantUpcUsedAsOtherCombinationCustomCodeRejected();
+    });
+
+    test("Two variants cannot share the same UPC", async () => {
+      await products.verifyTwoVariantsCannotShareUpc();
+    });
+
+    test("Add variant without UPC, generate from save dialog", async () => {
+      createdProduct = {
+        name: `Auto Var NoUpc ${Date.now()}`,
+        category: "Quickadd",
+        cost: "10.00",
+        price: "20.00",
+      };
+      await products.addVariantProductWithoutUpcGenerateFromDialog(
+        createdProduct,
+      );
+      await products.verifyVariantProductInListing(createdProduct);
+    });
+
+    test("Duplicate variant UPC is not accepted", async () => {
+      const existingUpc = variantProduct?.upc || createdProduct?.upc;
+      await products.verifyDuplicateVariantUpcRejected(existingUpc);
+    });
+
+    test("Duplicate variant custom code is not accepted", async () => {
+      await products.verifyDuplicateVariantCustomCodeRejected(
+        variantProduct?.customCode,
+      );
+    });
+  });
+
+  test.describe("Edit Variant Product", () => {
+    test("Edit variant product form UI", async () => {
+      variantProduct = await products.ensureVariantProduct(variantProduct);
+      await products.openEditSingleProduct(variantProduct.name);
+      await products.verifyEditVariantProductFormUI(variantProduct);
+    });
+
+    test("Cannot change Variant to Single type", async () => {
+      await products.openEditSingleProduct(variantProduct.name);
+      await products.verifyEditCannotChangeVariantType();
+      await products.returnToProductsList();
+    });
+
+    test("Edit variant product fields and verify they persist", async () => {
+      variantProduct = await products.ensureVariantProduct(variantProduct);
+      const previousName = variantProduct.name;
+      await products.openEditSingleProduct(previousName);
+      await products.editAndSaveVariantProductFields(variantProduct);
+      await products.verifyProductNotCreatedInListing(previousName);
+      await products.verifyVariantProductInListing(variantProduct);
+    });
+
+    test("Required Name empty shows validation error", async () => {
+      await products.openEditSingleProduct(variantProduct.name);
+      await products.verifyEditVariantRequiredNameEmpty(variantProduct);
+    });
+
+    test("Required Categories empty shows validation error", async () => {
+      await products.openEditSingleProduct(variantProduct.name);
+      await products.verifyEditVariantRequiredCategoriesEmpty(variantProduct);
+    });
+
+    test("Required Price empty shows validation error", async () => {
+      await products.openEditSingleProduct(variantProduct.name);
+      await products.verifyEditVariantPriceEmpty(variantProduct);
+    });
+
+    test("Product name does not accept ~ - \\ , /", async () => {
+      await products.openEditSingleProduct(variantProduct.name);
+      await products.verifyEditProductNameRejectsSpecialCharacters();
+      await products.returnToProductsList();
+    });
+
+    test("Variant UPC does not accept space", async () => {
+      await products.openEditSingleProduct(variantProduct.name);
+      await products.verifyEditVariantUpcRejectsSpecialCharacters();
+      await products.returnToProductsList();
+    });
+
+    test("Variant custom code does not accept space or |", async () => {
+      await products.openEditSingleProduct(variantProduct.name);
+      await products.verifyEditVariantCustomCodeRejectsSpecialCharacters();
+      await products.returnToProductsList();
+    });
+
+    test("Same UPC and custom code is not accepted", async () => {
+      await products.openEditSingleProduct(variantProduct.name);
+      await products.verifyEditVariantSameUpcAndCustomCodeRejected(
+        variantProduct,
+      );
+    });
+
+    test("Discard changes restores name and price", async () => {
+      await products.openEditSingleProduct(variantProduct.name);
+      await products.verifyEditVariantDiscardChangesRestoresFields(
+        variantProduct,
+      );
+      await products.returnToProductsList();
+    });
+
+    test("Unsaved leave Stay then Discard & leave", async () => {
+      await products.openEditSingleProduct(variantProduct.name);
+      await products.verifyEditVariantUnsavedLeaveStayThenDiscard(
+        variantProduct,
+      );
+    });
+
+    test("Generate UPC Keep current then Generate new", async () => {
+      await products.openEditSingleProduct(variantProduct.name);
+      await products.verifyEditVariantGenerateUpcKeepThenReplace(
+        variantProduct,
+      );
+      await products.returnToProductsList();
+    });
+  });
+
+  test.describe("Duplicate Variant Product", () => {
+    test("More actions shows Duplicate Product", async () => {
+      variantProduct = await products.ensureVariantProduct(variantProduct);
+      await products.openEditSingleProduct(variantProduct.name);
+      await products.verifyDuplicateProductActionVisible();
+    });
+
+    test("Duplicate opens copy form without original name or UPC", async () => {
+      await products.openDuplicateVariantFromSource(variantProduct);
+      await products.verifyDuplicateVariantClearsUniqueFields(variantProduct);
+      await products.verifyDuplicateVariantDoesNotChangeOriginal(
+        variantProduct,
+      );
+    });
+
+    test("Duplicate copies variant combinations from the source", async () => {
+      await products.openDuplicateVariantFromSource(variantProduct);
+      await products.verifyDuplicateVariantCopiesCombinations(variantProduct);
+      await products.returnToProductsList();
+    });
+
+    test("Duplicate does not change the original product", async () => {
+      await products.openDuplicateVariantFromSource(variantProduct);
+      await products.verifyDuplicateVariantDoesNotChangeOriginal(
+        variantProduct,
+      );
+    });
+
+    test("Duplicate cannot save with the original product name", async () => {
+      await products.verifyDuplicateVariantCannotSaveWithOriginalName(
+        variantProduct,
+      );
+    });
+
+    test("Duplicate cannot save with the original UPC", async () => {
+      test.setTimeout(180_000);
+      variantProduct = await products.ensureVariantProduct(variantProduct);
+      await products.verifyDuplicateVariantCannotSaveWithOriginalUpc(
+        variantProduct,
+      );
+    });
+
+    test("Duplicate cannot save with the original custom code", async () => {
+      test.setTimeout(180_000);
+      variantProduct = await products.ensureVariantProduct(variantProduct);
+      await products.verifyDuplicateVariantCannotSaveWithOriginalCustomCode(
+        variantProduct,
+      );
+    });
+
+    test("Duplicate save creates a second variant product", async () => {
+      test.setTimeout(180_000);
+      variantProduct = await products.ensureVariantProduct(variantProduct);
+      await products.saveDuplicateVariantAsNewProduct(variantProduct);
     });
   });
 });

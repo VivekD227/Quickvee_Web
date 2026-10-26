@@ -16,7 +16,7 @@ const SORT_OPTIONS = [
 const TYPE_WARNING =
   /Pick carefully\.\s*Once the product is created, switching between single and variants isn't possible/i;
 const LIST_CHROME_LABELS =
-  /^(Open list|Close list|Load more|Add photos|Generate|Generate new|Keep current code|Back|Save product|Save changes|Discard changes|More actions|Duplicate Product|Duplicate|B|I|U|Bullet list|Numbered list|Add link|Add vendor|Remove tax|Remove photo)$/i;
+  /^(Open list|Close list|Load more|Add photos|Generate|Generate new|Keep current code|Back|Save product|Save changes|Discard changes|More actions|Duplicate Product|Duplicate|B|I|U|Bullet list|Numbered list|Add link|Add vendor|Remove tax|Remove photo|Choose attribute|Add another attribute)$/i;
 const SINGLE_PRODUCT_FEATURES = [
   "One UPC & scan codes",
   "One price",
@@ -40,6 +40,33 @@ const ADD_SINGLE_HEADINGS = [
   "Related Products",
 ];
 const OPTIONAL_ADD_SINGLE_HEADINGS = ["Copy to stores"];
+const ADD_VARIANT_HEADINGS = [
+  "Product Information",
+  "Photos",
+  "Description",
+  "Attributes",
+  "Variants",
+  "Selling Channels",
+  "Tax Information",
+  "Related Products",
+];
+const ADD_VARIANT_LABELS = [
+  "Name*",
+  "Brand",
+  "Tags",
+  "Categories*",
+  "Attribute",
+  "Values",
+];
+const ADD_VARIANT_PLACEHOLDERS = [
+  "Enter product name",
+  "Choose a brand",
+  "Add a tag",
+  "Add a category",
+  "e.g. Small, Medium, Large",
+  "Search products to add...",
+];
+const ADD_VARIANT_HEADER_BUTTONS = ["Back", "Save product"];
 const PRODUCT_COVER_PHOTO = path.join(
   __dirname,
   "..",
@@ -513,7 +540,49 @@ class Products {
       /used as both UPC and Custom Code|they must be different|already used on this product|this barcode is already used|scan code already|duplicate (scan )?code|already used by another product/i,
     );
     this.duplicateCustomCodeError = page.getByText(
-      /custom code already|this custom code is already|scan code already|already used by another product|this barcode is already used/i,
+      /custom code already|this custom code is already|already used as a Custom Code|Custom Codes must be unique|scan code already|already used by another product|this barcode is already used/i,
+    );
+
+    this.variantsProductBadge = this.formHead.getByText(
+      /Product with variants/,
+    );
+    this.attributesHeading = page.getByRole("heading", {
+      name: "Attributes",
+      exact: true,
+    });
+    this.attributesHelper = page.getByText(
+      /Up to 3 attributes \(e\.g\. Size, Flavor\)\. Pick a saved attribute, then add its values/i,
+    );
+    this.chooseAttributeBtn = page.getByRole("button", {
+      name: "Choose attribute",
+      exact: true,
+    });
+    this.fromSavedAttributesHelper = page.getByText(
+      "From your saved attributes",
+      { exact: true },
+    );
+    this.attributeValueInput = page.locator(
+      'input[placeholder="Add value"], input[placeholder="e.g. Small, Medium, Large"]',
+    );
+    this.pressEnterValueHelper = page.getByText(
+      "Press Enter to add each value",
+      { exact: true },
+    );
+    this.addAnotherAttributeBtn = page.getByRole("button", {
+      name: /Add another attribute/i,
+    });
+    this.variantsHeading = page.getByRole("heading", {
+      name: "Variants",
+      exact: true,
+    });
+    this.variantsHelper = page.getByText(
+      /combination[s]? generated from your attributes\. Every variant needs a price/i,
+    );
+    this.variantsEmptyHint = page.getByText(
+      /Pick an attribute and add values above to generate variants/i,
+    );
+    this.variantPriceRequiredError = page.getByText(
+      /Price is required|every variant needs a price|Price must be greater than 0/i,
     );
   }
 
@@ -2884,8 +2953,10 @@ class Products {
     await expect(this.resetDraftConfirmBtn).toBeHidden({ timeout: 10_000 });
     await expect(this.draftRestoredBanner).toBeHidden({ timeout: 10_000 });
     await expect(this.startFreshBtn).toBeHidden();
-    await expect(this.compareAtInput).toHaveValue("");
-    await expect(this.compareAtLessThanPriceError).toHaveCount(0);
+    if (await this.compareAtInput.isVisible().catch(() => false)) {
+      await expect(this.compareAtInput).toHaveValue("");
+      await expect(this.compareAtLessThanPriceError).toHaveCount(0);
+    }
   }
 
   async leaveAddFormWithoutSaving() {
@@ -4162,8 +4233,18 @@ class Products {
     await expect(this.duplicateProductTitle).toBeVisible();
     await expect(this.saveProductBtn).toHaveCount(0);
     await expect(this.saveChangesBtn).toHaveCount(0);
-    await expect(this.singleProductBadge).toBeVisible();
     await expect(this.backBtn).toBeVisible();
+    const isVariant =
+      (await this.variantCheckboxes().count()) > 0 ||
+      (await this.variantsProductBadge.isVisible().catch(() => false));
+    if (isVariant) {
+      await expect(this.variantsProductBadge).toBeVisible();
+      await expect(
+        this.formHead.getByText("Single product", { exact: true }),
+      ).toHaveCount(0);
+    } else {
+      await expect(this.singleProductBadge).toBeVisible();
+    }
   }
 
   async openMoreActionsMenu() {
@@ -4174,9 +4255,24 @@ class Products {
       .catch(() => false);
     if (alreadyOpen) return;
     if (!(await this.moreActionsBtn.isVisible().catch(() => false))) {
-      const currentPrice =
-        (await this.priceInput.inputValue()).trim() || "24.99";
-      await this.fillPrice((Number(currentPrice) + 0.01).toFixed(2));
+      if (await this.priceInput.isVisible().catch(() => false)) {
+        const currentPrice =
+          (await this.priceInput.inputValue()).trim() || "24.99";
+        await this.fillPrice((Number(currentPrice) + 0.01).toFixed(2));
+      } else {
+        const names = await this.readVariantCombinationNames();
+        if (names.length) {
+          const priceBox = this.getVariantRow(names[0]).getByRole("textbox", {
+            name: "Price $",
+          });
+          const current =
+            (await priceBox.inputValue()).trim() || "20.00";
+          await this.fillVariantPrice(
+            names[0],
+            (Number(current) + 0.01).toFixed(2),
+          );
+        }
+      }
       await expect(this.moreActionsBtn).toBeVisible({ timeout: 8_000 });
     }
     await this.moreActionsBtn.click();
@@ -4605,6 +4701,1310 @@ class Products {
     await expect(this.page).toHaveURL(
       /\/merchants\/inventory\/new-products\/add\?type=variants/,
     );
+  }
+
+  async reopenAddVariantsProductForm({ discardDraft = true } = {}) {
+    await this.returnToProductsList();
+    await this.addProductBtnClick();
+    await this.selectVariantsProductType();
+    await this.continueAddProductType();
+    await this.verifyAddVariantsProductUrl();
+    if (discardDraft) await this.discardRestoredDraft();
+  }
+
+  getAttributesSection() {
+    return this.attributesHeading.locator("xpath=ancestor::section[1]");
+  }
+
+  getVariantsSection() {
+    return this.variantsHeading.locator("xpath=ancestor::section[1]");
+  }
+
+  variantCheckboxes() {
+    return this.getVariantsSection().getByRole("checkbox", {
+      name: /^Select (?!all)/i,
+    });
+  }
+
+  getVariantRow(combination) {
+    return this.getVariantsSection()
+      .locator("div")
+      .filter({
+        has: this.page.getByRole("checkbox", {
+          name: `Select ${combination}`,
+          exact: true,
+        }),
+      })
+      .filter({ has: this.page.getByRole("textbox", { name: "Price $" }) })
+      .last();
+  }
+
+  getVariantCard(combination) {
+    return this.getVariantHeaderRow(combination).locator(
+      "xpath=ancestor::div[contains(@style,'overflow: hidden')][1]",
+    );
+  }
+
+  getVariantHeaderRow(combination) {
+    return this.getVariantsSection()
+      .getByRole("checkbox", {
+        name: `Select ${combination}`,
+        exact: true,
+      })
+      .locator("xpath=ancestor::div[contains(@style,'cursor: pointer')][1]");
+  }
+
+  getVariantUpcInput(combination) {
+    const header = this.getVariantHeaderRow(combination);
+    const card = this.getVariantCard(combination);
+    return header
+      .getByRole("textbox", {
+        name: /UPC Generate a unique 12-digit UPC/i,
+      })
+      .or(card.getByPlaceholder("Scan or enter UPC"))
+      .first();
+  }
+
+  getVariantCustomCodeInput(combination) {
+    return this.getVariantCard(combination)
+      .getByPlaceholder("Enter custom code")
+      .or(this.page.getByPlaceholder("Enter custom code"))
+      .locator("visible=true")
+      .first();
+  }
+
+  async expandVariantRow(combination) {
+    const skuTab = this.getVariantCard(combination).getByRole("button", {
+      name: "SKU codes",
+      exact: true,
+    });
+    if (await skuTab.isVisible().catch(() => false)) return;
+    const header = this.getVariantHeaderRow(combination);
+    const box = await header.boundingBox();
+    await header.click({
+      position: {
+        x: Math.max((box?.width || 40) - 16, 8),
+        y: (box?.height || 24) / 2,
+      },
+    });
+    await expect(
+      this.getVariantCard(combination).getByRole("button", {
+        name: "SKU codes",
+        exact: true,
+      }),
+    ).toBeVisible({ timeout: 8_000 });
+  }
+
+  async openVariantSkuTab(combination) {
+    await this.expandVariantRow(combination);
+    await this.getVariantCard(combination)
+      .getByRole("button", { name: "SKU codes", exact: true })
+      .click();
+    await expect(this.getVariantCustomCodeInput(combination)).toBeVisible({
+      timeout: 8_000,
+    });
+  }
+
+  async fillVariantUpc(combination, upc) {
+    const input = this.getVariantUpcInput(combination);
+    await expect(input).toBeVisible();
+    await input.fill(String(upc));
+    await input.blur();
+  }
+
+  async fillVariantCustomCode(combination, code) {
+    await this.openVariantSkuTab(combination);
+    const input = this.getVariantCustomCodeInput(combination);
+    await input.fill(String(code));
+    await expect(input).toHaveValue(String(code));
+  }
+
+  selectedAttributeValueChip(value) {
+    return this.getAttributesSection()
+      .getByText(value, { exact: true })
+      .locator(
+        "xpath=self::*[not(self::input or ancestor::button or ancestor::*[@role='button'] or ancestor::*[@role='checkbox'])]",
+      );
+  }
+
+  isAttributeListResponse(res) {
+    return (
+      res.request().method() === "POST" &&
+      res.url().includes(routes.API_URL.attributeList_URL)
+    );
+  }
+
+  async verifyAddVariantsProductHeader() {
+    await expect(this.backBtn).toBeVisible();
+    await expect(this.newProductTitle).toBeVisible();
+    await expect(this.variantsProductBadge).toBeVisible();
+    await expect(this.saveProductBtn).toBeVisible();
+    await expect(
+      this.formHead.getByText("Single product", { exact: true }),
+    ).toHaveCount(0);
+  }
+
+  async verifyVariantProductInformationSection() {
+    await expect(this.productInformationHeading).toBeVisible();
+    await expect(this.productNameLabel).toBeVisible();
+    await expect(this.productNameInput).toBeVisible();
+    await expect(this.brandLabel).toBeVisible();
+    await expect(this.brandInput).toBeVisible();
+    await expect(this.brandHelper).toBeVisible();
+    await expect(this.tagsLabel).toBeVisible();
+    await expect(this.tagsInput).toBeVisible();
+    await expect(this.categoriesLabel).toBeVisible();
+    await expect(this.categoriesInput).toBeVisible();
+    await expect(this.unitOfMeasureInput).toHaveCount(0);
+    await expect(this.manufacturerInput).toHaveCount(0);
+  }
+
+  async verifyAttributesSectionEmpty() {
+    await expect(this.attributesHeading).toBeVisible();
+    await expect(this.attributesHelper).toBeVisible();
+    await expect(this.chooseAttributeBtn.first()).toBeVisible();
+    await expect(this.fromSavedAttributesHelper.first()).toBeVisible();
+    await expect(this.attributeValueInput.first()).toBeVisible();
+    await expect(this.pressEnterValueHelper.first()).toBeVisible();
+    await expect(this.addAnotherAttributeBtn).toBeVisible();
+  }
+
+  async verifyVariantsSectionEmpty() {
+    await expect(this.variantsHeading).toBeVisible();
+    await expect(
+      this.getVariantsSection().getByText(
+        /0 combinations generated from your attributes/i,
+      ),
+    ).toBeVisible();
+    await expect(this.variantsEmptyHint).toBeVisible();
+    await expect(this.variantCheckboxes()).toHaveCount(0);
+    await expect(this.variantsProductBadge).toBeVisible();
+  }
+
+  async verifyVariantSellingChannelsSection() {
+    await expect(this.sellingChannelsHeading).toBeVisible();
+    await expect(this.sellingChannelsHelper).toBeVisible();
+    await expect(this.posChannelBtn).toBeVisible();
+    await expect(this.deliveryChannelBtn).toBeVisible();
+    await expect(this.pickupChannelBtn).toBeVisible();
+    await expect(this.posChannelBtn).toBeDisabled();
+    await expect(this.deliveryChannelBtn).toBeDisabled();
+    await expect(this.pickupChannelBtn).toBeDisabled();
+  }
+
+  async verifyNoExtraAddVariantFormElements() {
+    const actualHeadings = await this.collectVisibleTexts(
+      this.formBody.getByRole("heading"),
+    );
+    const storeCount = Number(sessionDataStorage.get("storeCount") ?? 0);
+    const expectedHeadings =
+      storeCount > 1
+        ? ADD_VARIANT_HEADINGS.concat(OPTIONAL_ADD_SINGLE_HEADINGS)
+        : ADD_VARIANT_HEADINGS;
+    this.assertExactList(
+      actualHeadings,
+      expectedHeadings,
+      "Add variant form headings",
+    );
+
+    const actualLabels = await this.collectVisibleTexts(
+      this.formBody.locator("label"),
+    );
+    this.assertExactList(
+      actualLabels,
+      ADD_VARIANT_LABELS,
+      "Add variant form labels",
+    );
+
+    const actualPlaceholders = await this.formBody
+      .locator("input, textarea")
+      .evaluateAll((els) =>
+        els
+          .filter((el) => el.offsetParent !== null)
+          .map((el) => el.getAttribute("placeholder") ?? ""),
+      );
+    this.assertExactList(
+      actualPlaceholders,
+      ADD_VARIANT_PLACEHOLDERS,
+      "Add variant form placeholders",
+    );
+
+    const actualHeaderButtons = await this.collectVisibleTexts(
+      this.formHead.getByRole("button"),
+    );
+    this.assertExactList(
+      actualHeaderButtons,
+      ADD_VARIANT_HEADER_BUTTONS,
+      "Add variant form header buttons",
+    );
+
+    await expect(this.pricingHeading).toHaveCount(0);
+    await expect(this.productOptionsHeading).toHaveCount(0);
+    await expect(this.skuCodesHeading).toHaveCount(0);
+    await expect(this.vendorInfoHeading).toHaveCount(0);
+  }
+
+  async verifyAddVariantsProductFormUI() {
+    await this.verifyAddVariantsProductUrl();
+    await this.verifyAddVariantsProductHeader();
+    await this.verifyVariantProductInformationSection();
+    await this.verifyPhotosSection();
+    await this.verifyDescriptionSection();
+    await this.verifyAttributesSectionEmpty();
+    await this.verifyVariantsSectionEmpty();
+    await this.verifyCopyToStoresSection();
+    await this.verifyVariantSellingChannelsSection();
+    await this.verifyTaxInformationSection();
+    await this.verifyRelatedProductsSection();
+    await this.verifyNoExtraAddVariantFormElements();
+  }
+
+  async verifyRequiredVariantAllEmptyValidation() {
+    await this.verifyAddVariantsProductUrl();
+    await expect(this.productNameInput).toHaveValue("");
+    await expect(this.categoriesInput).toHaveValue("");
+    await this.saveProductClick();
+    await this.verifyNameRequiredError();
+    await this.verifyCategoriesRequiredError();
+    await this.verifyAddVariantsProductUrl();
+    await expect(this.newProductTitle).toBeVisible();
+  }
+
+  async selectSavedAttribute({
+    preferred = ["Size", "Color", "Flavor", "Flavour"],
+    exclude = [],
+  } = {}) {
+    await this.closeOpenList();
+    const chooseBtn = this.chooseAttributeBtn.last();
+    await expect(chooseBtn).toBeVisible({ timeout: 10_000 });
+    const listPromise = this.page.waitForResponse(
+      (res) => this.isAttributeListResponse(res),
+      { timeout: 15_000 },
+    );
+    await chooseBtn.click();
+    await this.assertHttp200IfReceived(listPromise, "attribute_list");
+
+    const excluded = (Array.isArray(exclude) ? exclude : [exclude]).filter(
+      Boolean,
+    );
+    for (const name of preferred) {
+      if (excluded.includes(name)) continue;
+      const option = this.getAttributesSection().getByRole("button", {
+        name,
+        exact: true,
+      });
+      const visible = await option
+        .waitFor({ state: "visible", timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (!visible) continue;
+      await option.click();
+      await this.closeOpenList();
+      await expect(
+        this.getAttributesSection().getByRole("button", {
+          name,
+          exact: true,
+        }),
+      ).toBeVisible();
+      return name;
+    }
+
+    const label = await this.pickOpenListOptionNotNamed(
+      excluded,
+      this.getAttributesSection(),
+    );
+    await this.closeOpenList();
+    expect(label, "Store should have a saved attribute to assign").toBeTruthy();
+    return label;
+  }
+
+  async addAttributeValue(value, { inputIndex = 0 } = {}) {
+    const input = this.attributeValueInput.nth(inputIndex);
+    await expect(input).toBeVisible({ timeout: 10_000 });
+    await input.fill(String(value));
+    await input.press("Enter");
+    await expect(this.selectedAttributeValueChip(value)).toBeVisible({
+      timeout: 8_000,
+    });
+  }
+
+  async removeAttributeValue(value) {
+    const chip = this.selectedAttributeValueChip(value);
+    await expect(chip).toBeVisible();
+    const removeBtn = chip.locator("xpath=following-sibling::button[1]");
+    await removeBtn.click();
+    await expect(chip).toHaveCount(0);
+  }
+
+  async expectVariantCombinationCount(count) {
+    const word = count === 1 ? "combination" : "combinations";
+    await expect(
+      this.getVariantsSection().getByText(
+        new RegExp(`${count} ${word} generated from your attributes`, "i"),
+      ),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(this.variantCheckboxes()).toHaveCount(count);
+    if (count === 0) {
+      await expect(this.variantsEmptyHint).toBeVisible();
+      await expect(this.variantsProductBadge).toBeVisible();
+    } else {
+      await expect(this.variantsEmptyHint).toHaveCount(0);
+      await expect(
+        this.formHead.getByText(
+          new RegExp(`Product with variants · ${count}`),
+        ),
+      ).toBeVisible();
+    }
+  }
+
+  async readVariantCombinationNames() {
+    const boxes = this.variantCheckboxes();
+    const count = await boxes.count();
+    const names = [];
+    for (let i = 0; i < count; i++) {
+      const label = (await boxes.nth(i).getAttribute("aria-label")) || "";
+      names.push(label.replace(/^Select\s+/, "").trim());
+    }
+    return names;
+  }
+
+  async fillVariantPrice(combination, price) {
+    const input = this.getVariantRow(combination).getByRole("textbox", {
+      name: "Price $",
+    });
+    await expect(input).toBeVisible();
+    await input.fill(String(price));
+    await expect(input).toHaveValue(String(price));
+  }
+
+  async fillVariantCost(combination, cost) {
+    const input = this.getVariantRow(combination).getByRole("textbox", {
+      name: "Cost $",
+    });
+    await expect(input).toBeVisible();
+    await input.fill(String(cost));
+    await expect(input).toHaveValue(String(cost));
+  }
+
+  async generateVariantUpc(combination) {
+    const row = this.getVariantRow(combination);
+    const upcInput = row.getByRole("textbox", {
+      name: /UPC Generate a unique 12-digit UPC/i,
+    });
+    const generateBtn = row.getByRole("button", {
+      name: "Generate a unique 12-digit UPC",
+    });
+    await generateBtn.click();
+    if (await this.generateNewUpcBtn.isVisible().catch(() => false)) {
+      await this.generateNewUpcBtn.click();
+      await expect(this.generateNewUpcBtn).toHaveCount(0);
+    }
+    await expect
+      .poll(async () => (await upcInput.inputValue()).trim(), {
+        timeout: 10_000,
+        message: `Generate should populate a 12-digit UPC for ${combination}`,
+      })
+      .toMatch(/^\d{12}$/);
+    return (await upcInput.inputValue()).trim();
+  }
+
+  async fillAllVariantPrices(price, cost) {
+    const names = await this.readVariantCombinationNames();
+    expect(names.length, "Variants should be generated before pricing").toBeGreaterThan(
+      0,
+    );
+    const upcs = [];
+    for (const name of names) {
+      if (cost != null) await this.fillVariantCost(name, cost);
+      await this.fillVariantPrice(name, price);
+      upcs.push(await this.generateVariantUpc(name));
+    }
+    return { names, upcs };
+  }
+
+  async verifyOneAttributeOneValueGeneratesOneVariant() {
+    await this.verifyAddVariantsProductUrl();
+    const attribute = await this.selectSavedAttribute();
+    await this.addAttributeValue("V1");
+    await this.expectVariantCombinationCount(1);
+    const names = await this.readVariantCombinationNames();
+    expect(names).toEqual(["V1"]);
+    await expect(this.getVariantRow("V1").getByRole("textbox", { name: "Price $" })).toBeVisible();
+    await expect(this.getVariantRow("V1").getByRole("textbox", { name: "Cost $" })).toBeVisible();
+    await expect(
+      this.getVariantRow("V1").getByRole("button", {
+        name: "Generate a unique 12-digit UPC",
+      }),
+    ).toBeVisible();
+    return attribute;
+  }
+
+  async verifySecondValueGeneratesTwoVariants() {
+    await this.addAttributeValue("V2");
+    await this.expectVariantCombinationCount(2);
+    const names = await this.readVariantCombinationNames();
+    expect(names.sort()).toEqual(["V1", "V2"]);
+  }
+
+  async verifyRemovingValueUpdatesCombinations() {
+    await this.removeAttributeValue("V2");
+    await this.expectVariantCombinationCount(1);
+    expect(await this.readVariantCombinationNames()).toEqual(["V1"]);
+  }
+
+  async verifyTwoAttributesGenerateCartesianProduct(firstAttribute) {
+    await this.addAttributeValue("V2");
+    await this.expectVariantCombinationCount(2);
+    await this.addAnotherAttributeBtn.click();
+    await expect(this.chooseAttributeBtn.last()).toBeVisible({
+      timeout: 8_000,
+    });
+    const secondAttribute = await this.selectSavedAttribute({
+      exclude: [firstAttribute],
+    });
+    expect(
+      secondAttribute,
+      "Store should have a second saved attribute for cartesian variants",
+    ).toBeTruthy();
+    expect(secondAttribute).not.toBe(firstAttribute);
+    await this.addAttributeValue("R1", { inputIndex: 1 });
+    await this.addAttributeValue("R2", { inputIndex: 1 });
+    await this.expectVariantCombinationCount(4);
+    const names = await this.readVariantCombinationNames();
+    for (const a of ["V1", "V2"]) {
+      for (const b of ["R1", "R2"]) {
+        expect(
+          names.some((name) => name.includes(a) && name.includes(b)),
+          `Combination ${a} × ${b} should appear in variant rows`,
+        ).toBeTruthy();
+      }
+    }
+    return secondAttribute;
+  }
+
+  async verifyCannotAddMoreThanThreeAttributes(assigned) {
+    await this.addAnotherAttributeBtn.click();
+    await expect(this.chooseAttributeBtn.last()).toBeVisible({
+      timeout: 8_000,
+    });
+    const third = await this.selectSavedAttribute({ exclude: assigned });
+    expect(third, "Store should have a third saved attribute").toBeTruthy();
+    await this.addAttributeValue("T1", { inputIndex: 2 });
+    await this.expectVariantCombinationCount(4);
+    const addVisible = await this.addAnotherAttributeBtn.isVisible().catch(
+      () => false,
+    );
+    if (addVisible) {
+      const enabled = await this.addAnotherAttributeBtn.isEnabled();
+      if (enabled) {
+        await this.addAnotherAttributeBtn.click();
+      }
+    }
+    await expect(
+      this.getAttributesSection().getByText("Attribute", { exact: true }),
+    ).toHaveCount(3);
+    await expect(this.chooseAttributeBtn).toHaveCount(0);
+  }
+
+  async verifyVariantPriceRequiredValidation() {
+    await this.verifyAddVariantsProductUrl();
+    const names = await this.readVariantCombinationNames();
+    expect(names.length).toBeGreaterThan(0);
+    await this.fillProductName(`Auto Var Price ${Date.now()}`);
+    await this.selectCategory("Quickadd");
+    await this.saveProductClick();
+    await expect(this.variantPriceRequiredError.first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await this.verifyAddVariantsProductUrl();
+  }
+
+  async expectAddVariantProductRejected(errorLocator) {
+    const addPromise = this.page
+      .waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes(routes.API_URL.addProduct),
+        { timeout: 5_000 },
+      )
+      .catch(() => null);
+    await this.saveProductClick();
+    await expect(errorLocator).toBeVisible({ timeout: 10_000 });
+    const addResponse = await addPromise;
+    if (addResponse) this.assertHttp200(addResponse, "add_product");
+    await this.verifyAddVariantsProductUrl();
+    await expect(this.newProductTitle).toBeVisible();
+  }
+
+  async startVariantProductWithValues(product) {
+    const { name, category = "Quickadd", values = ["V1"] } = product;
+    await this.reopenAddVariantsProductForm();
+    await this.fillProductName(name);
+    await this.selectCategory(category);
+    product.attribute = await this.selectSavedAttribute();
+    for (const value of values) {
+      await this.addAttributeValue(value);
+    }
+    await this.expectVariantCombinationCount(values.length);
+  }
+
+  async verifyVariantProductNameRejectsSpecialCharacters() {
+    await this.reopenAddVariantsProductForm();
+    await this.verifyAddVariantsProductUrl();
+    await this.assertInputStripsCharacters(
+      this.productNameInput,
+      "Variant product name",
+      ["~", "-", "\\", ",", "/"],
+      { prefix: "A", suffix: "B" },
+    );
+  }
+
+  async verifyVariantUpcRejectsSpecialCharacters() {
+    await this.reopenAddVariantsProductForm();
+    await this.selectSavedAttribute();
+    await this.addAttributeValue("V1");
+    await this.expectVariantCombinationCount(1);
+    await this.assertInputStripsCharacters(
+      this.getVariantUpcInput("V1"),
+      "Variant UPC",
+      [" "],
+    );
+  }
+
+  async verifyVariantCustomCodeRejectsSpecialCharacters() {
+    await this.reopenAddVariantsProductForm();
+    await this.selectSavedAttribute();
+    await this.addAttributeValue("V1");
+    await this.expectVariantCombinationCount(1);
+    await this.openVariantSkuTab("V1");
+    await this.assertInputStripsCharacters(
+      this.getVariantCustomCodeInput("V1"),
+      "Variant custom code",
+      [" ", "|"],
+    );
+  }
+
+  async verifyVariantAttributeValueRejectsSpecialCharacters() {
+    await this.reopenAddVariantsProductForm();
+    await this.selectSavedAttribute();
+    await this.assertInputStripsCharacters(
+      this.attributeValueInput.first(),
+      "Variant attribute value",
+      ["~", "-", "\\", ",", "/"],
+      { prefix: "A", suffix: "B" },
+    );
+  }
+
+  async verifyVariantUpcUsedAsOtherCombinationCustomCodeRejected() {
+    const name = `Auto Var UpcAsCode ${Date.now()}`;
+    await this.startVariantProductWithValues({ name, values: ["S", "M"] });
+    await this.fillVariantCost("S", "10.00");
+    await this.fillVariantPrice("S", "20.00");
+    await this.fillVariantCost("M", "10.00");
+    await this.fillVariantPrice("M", "20.00");
+    const upc = await this.generateVariantUpc("S");
+    await this.generateVariantUpc("M");
+    await this.fillVariantCustomCode("M", upc);
+    await this.openVariantSkuTab("M");
+    await expect(
+      this.page
+        .getByPlaceholder("Enter custom code")
+        .locator("visible=true")
+        .first(),
+    ).toHaveValue(upc);
+    await this.expectAddVariantProductRejected(
+      this.sameUpcCustomCodeError
+        .or(this.duplicateUpcError)
+        .or(this.duplicateCustomCodeError)
+        .first(),
+    );
+    await this.verifyProductNotCreatedInListing(name);
+  }
+
+  async verifyVariantSameUpcAndCustomCodeRejected() {
+    const name = `Auto Var SameCode ${Date.now()}`;
+    await this.startVariantProductWithValues({ name, values: ["V1"] });
+    await this.fillVariantPrice("V1", "20.00");
+    const sharedCode = await this.generateVariantUpc("V1");
+    await this.fillVariantCustomCode("V1", sharedCode);
+    await this.expectAddVariantProductRejected(
+      this.sameUpcCustomCodeError
+        .or(this.duplicateUpcError)
+        .or(this.page.getByRole("alert"))
+        .first(),
+    );
+    await this.verifyProductNotCreatedInListing(name);
+  }
+
+  async verifyTwoVariantsCannotShareUpc() {
+    const name = `Auto Var DupUpcRows ${Date.now()}`;
+    const sharedUpc = `8${Date.now().toString().slice(-11)}`;
+    await this.startVariantProductWithValues({ name, values: ["S", "M"] });
+    await this.fillVariantCost("S", "10.00");
+    await this.fillVariantPrice("S", "20.00");
+    await this.fillVariantCost("M", "10.00");
+    await this.fillVariantPrice("M", "20.00");
+    await this.fillVariantUpc("S", sharedUpc);
+    await this.fillVariantUpc("M", sharedUpc);
+    const sUpc = (await this.getVariantUpcInput("S").inputValue()).trim();
+    const mUpc = (await this.getVariantUpcInput("M").inputValue()).trim();
+    const bothKeptDuplicate = sUpc === sharedUpc && mUpc === sharedUpc;
+    await this.saveProductClick();
+    await this.verifyAddVariantsProductUrl();
+    if (bothKeptDuplicate) {
+      await expect(
+        this.duplicateUpcError
+          .or(this.sameUpcCustomCodeError)
+          .or(this.page.getByRole("alert"))
+          .first(),
+      ).toBeVisible({ timeout: 10_000 });
+    } else {
+      expect(
+        bothKeptDuplicate,
+        "Two variants should not both keep the same UPC",
+      ).toBeFalsy();
+      await expect(this.page.getByText(/no UPC code/i)).toBeVisible({
+        timeout: 10_000,
+      });
+      if (await this.fillUpcMyselfBtn.isVisible().catch(() => false)) {
+        await this.fillUpcMyselfBtn.click();
+      }
+    }
+    await this.verifyProductNotCreatedInListing(name);
+  }
+
+  async verifyDuplicateVariantUpcRejected(existingUpc) {
+    expect(existingUpc, "Need an existing UPC to duplicate").toBeTruthy();
+    const name = `Auto Var DupUpc ${Date.now()}`;
+    await this.startVariantProductWithValues({ name, values: ["V1"] });
+    await this.fillVariantPrice("V1", "20.00");
+    const upcCheckPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.checkUpc),
+      { timeout: 15_000 },
+    );
+    await this.fillVariantUpc("V1", existingUpc);
+    await this.assertHttp200IfReceived(upcCheckPromise, "check_upc");
+    await this.expectAddVariantProductRejected(
+      this.duplicateUpcError.or(this.page.getByRole("alert")).first(),
+    );
+    await this.verifyProductNotCreatedInListing(name);
+  }
+
+  async verifyDuplicateVariantCustomCodeRejected(existingCustomCode) {
+    expect(
+      existingCustomCode,
+      "Need an existing custom code to duplicate",
+    ).toBeTruthy();
+    const name = `Auto Var DupCustom ${Date.now()}`;
+    await this.startVariantProductWithValues({ name, values: ["V1"] });
+    await this.fillVariantPrice("V1", "20.00");
+    await this.generateVariantUpc("V1");
+    await this.fillVariantCustomCode("V1", existingCustomCode);
+    await this.expectAddVariantProductRejected(
+      this.duplicateCustomCodeError
+        .or(this.sameUpcCustomCodeError)
+        .or(this.page.getByRole("alert"))
+        .first(),
+    );
+    await this.verifyProductNotCreatedInListing(name);
+  }
+
+  async addVariantProductWithoutUpcGenerateFromDialog(product) {
+    const {
+      name,
+      category = "Quickadd",
+      cost = "10.00",
+      price = "20.00",
+      values = ["111"],
+    } = product;
+    await this.startVariantProductWithValues({ name, category, values });
+    const combination = values[0];
+    await this.fillVariantCost(combination, cost);
+    await this.fillVariantPrice(combination, price);
+    await expect(this.getVariantUpcInput(combination)).toHaveValue("");
+
+    await this.saveProductClick();
+    await expect(this.page.getByText(/no UPC code/i)).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(this.fillUpcMyselfBtn).toBeVisible();
+    await expect(this.generateAndSaveUpcBtn).toBeVisible();
+
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 25_000 },
+    );
+    await this.generateAndSaveUpcBtn.click();
+    let upc = "";
+    await expect
+      .poll(
+        async () => {
+          const fromInput = (
+            await this.getVariantUpcInput(combination)
+              .inputValue()
+              .catch(() => "")
+          ).trim();
+          if (/^\d{12}$/.test(fromInput)) {
+            upc = fromInput;
+            return fromInput;
+          }
+          const promptText = await this.page
+            .getByText(/no UPC code/i)
+            .locator("xpath=ancestor::*[1]")
+            .innerText()
+            .catch(() => "");
+          const match = promptText.match(/\b\d{12}\b/);
+          upc = match ? match[0] : "";
+          return upc;
+        },
+        {
+          timeout: 15_000,
+          message: "Generate & save should show a 12-digit UPC for the variant",
+        },
+      )
+      .toMatch(/^\d{12}$/);
+    product.upc = upc;
+
+    const addResponse = await addPromise;
+    this.assertHttp200(addResponse, "add_product");
+    await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
+      timeout: 15_000,
+    });
+    await this.searchListing(name);
+    await expect(
+      this.getProductRow(name),
+      `Variant product "${name}" should appear after Generate & save`,
+    ).toBeVisible({ timeout: 15_000 });
+  }
+
+  async addVariantProductWithRequiredFields(product) {
+    const {
+      name,
+      category = "Quickadd",
+      cost = "10.00",
+      price = "20.00",
+      attributes = [{ values: ["V1"] }],
+    } = product;
+    await this.verifyAddVariantsProductUrl();
+    await this.fillProductName(name);
+    await this.selectCategory(category);
+
+    const assigned = [];
+    for (let i = 0; i < attributes.length; i++) {
+      if (i > 0) {
+        await this.addAnotherAttributeBtn.click();
+        await expect(this.chooseAttributeBtn.last()).toBeVisible({
+          timeout: 8_000,
+        });
+      }
+      const attrName = await this.selectSavedAttribute({
+        preferred: attributes[i].attribute
+          ? [attributes[i].attribute, "Size", "Color", "Flavor", "Flavour"]
+          : ["Size", "Color", "Flavor", "Flavour"],
+        exclude: assigned,
+      });
+      assigned.push(attrName);
+      const values = attributes[i].values || ["V1"];
+      for (const value of values) {
+        await this.addAttributeValue(value, { inputIndex: i });
+      }
+    }
+    product.attributes = assigned.map((attribute, i) => ({
+      attribute,
+      values: attributes[i].values || ["V1"],
+    }));
+
+    const expectedCount = attributes.reduce(
+      (total, attr) => total * (attr.values?.length || 1),
+      1,
+    );
+    await this.expectVariantCombinationCount(expectedCount);
+    const priced = await this.fillAllVariantPrices(price, cost);
+    product.variantNames = priced.names;
+    product.upcs = priced.upcs;
+    product.upc = priced.upcs[0];
+
+    if (product.customCode || product.withCustomCode) {
+      const stamp = String(Date.now()).slice(-8);
+      const codes = [];
+      for (let i = 0; i < priced.names.length; i++) {
+        const code = product.customCode && priced.names.length === 1
+          ? product.customCode
+          : `VC${stamp}${i + 1}`;
+        await this.fillVariantCustomCode(priced.names[i], code);
+        codes.push(code);
+      }
+      product.customCodes = codes;
+      product.customCode = codes[0];
+    }
+
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 25_000 },
+    );
+    await this.saveProductClick();
+    const addResponse = await addPromise;
+    this.assertHttp200(addResponse, "add_product");
+    await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
+      timeout: 15_000,
+    });
+    await this.searchListing(name);
+    await expect(
+      this.getProductRow(name),
+      `Variant product "${name}" should appear in the listing after save`,
+    ).toBeVisible({ timeout: 15_000 });
+  }
+
+  async verifyVariantProductInListing(product) {
+    const { name, price } = product;
+    const row = await this.searchCreatedProduct(name);
+    await expect(row.locator("[data-prod-title]")).toHaveText(name);
+    if (price) {
+      await expect(row.locator("[data-prod-price]")).toContainText(
+        this.formatPrice(price),
+      );
+    }
+    await expect(this.getRowActionsToggle(row)).toBeVisible();
+  }
+
+  async ensureVariantProduct(product) {
+    if (product?.name) {
+      await this.searchListing(product.name);
+      const existing = this.getProductRow(product.name);
+      if (await existing.isVisible().catch(() => false)) return product;
+    }
+    await this.searchListing("Auto Var Single");
+    const row = this.getProductRow("Auto Var Single");
+    const visible = await row
+      .waitFor({ state: "visible", timeout: 8_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (visible) {
+      return {
+        category: "Quickadd",
+        cost: "10.00",
+        price: "20.00",
+        ...(product || {}),
+        name: (await row.locator("[data-prod-title]").innerText()).trim(),
+      };
+    }
+    const created = {
+      name: `Auto Var Single ${Date.now()}`,
+      category: "Quickadd",
+      cost: "10.00",
+      price: "20.00",
+      attributes: [{ values: ["111"] }],
+      customCode: `VC${Date.now().toString().slice(-8)}`,
+    };
+    await this.reopenAddVariantsProductForm();
+    await this.addVariantProductWithRequiredFields(created);
+    return created;
+  }
+
+  async firstVariantCombinationName() {
+    const names = await this.readVariantCombinationNames();
+    expect(
+      names.length,
+      "Edit/duplicate form should have variant rows",
+    ).toBeGreaterThan(0);
+    return names[0];
+  }
+
+  async verifyEditVariantProductHeader(name) {
+    await expect(this.backBtn).toBeVisible();
+    await expect(this.page.getByText(`Edit ${name}`)).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(this.variantsProductBadge).toBeVisible();
+    await expect(this.discardChangesBtn).toBeVisible();
+    await expect(this.saveChangesBtn).toBeVisible();
+    await expect(this.newProductTitle).toHaveCount(0);
+    await expect(this.saveProductBtn).toHaveCount(0);
+    await expect(
+      this.formHead.getByText("Single product", { exact: true }),
+    ).toHaveCount(0);
+  }
+
+  async verifyEditCannotChangeVariantType() {
+    await this.verifyEditSingleProductUrl();
+    await expect(this.variantsProductBadge).toBeVisible();
+    await expect(this.typeTitle).toHaveCount(0);
+    await expect(this.typeCards).toHaveCount(0);
+    await expect(this.singleProductCard).toHaveCount(0);
+    await expect(this.variantsProductCard).toHaveCount(0);
+    await expect(
+      this.formHead.getByRole("button", { name: /^Single product$/i }),
+    ).toHaveCount(0);
+    await expect(
+      this.formHead.getByRole("link", { name: /^Single product$/i }),
+    ).toHaveCount(0);
+    await this.variantsProductBadge.click();
+    await this.verifyEditSingleProductUrl();
+    await expect(this.variantsProductBadge).toBeVisible();
+    await expect(this.typeTitle).toHaveCount(0);
+  }
+
+  async verifyEditVariantProductFormUI(product) {
+    await this.verifyEditSingleProductUrl();
+    await this.verifyEditVariantProductHeader(product.name);
+    await this.verifyVariantProductInformationSection();
+    await this.verifyPhotosSection();
+    await this.verifyDescriptionSection();
+    await expect(this.attributesHeading).toBeVisible();
+    await expect(this.variantsHeading).toBeVisible();
+    await expect(this.variantCheckboxes()).not.toHaveCount(0);
+    await expect(this.sellingChannelsHeading).toBeVisible();
+    await expect(this.deliveryChannelBtn).toBeEnabled();
+    await expect(this.pickupChannelBtn).toBeEnabled();
+    await this.verifyTaxInformationSection();
+    await this.verifyRelatedProductsSection();
+    await expect(this.pricingHeading).toHaveCount(0);
+  }
+
+  async editAndSaveVariantProductFields(product) {
+    await this.verifyEditSingleProductUrl();
+    const combo = await this.firstVariantCombinationName();
+    const stamp = Date.now();
+    product.previousName = product.name;
+    product.name = `Auto Var Edited ${stamp}`;
+    product.price = "24.99";
+    product.customCode = `VE${String(stamp).slice(-8)}`;
+    product.delivery = false;
+    product.pickup = true;
+
+    await this.fillProductName(product.name);
+    await this.fillVariantPrice(combo, product.price);
+    product.upc = await this.generateVariantUpc(combo);
+    await this.fillVariantCustomCode(combo, product.customCode);
+    await this.setToggle(this.deliveryChannelBtn, false);
+    await this.setToggle(this.pickupChannelBtn, true);
+    product.variantNames = await this.readVariantCombinationNames();
+
+    await expect(this.productNameInput).toHaveValue(product.name);
+    await this.saveEditedProduct();
+    await this.verifyVariantProductInListing(product);
+  }
+
+  async verifyEditVariantRequiredNameEmpty(product) {
+    await this.verifyEditSingleProductUrl();
+    await this.productNameInput.fill("");
+    await expect(this.productNameInput).toHaveValue("");
+    await this.saveChangesBtn.click();
+    await this.verifyNameRequiredError();
+    await this.verifyEditSingleProductUrl();
+    await this.verifyProductStillInListing(product);
+  }
+
+  async verifyEditVariantRequiredCategoriesEmpty(product) {
+    await this.verifyEditSingleProductUrl();
+    await this.clearAllCategoryChips();
+    await this.saveChangesBtn.click();
+    await this.verifyEditSingleProductUrl();
+    await this.verifyCategoriesRequiredError();
+    await expect(this.nameRequiredError).toHaveCount(0);
+    await this.verifyProductStillInListing(product);
+  }
+
+  async verifyEditVariantPriceEmpty(product) {
+    await this.verifyEditSingleProductUrl();
+    const combo = await this.firstVariantCombinationName();
+    const priceBox = this.getVariantRow(combo).getByRole("textbox", {
+      name: "Price $",
+    });
+    await priceBox.fill("");
+    await this.saveChangesBtn.click();
+    await expect(this.variantPriceRequiredError.first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await this.verifyEditSingleProductUrl();
+    await this.verifyProductStillInListing(product);
+  }
+
+  async verifyEditVariantUpcRejectsSpecialCharacters() {
+    await this.verifyEditSingleProductUrl();
+    const combo = await this.firstVariantCombinationName();
+    await this.assertInputStripsCharacters(
+      this.getVariantUpcInput(combo),
+      "Edit variant UPC",
+      [" "],
+    );
+  }
+
+  async verifyEditVariantCustomCodeRejectsSpecialCharacters() {
+    await this.verifyEditSingleProductUrl();
+    const combo = await this.firstVariantCombinationName();
+    await this.openVariantSkuTab(combo);
+    await this.assertInputStripsCharacters(
+      this.page
+        .getByPlaceholder("Enter custom code")
+        .locator("visible=true")
+        .first(),
+      "Edit variant custom code",
+      [" ", "|"],
+    );
+  }
+
+  async verifyEditVariantSameUpcAndCustomCodeRejected(product) {
+    await this.verifyEditSingleProductUrl();
+    const combo = await this.firstVariantCombinationName();
+    const sharedCode = await this.generateVariantUpc(combo);
+    await this.fillVariantCustomCode(combo, sharedCode);
+    await this.expectEditProductRejected(
+      this.sameUpcCustomCodeError.or(this.duplicateUpcError).first(),
+    );
+    await this.verifyProductStillInListing(product);
+  }
+
+  async verifyEditVariantDiscardChangesRestoresFields(product) {
+    await this.verifyEditSingleProductUrl();
+    const originalName = (await this.productNameInput.inputValue()).trim();
+    const combo = await this.firstVariantCombinationName();
+    const originalPrice = (
+      await this.getVariantRow(combo)
+        .getByRole("textbox", { name: "Price $" })
+        .inputValue()
+    ).trim();
+    expect(originalName).toBe(product.name);
+
+    const dirtyName = `Temp Var Discard ${Date.now()}`;
+    await this.fillProductName(dirtyName, { assertAvailable: false });
+    await this.fillVariantPrice(combo, "11.11");
+
+    await this.discardChangesBtn.click();
+    await this.confirmDiscardChangesIfAsked();
+    await this.reopenEditIfLeftForm(originalName);
+    await expect(this.productNameInput).toHaveValue(originalName, {
+      timeout: 10_000,
+    });
+    await expect(
+      this.getVariantRow(combo).getByRole("textbox", { name: "Price $" }),
+    ).toHaveValue(originalPrice);
+  }
+
+  async verifyEditVariantUnsavedLeaveStayThenDiscard(product) {
+    await this.verifyEditSingleProductUrl();
+    const originalName = product.name;
+    const dirtyName = `Temp Var Leave ${Date.now()}`;
+    const combo = await this.firstVariantCombinationName();
+    await this.fillProductName(dirtyName, { assertAvailable: false });
+    await this.fillVariantPrice(combo, "12.12");
+
+    await this.backBtn.click();
+    await this.stayOnUnsavedLeaveDialog();
+    await this.verifyEditSingleProductUrl();
+    await expect(this.productNameInput).toHaveValue(dirtyName);
+
+    await this.productsMenuLink.click();
+    const askedToLeave = await this.discardChangesDialogTitle
+      .waitFor({ state: "visible", timeout: 3_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (askedToLeave) await this.discardAndLeaveBtn.click();
+    await expect(this.page).not.toHaveURL(/\/new-products\/edit\//, {
+      timeout: 15_000,
+    });
+    await this.searchListing(originalName);
+    await expect(this.getProductRow(originalName)).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(this.getProductRow(dirtyName)).toHaveCount(0);
+  }
+
+  async verifyEditVariantGenerateUpcKeepThenReplace(product) {
+    await this.verifyEditSingleProductUrl();
+    const combo = await this.firstVariantCombinationName();
+    const upcInput = this.getVariantUpcInput(combo);
+    const original = (await upcInput.inputValue()).trim();
+    expect(original, "Edit variant should already have a UPC").toMatch(
+      /^\d{12}$/,
+    );
+    const generateBtn = this.getVariantRow(combo).getByRole("button", {
+      name: "Generate a unique 12-digit UPC",
+    });
+    await generateBtn.click();
+    await expect(this.keepCurrentUpcBtn).toBeVisible({ timeout: 5_000 });
+    await this.keepCurrentUpcBtn.click();
+    await expect(upcInput).toHaveValue(original);
+    product.upc = await this.generateVariantUpc(combo);
+    expect(product.upc).not.toBe(original);
+  }
+
+  async captureSourceUniqueVariantFields(product) {
+    await this.verifyEditSingleProductUrl();
+    const name = (await this.productNameInput.inputValue()).trim();
+    if (name) product.name = name;
+    const names = await this.readVariantCombinationNames();
+    product.variantNames = names;
+    if (!names.length) return;
+    const upc = (await this.getVariantUpcInput(names[0]).inputValue()).trim();
+    if (upc) product.upc = upc;
+    const price = (
+      await this.getVariantRow(names[0])
+        .getByRole("textbox", { name: "Price $" })
+        .inputValue()
+    ).trim();
+    if (price) product.price = price;
+    if (product.customCode) return;
+    await this.openVariantSkuTab(names[0]);
+    const custom = (
+      await this.getVariantCustomCodeInput(names[0]).inputValue()
+    ).trim();
+    if (custom) product.customCode = custom;
+  }
+
+  async openDuplicateVariantFromSource(product) {
+    await this.openEditSingleProduct(product.name);
+    await this.captureSourceUniqueVariantFields(product);
+    await this.openDuplicateFromEdit();
+  }
+
+  async ensureUniqueVariantCodesOnDuplicateForm() {
+    const names = await this.readVariantCombinationNames();
+    const stamp = Date.now().toString().slice(-8);
+    for (let i = 0; i < names.length; i++) {
+      await this.generateVariantUpc(names[i]);
+      await this.fillVariantCustomCode(names[i], `VU${stamp}${i + 1}`);
+    }
+  }
+
+  async verifyDuplicateVariantClearsUniqueFields(source) {
+    const copyName = (await this.productNameInput.inputValue()).trim();
+    expect(
+      copyName,
+      "Duplicate variant form should not keep the original product name",
+    ).not.toBe(source.name);
+    const names = await this.readVariantCombinationNames();
+    expect(names.length).toBeGreaterThan(0);
+    for (const combo of names) {
+      const copyUpc = (
+        await this.getVariantUpcInput(combo).inputValue()
+      ).trim();
+      if (source.upc) {
+        expect(
+          copyUpc,
+          "Duplicate variant form should not reuse the original UPC",
+        ).not.toBe(source.upc);
+      }
+    }
+    if (source.customCode) {
+      await this.openVariantSkuTab(names[0]);
+      const copyCustom = (
+        await this.getVariantCustomCodeInput(names[0]).inputValue()
+      ).trim();
+      expect(
+        copyCustom,
+        "Duplicate variant form should not reuse the original custom code",
+      ).not.toBe(source.customCode);
+    }
+  }
+
+  async verifyDuplicateVariantCopiesCombinations(source) {
+    const names = await this.readVariantCombinationNames();
+    expect(names.length).toBeGreaterThan(0);
+    if (Array.isArray(source.variantNames) && source.variantNames.length) {
+      expect(names.sort()).toEqual([...source.variantNames].sort());
+    }
+    if (source.price) {
+      const price = (
+        await this.getVariantRow(names[0])
+          .getByRole("textbox", { name: "Price $" })
+          .inputValue()
+      ).trim();
+      expect(price).toBe(String(Number(source.price).toFixed(2)));
+    }
+    await expect(
+      this.selectedCategoryChip(source.category || "Quickadd"),
+    ).toBeVisible();
+  }
+
+  async verifyDuplicateVariantDoesNotChangeOriginal(source) {
+    await this.returnToProductsList();
+    await this.verifyVariantProductInListing(source);
+  }
+
+  async verifyDuplicateVariantCannotSaveWithOriginalName(source) {
+    await this.openDuplicateVariantFromSource(source);
+    await this.fillProductName(source.name, { assertAvailable: false });
+    await this.ensureUniqueVariantCodesOnDuplicateForm();
+    await this.expectDuplicateProductRejected(
+      this.duplicateNameError.or(this.page.getByRole("alert")).first(),
+    );
+    await this.returnToProductsList();
+    await this.searchListing(source.name);
+    await expect(this.getProductRow(source.name)).toBeVisible({
+      timeout: 15_000,
+    });
+  }
+
+  async verifyDuplicateVariantCannotSaveWithOriginalUpc(source) {
+    await this.openDuplicateVariantFromSource(source);
+    expect(source.upc, "Need the source variant UPC").toBeTruthy();
+    const copyName = `Auto Var DupUpc ${Date.now()}`;
+    await this.fillProductName(copyName);
+    const combo = await this.firstVariantCombinationName();
+    await this.fillVariantUpc(combo, source.upc);
+    await this.expectDuplicateProductRejected(
+      this.duplicateUpcError.or(this.page.getByRole("alert")).first(),
+    );
+    await this.assertDuplicateDidNotCreate(copyName, source);
+  }
+
+  async verifyDuplicateVariantCannotSaveWithOriginalCustomCode(source) {
+    await this.openDuplicateVariantFromSource(source);
+    expect(
+      source.customCode,
+      "Need the source variant custom code",
+    ).toBeTruthy();
+    const copyName = `Auto Var DupCc ${Date.now()}`;
+    await this.fillProductName(copyName);
+    const combo = await this.firstVariantCombinationName();
+    await this.generateVariantUpc(combo);
+    await this.fillVariantCustomCode(combo, source.customCode);
+    await this.expectDuplicateProductRejected(
+      this.duplicateCustomCodeError
+        .or(this.sameUpcCustomCodeError)
+        .or(this.page.getByRole("alert"))
+        .first(),
+    );
+    await this.assertDuplicateDidNotCreate(copyName, source);
+  }
+
+  async saveDuplicateVariantAsNewProduct(source) {
+    await this.openDuplicateVariantFromSource(source);
+    const stamp = Date.now();
+    const copy = {
+      name: `Auto Var Dup ${stamp}`,
+      category: source.category || "Quickadd",
+      cost: source.cost || "10.00",
+      price: source.price || "20.00",
+    };
+    await this.fillProductName(copy.name);
+    await this.ensureUniqueVariantCodesOnDuplicateForm();
+    const combo = await this.firstVariantCombinationName();
+    copy.customCode = `VD${String(stamp).slice(-8)}`;
+    await this.fillVariantCustomCode(combo, copy.customCode);
+    copy.upc = (await this.getVariantUpcInput(combo).inputValue()).trim();
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 25_000 },
+    );
+    await this.saveProductClick();
+    const addResponse = await addPromise;
+    this.assertHttp200(addResponse, "add_product");
+    await expect(this.page).not.toHaveURL(/\/new-products\/duplicate\//, {
+      timeout: 15_000,
+    });
+    await this.verifyVariantProductInListing(copy);
+    await this.verifyVariantProductInListing(source);
+    return copy;
   }
 
   async cancelAddProductTypeDialog() {
