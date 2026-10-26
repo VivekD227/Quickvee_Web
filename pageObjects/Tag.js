@@ -29,7 +29,8 @@ class Tag {
     this.cancelBtn = page.getByRole("button", { name: "Cancel" }).first();
     this.addTagConfirm = page.getByRole("button", { name: "Add tag" }).last();
     this.tagName = page.getByPlaceholder("New tag name");
-    this.successfullDialog = page.getByText("Added Successfully");
+    // Toasts stack, so a previous add may still be on screen; check the newest.
+    this.successfullDialog = page.getByText("Added Successfully").last();
     this.duplicateTagError = page.getByText("Tag already exists");
     this.tagNameMaxLengthError = page.getByText(
       /50 character|maximum.*50|exceed.*50|too long/i,

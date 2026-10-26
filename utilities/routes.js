@@ -45,7 +45,7 @@ module.exports = {
     addBrandQA: apiCi("Product_api_react/add_brand_tag"),
     updateBrandQA: apiCi("Product_api_react/update_brand_tag"),
     deleteBrandQA: apiCi("Product_api_react/delete_brand_tag"),
-    attributeList_URL: apiCi("Varient_react_api/varients_list"),
+    attributeList_URL: apiNode("ci/Varient_react_api/varients_list"),
     addAttributeQA: apiCi("Varient_react_api/add_varient"),
     vendorList_URL: apiNode("Vendor_api_new/vendor_list"),
     addVendor_URL: apiNode("Vendor_api_new/create_vendor"),

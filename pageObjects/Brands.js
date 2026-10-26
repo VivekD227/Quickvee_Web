@@ -32,7 +32,8 @@ class Brands {
       .getByRole("button", { name: "Add brand" })
       .last();
     this.brandName = page.getByPlaceholder("New brand name");
-    this.successfullDialog = page.getByText("Added Successfully");
+    // Toasts stack, so a previous add may still be on screen; check the newest.
+    this.successfullDialog = page.getByText("Added Successfully").last();
     this.duplicateBrandError = page.getByText("Brand already exists");
     this.brandNameMaxLengthError = page.getByText(
       /50 character|maximum.*50|exceed.*50|too long/i,

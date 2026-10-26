@@ -15,13 +15,13 @@ test.describe("Forgot Password", () => {
     loginpage = new LoginPage(page);
     forgotpassword = new ForgotPassword(page);
     await loginpage.forgotPasswordBtnClick();
-    expect(page).toHaveURL(routes.page_URL.forgot_password);
+    await expect(page).toHaveURL(routes.page_URL.forgot_password);
   });
 
   test("Invalid Email Format Forgot Password Test", async ({ page }) => {
-    const fText = "Forgot Password";
+    const fText = "Reset your password";
     const reset_Text =
-      "To reset your password, please enter your Email ID & follow the instructions.";
+      "Enter the email linked to your account and we’ll send you instructions to get back in.";
     await loginpage.LogoDisplayed();
     await forgotpassword.getforgotText(fText);
     await forgotpassword.resetTextContain(reset_Text);

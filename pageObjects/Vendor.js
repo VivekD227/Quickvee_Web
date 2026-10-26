@@ -80,9 +80,10 @@ class Vendor {
     this.invalidPhoneError = this.addVendorModal.getByText(
       /Phone number must be 10 digits/i,
     );
-    this.vendorAddedSuccessMessage = page.getByText(
-      /Vendor added successfully/i,
-    );
+    // Toasts stack, so a previous add may still be on screen; check the newest.
+    this.vendorAddedSuccessMessage = page
+      .getByText(/Vendor added successfully/i)
+      .last();
     this.noVendorsMatchMessage = page.getByText(/No vendors match/i);
     this.contactDetailsContactNameLabel = page.getByText("Contact name", {
       exact: true,

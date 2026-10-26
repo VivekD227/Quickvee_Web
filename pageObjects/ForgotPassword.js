@@ -3,13 +3,13 @@ const { expect } = require("@playwright/test");
 class ForgotPassword {
     constructor(page) {
         this.page = page;
-        this.forgotText = page.getByText('Forgot Password');
-        this.resetText = page.locator(".sub-heading-from");
-        this.emailField = page.getByRole('textbox', { name: 'Email' });
-        this.submitBtn = page.getByRole('button', { name: 'submit' });
-        this.successMsg = page.locator(".MuiAlert-message");
-        this.closeBox = page.getByTestId('CloseIcon');
-        this.error = page.locator(".input-error");
+        this.forgotText = page.getByRole('heading', { name: 'Reset your password' });
+        this.resetText = page.getByText(/Enter the email linked to your account/);
+        this.emailField = page.getByRole('textbox', { name: 'Email address' });
+        this.submitBtn = page.getByRole('button', { name: 'Send Reset Link' });
+        this.successMsg = page.getByRole('alert');
+        this.closeBox = page.getByRole('button', { name: 'Dismiss message' });
+        this.error = page.locator(".MuiFormHelperText-root.Mui-error");
 
     }
 
