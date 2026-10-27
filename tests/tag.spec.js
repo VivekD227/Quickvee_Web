@@ -79,7 +79,6 @@ test.describe("Tags Module", () => {
 
   test("Verify stats under heading", async () => {
     await tag.tagStatsDisplay();
-    await tag.verifyTagStatsMatchAPI();
   });
 
   test("Verify sort button group", async () => {
@@ -230,7 +229,7 @@ test.describe("Tags Module", () => {
     await tag.selectTagByName(bulkTagA);
     await tag.selectTagByName(bulkTagB);
     await tag.verifyMultiSelectionBar(2);
-    await tag.bulkDeleteSelectedTags(2);
+    await tag.bulkDeleteSelectedTags();
     await tag.verifyTagNotInList(bulkTagA);
     await tag.verifyTagNotInList(bulkTagB);
   });

@@ -83,7 +83,7 @@ const ADD_SINGLE_LABELS = [
   "Manufacturer",
   "UPC",
   "Cost",
-  "Price*",
+  "Price",
   "Compare-at price",
   "Margin",
   "Profit",
@@ -407,7 +407,8 @@ class Products {
     });
     this.costLabel = page.getByText("Cost", { exact: true });
     this.costInput = page.getByPlaceholder("0.00").nth(0);
-    this.priceLabel = page.getByText("Price*", { exact: true });
+    // Price is optional now, so the label no longer carries "*".
+    this.priceLabel = page.getByText("Price", { exact: true });
     this.priceInput = page.getByPlaceholder("0.00").nth(1);
     this.compareAtLabel = page.getByText("Compare-at price", { exact: true });
     this.compareAtInput = page.getByPlaceholder("0.00").nth(2);
@@ -2355,7 +2356,7 @@ class Products {
     await expect(this.viewDetailsAction.first()).toBeVisible({
       timeout: 2_000,
     });
-    await expect(this.page.getByText("Quick look, no page change")).toBeVisible(
+    await expect(this.page.getByText("Quick Look, Sales and Settings")).toBeVisible(
       {
         timeout: 2_000,
       },
@@ -3010,6 +3011,10 @@ class Products {
     });
   }
 
+  async verifyPriceNotRequired() {
+    await expect(this.priceRequiredError).toHaveCount(0);
+  }
+
   async verifyRequiredAllEmptyValidation() {
     await this.verifyAddSingleProductUrl();
     await expect(this.productNameInput).toHaveValue("");
@@ -3018,7 +3023,7 @@ class Products {
     await this.saveProductClick();
     await this.verifyNameRequiredError();
     await this.verifyCategoriesRequiredError();
-    await this.verifyPriceRequiredError();
+    await this.verifyPriceNotRequired();
     await this.verifyAddSingleProductUrl();
     await expect(this.newProductTitle).toBeVisible();
     await expect(this.productNameInput).toHaveValue("");
@@ -3124,7 +3129,7 @@ class Products {
     await this.reopenAddSingleProductForm();
   }
 
-  async verifyRequiredPriceEmptyValidation() {
+  async verifyPriceOptionalOnAdd() {
     const name = `Auto Price Empty ${Date.now()}`;
     const upc = `8${Date.now().toString().slice(-11)}`;
     await this.verifyAddSingleProductUrl();
@@ -3133,15 +3138,24 @@ class Products {
     await expect(this.priceInput).toHaveValue("");
     await this.selectCategory("Quickadd");
     await this.fillUpc(upc);
+
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 20_000 },
+    );
     await this.saveProductClick();
-    await this.verifyAddSingleProductUrl();
-    await this.verifyPriceRequiredError();
-    await expect(this.newProductTitle).toBeVisible();
-    await expect(this.priceInput).toHaveValue("");
-    await expect(this.nameRequiredError).toHaveCount(0);
-    await expect(this.categoriesRequiredError).toHaveCount(0);
-    await this.verifyProductNotCreatedInListing(name);
-    await this.verifyProductNotCreatedInListing(upc);
+    this.assertHttp200(await addPromise, "add_product");
+    await this.verifyPriceNotRequired();
+    await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
+      timeout: 15_000,
+    });
+    await this.searchListing(name);
+    await expect(
+      this.getProductRow(name),
+      `Product "${name}" without price should appear in the listing`,
+    ).toBeVisible({ timeout: 15_000 });
     await this.reopenAddSingleProductForm();
   }
 
@@ -3164,7 +3178,7 @@ class Products {
     expect(Number(typedValue) || 0).toBeGreaterThanOrEqual(0);
   }
 
-  async verifyPriceZeroValidation() {
+  async verifyPriceZeroAllowed() {
     const name = `Auto Price Zero ${Date.now()}`;
     const upc = `8${Date.now().toString().slice(-11)}`;
     await this.verifyAddSingleProductUrl();
@@ -3173,16 +3187,24 @@ class Products {
     await this.fillUpc(upc);
     await this.fillPrice("0.00");
     await expect(this.priceInput).toHaveValue("0.00");
+
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 20_000 },
+    );
     await this.saveProductClick();
-    await expect(this.priceGreaterThanZeroError.first()).toBeVisible({
-      timeout: 10_000,
+    this.assertHttp200(await addPromise, "add_product");
+    await expect(this.priceGreaterThanZeroError).toHaveCount(0);
+    await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
+      timeout: 15_000,
     });
-    await this.verifyAddSingleProductUrl();
-    await expect(this.newProductTitle).toBeVisible();
-    await expect(this.nameRequiredError).toHaveCount(0);
-    await expect(this.categoriesRequiredError).toHaveCount(0);
-    await this.verifyProductNotCreatedInListing(name);
-    await this.verifyProductNotCreatedInListing(upc);
+    await this.searchListing(name);
+    await expect(
+      this.getProductRow(name),
+      `Product "${name}" with zero price should appear in the listing`,
+    ).toBeVisible({ timeout: 15_000 });
     await this.reopenAddSingleProductForm();
   }
 
@@ -3606,28 +3628,27 @@ class Products {
     return (
       url.includes(routes.API_URL.updateProduct) ||
       url.includes(routes.API_URL.addProduct) ||
-      /add_product|update_product|edit_product|save_product|product_update|updateProduct/i.test(
+      /add_product|update_product|edit_produc?t|save_product|product_update|updateProduct/i.test(
         url,
       )
     );
   }
 
   async saveEditedProduct() {
-    let saveResponse = null;
-    const onResponse = (res) => {
-      if (this.isProductWriteResponse(res)) saveResponse = res;
-    };
-    this.page.on("response", onResponse);
-    try {
-      await this.saveChangesBtn.click();
-      await expect(
-        this.page,
-        "Save changes should leave the edit form",
-      ).not.toHaveURL(/\/new-products\/edit\//, { timeout: 25_000 });
-    } finally {
-      this.page.off("response", onResponse);
-    }
-    if (saveResponse) this.assertHttp200(saveResponse, "update_product");
+    // Save now stays on the edit form and reloads the product, so wait on
+    // the update API and then go back to the listing for the callers.
+    const savePromise = this.page.waitForResponse(
+      (res) => this.isProductWriteResponse(res),
+      { timeout: 25_000 },
+    );
+    await this.saveChangesBtn.click();
+    const saveResponse = await savePromise;
+    this.assertHttp200(saveResponse, "edit_produt");
+    const saveBody = await saveResponse.json();
+    expect(saveBody.status, "edit_produt should return status true").toBe(
+      true,
+    );
+    await this.returnToProductsList();
   }
 
   async addAnotherCategoryIfAvailable(product) {
@@ -3792,6 +3813,13 @@ class Products {
     }
   }
 
+  async verifyZeroPriceProductInListing(name) {
+    const row = await this.searchCreatedProduct(name);
+    await expect(row.locator("[data-prod-title]")).toHaveText(name);
+    // Listing shows a dash instead of $0.00 for zero-priced products.
+    await expect(row.locator("[data-prod-price]")).toHaveText("—");
+  }
+
   async clearAllCategoryChips() {
     await this.closeOpenList();
     const chipRemove = () => this.categoryChipRemoveButtons();
@@ -3824,7 +3852,7 @@ class Products {
     await this.saveChangesBtn.click();
     await this.verifyNameRequiredError();
     await this.verifyCategoriesRequiredError();
-    await this.verifyPriceRequiredError();
+    await this.verifyPriceNotRequired();
     await this.verifyEditSingleProductUrl();
     await this.verifyProductStillInListing(product);
   }
@@ -3849,27 +3877,33 @@ class Products {
     await this.verifyProductStillInListing(product);
   }
 
-  async verifyEditRequiredPriceEmptyValidation(product) {
+  async verifyEditPriceOptional(product) {
     await this.verifyEditSingleProductUrl();
     await this.priceInput.fill("");
     await expect(this.priceInput).toHaveValue("");
-    await this.saveChangesBtn.click();
-    await this.verifyEditSingleProductUrl();
-    await this.verifyPriceRequiredError();
-    await expect(this.nameRequiredError).toHaveCount(0);
+    await this.saveEditedProduct();
+    await this.verifyPriceNotRequired();
+    await this.verifyProductStillInListing({ name: product.name });
+
+    // Restore the original price so later edit tests see the same product.
+    await this.openEditSingleProduct(product.name);
+    await this.fillPrice(product.price);
+    await this.saveEditedProduct();
     await this.verifyProductStillInListing(product);
   }
 
-  async verifyEditPriceZeroValidation(product) {
+  async verifyEditPriceZeroAllowed(product) {
     await this.verifyEditSingleProductUrl();
     await this.fillPrice("0.00");
     await expect(this.priceInput).toHaveValue("0.00");
-    await this.saveChangesBtn.click();
-    await expect(this.priceGreaterThanZeroError.first()).toBeVisible({
-      timeout: 10_000,
-    });
-    await this.verifyEditSingleProductUrl();
-    await expect(this.nameRequiredError).toHaveCount(0);
+    await this.saveEditedProduct();
+    await expect(this.priceGreaterThanZeroError).toHaveCount(0);
+    await this.verifyZeroPriceProductInListing(product.name);
+
+    // Restore the original price so later edit tests see the same product.
+    await this.openEditSingleProduct(product.name);
+    await this.fillPrice(product.price);
+    await this.saveEditedProduct();
     await this.verifyProductStillInListing(product);
   }
 
@@ -4570,20 +4604,28 @@ class Products {
     });
   }
 
-  async verifyDuplicatePriceZeroValidation(source) {
+  async verifyDuplicatePriceZeroAllowed(source) {
     await this.openDuplicateFromSource(source);
     const copyName = `Auto DupZero ${Date.now()}`;
     await this.fillProductName(copyName);
     await this.ensureUniqueCodesOnDuplicateForm(source);
     await this.fillPrice("0.00");
     await expect(this.priceInput).toHaveValue("0.00");
+
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 20_000 },
+    );
     await this.saveProductClick();
-    await expect(this.priceGreaterThanZeroError.first()).toBeVisible({
-      timeout: 10_000,
+    this.assertHttp200(await addPromise, "add_product");
+    await expect(this.priceGreaterThanZeroError).toHaveCount(0);
+    await expect(this.page).not.toHaveURL(/\/new-products\/duplicate\//, {
+      timeout: 15_000,
     });
-    await this.verifyDuplicateProductUrl();
-    await expect(this.duplicateSaveBtn).toBeVisible();
-    await this.assertDuplicateDidNotCreate(copyName, source);
+    await this.verifyZeroPriceProductInListing(copyName);
+    await this.verifyProductStillInListing(source);
   }
 
   async verifyDuplicateIgnoresUnsavedEdits(source) {

@@ -112,13 +112,13 @@ test.describe("Products Module", () => {
       await products.verifyRequiredCategoriesEmptyValidation();
     });
 
-    test("Required: Price empty shows validation error", async () => {
-      await products.verifyRequiredPriceEmptyValidation();
+    test("Price is optional: product saves without price", async () => {
+      await products.verifyPriceOptionalOnAdd();
     });
 
-    test("Price does not accept negative value", async () => {
+    test("Price does not accept negative value, zero is allowed", async () => {
       await products.verifyPriceRejectsNegative();
-      await products.verifyPriceZeroValidation();
+      await products.verifyPriceZeroAllowed();
     });
 
     test("Quantity does not accept negative value", async () => {
@@ -423,15 +423,15 @@ test.describe("Products Module", () => {
       await products.verifyEditRequiredCategoriesEmptyValidation(createdProduct);
     });
 
-    test("Required Price empty shows validation error", async () => {
+    test("Price is optional: edit saves without price", async () => {
       await products.openEditSingleProduct(createdProduct.name);
-      await products.verifyEditRequiredPriceEmptyValidation(createdProduct);
+      await products.verifyEditPriceOptional(createdProduct);
     });
 
-    test("Price does not accept negative value", async () => {
+    test("Price does not accept negative value, zero is allowed", async () => {
       await products.openEditSingleProduct(createdProduct.name);
       await products.verifyPriceRejectsNegative();
-      await products.verifyEditPriceZeroValidation(createdProduct);
+      await products.verifyEditPriceZeroAllowed(createdProduct);
     });
 
     test("Available to sell is locked", async () => {
@@ -648,8 +648,8 @@ test.describe("Products Module", () => {
       await products.verifyDuplicateRequiredNameEmpty(createdProduct);
     });
 
-    test("Duplicate price zero is not accepted", async () => {
-      await products.verifyDuplicatePriceZeroValidation(createdProduct);
+    test("Duplicate price zero is allowed", async () => {
+      await products.verifyDuplicatePriceZeroAllowed(createdProduct);
     });
 
     test("Duplicate ignores unsaved dirty edits", async () => {

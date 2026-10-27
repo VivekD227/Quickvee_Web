@@ -463,10 +463,6 @@ class Dashboard {
       this.brands.click(),
     ]);
     expect(response.status()).toBe(200);
-    const brandResponse = await response.json();
-    const brand_APIcount = brandResponse.total_count.brand;
-    sessionDataStorage.set("brand_APIcount", brand_APIcount);
-    console.log(`Brand API count (on navigation): ${brand_APIcount}`);
   }
 
   async attributesClick() {
@@ -481,9 +477,6 @@ class Dashboard {
     expect(response.status()).toBe(200);
     const attributeResponse = await response.json();
     expect(attributeResponse.status).toBeTruthy();
-    const attribute_APIcount = attributeResponse.total_count;
-    sessionDataStorage.set("attribute_APIcount", attribute_APIcount);
-    console.log(`Attribute API count (on navigation): ${attribute_APIcount}`);
   }
 
   async vendorsClick() {
@@ -537,14 +530,9 @@ class Dashboard {
     const responseBody = await response.json();
     if (responseBody.status === false) {
       expect(responseBody.message).toBe("0 Data Found");
-      sessionDataStorage.set("tag_APIcount", 0);
-      console.log(`Tag API count (on navigation): 0`);
       return;
     }
     expect(responseBody.status).toBe(true);
-    const tag_APIcount = Number(responseBody.total_count?.tag ?? 0);
-    sessionDataStorage.set("tag_APIcount", tag_APIcount);
-    console.log(`Tag API count (on navigation): ${tag_APIcount}`);
   }
 }
 

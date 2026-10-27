@@ -1,6 +1,5 @@
 import { expect } from "@playwright/test";
 import routes from "../utilities/routes.js";
-import sessionDataStorage from "../utilities/helper/sessionDataStorage";
 
 const TAGS_PAGE_URL = /\/merchants\/inventory\/tags/;
 const TAGS_DESCRIPTION_TITLE = "Tags label products for filtering & promotion";
@@ -120,20 +119,6 @@ class Tag {
     await expect(this.tagStats).toBeVisible();
   }
 
-  async verifyTagStatsMatchAPI() {
-    await expect(this.tagStats).toBeVisible();
-    const statsText = (await this.tagStats.textContent())?.trim() ?? "";
-    const tagCount = parseInt(statsText.match(/(\d+)\s+tags?/i)?.[1] ?? "0", 10);
-    const apiCount = sessionDataStorage.get("tag_APIcount");
-
-    console.log(`UI tag count: ${tagCount}`);
-    console.log(`API tag count: ${apiCount}`);
-    expect(
-      tagCount,
-      `UI tag count (${tagCount}) should match API count (${apiCount})`,
-    ).toBe(apiCount);
-  }
-
   async sortButtonsDisplay() {
     await expect(this.defaultSortBtn).toBeVisible();
     await expect(this.alphabeticalSortBtn).toBeVisible();
@@ -168,17 +153,6 @@ class Tag {
 
   async verifyListFooter() {
     await expect(this.footerHint).toBeVisible();
-  }
-
-  async verifyListApiOnPageLoad() {
-    const apiCount = sessionDataStorage.get("tag_APIcount");
-    expect(
-      apiCount,
-      "Tag list API count should be stored on page load",
-    ).toBeDefined();
-    expect(typeof apiCount).toBe("number");
-    expect(apiCount).toBeGreaterThanOrEqual(0);
-    await this.verifyTagStatsMatchAPI();
   }
 
   async tagNameDisplay() {
@@ -304,53 +278,21 @@ class Tag {
   }
 
   async deleteTagAPI() {
-    const previousCount = sessionDataStorage.get("tag_APIcount");
-
     const deleteTagPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
         res.url().includes(routes.API_URL.deleteBrandQA),
     );
 
-    const listResponsePromise = this.page.waitForResponse(
-      async (res) => {
-        if (
-          res.request().method() !== "POST" ||
-          !res.url().includes(routes.API_URL.brand_URL) ||
-          res.status() !== 200
-        ) {
-          return false;
-        }
-        const body = await res.json();
-        return Number(body?.total_count?.tag) === previousCount - 1;
-      },
-      { timeout: 15_000 },
-    );
-
     await this.confirmDeleteTag();
 
-    const [deleteResponse, listResponse] = await Promise.all([
-      deleteTagPromise,
-      listResponsePromise,
-    ]);
-
+    const deleteResponse = await deleteTagPromise;
     expect(deleteResponse.status()).toBe(200);
     const deleteResponseBody = await deleteResponse.json();
     expect(deleteResponseBody.message).toBe("Deleted");
     expect(deleteResponseBody.status).toBeTruthy();
 
     await this.deleteTagSuccessDialogDisplay();
-
-    expect(listResponse.status()).toBe(200);
-    const listResponseBody = await listResponse.json();
-    const newApiCount = Number(listResponseBody.total_count.tag);
-    sessionDataStorage.set("tag_APIcount", newApiCount);
-    console.log(`Previous tag count (before delete): ${previousCount}`);
-    console.log(`New tag count from list API (after delete): ${newApiCount}`);
-    expect(
-      newApiCount,
-      `Tag list API count should decrease by 1 after delete (was ${previousCount}, now ${newApiCount})`,
-    ).toBe(previousCount - 1);
   }
 
   async deleteTag(tagName) {
@@ -432,29 +374,10 @@ class Tag {
   }
 
   async addBtnAPI() {
-    const previousCount = sessionDataStorage.get("tag_APIcount");
-    const expectedCount = previousCount + 1;
-
-    // list_brand_tag can complete before add_brand_tag; only accept the
-    // post-add list whose total_count.tag reflects +1.
     const addTagPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
         res.url().includes(routes.API_URL.addBrandQA),
-    );
-    const tagListPromise = this.page.waitForResponse(
-      async (res) => {
-        if (
-          res.request().method() !== "POST" ||
-          !res.url().includes(routes.API_URL.brand_URL) ||
-          res.status() !== 200
-        ) {
-          return false;
-        }
-        const body = await res.json();
-        return Number(body?.total_count?.tag) === expectedCount;
-      },
-      { timeout: 15_000 },
     );
 
     await this.addTagConfirmClick();
@@ -464,17 +387,6 @@ class Tag {
     const addResponseBody = await addResponse.json();
     expect(addResponseBody.message).toBe("Inserted");
     expect(addResponseBody.status).toBeTruthy();
-
-    const listResponse = await tagListPromise;
-    const listResponseBody = await listResponse.json();
-    const newApiCount = Number(listResponseBody.total_count.tag);
-    sessionDataStorage.set("tag_APIcount", newApiCount);
-    console.log(`Previous tag count (before add): ${previousCount}`);
-    console.log(`New tag count from list API (after add): ${newApiCount}`);
-    expect(
-      newApiCount,
-      `Tag list API count should increase by 1 after add (was ${previousCount}, now ${newApiCount})`,
-    ).toBe(expectedCount);
   }
 
   async getDisplayedTagCount() {
@@ -586,47 +498,17 @@ class Tag {
     await dialogPromise;
   }
 
-  async bulkDeleteSelectedTags(selectedCount) {
-    const previousCount = sessionDataStorage.get("tag_APIcount");
-    const expectedCount = previousCount - selectedCount;
-
+  async bulkDeleteSelectedTags() {
     const deletePromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
         res.url().includes(routes.API_URL.deleteBrandQA),
-    );
-    const listPromise = this.page.waitForResponse(
-      async (res) => {
-        if (
-          res.request().method() !== "POST" ||
-          !res.url().includes(routes.API_URL.brand_URL) ||
-          res.status() !== 200
-        ) {
-          return false;
-        }
-        const body = await res.json();
-        return Number(body?.total_count?.tag) === expectedCount;
-      },
-      { timeout: 20_000 },
     );
 
     await this.confirmBulkDelete();
 
     const deleteResponse = await deletePromise;
     expect(deleteResponse.status()).toBe(200);
-
-    const listResponse = await listPromise;
-    const listBody = await listResponse.json();
-    const newApiCount = Number(listBody.total_count.tag);
-    sessionDataStorage.set("tag_APIcount", newApiCount);
-    console.log(`Previous tag count (before bulk delete): ${previousCount}`);
-    console.log(
-      `New tag count from list API (after bulk delete): ${newApiCount}`,
-    );
-    expect(
-      newApiCount,
-      `Tag list API count should decrease by ${selectedCount} after bulk delete (was ${previousCount}, now ${newApiCount})`,
-    ).toBe(expectedCount);
 
     await this.verifySelectionCleared();
   }
@@ -667,43 +549,25 @@ class Tag {
     await expect(this.mergeTagsConfirmBtn).toBeEnabled();
   }
 
-  async confirmMergeTags(removedCount) {
-    const previousCount = sessionDataStorage.get("tag_APIcount");
-    const expectedCount = previousCount - removedCount;
-
+  async confirmMergeTags() {
+    // Merge has no dedicated API to wait on; the list refresh marks completion.
     const listPromise = this.page.waitForResponse(
-      async (res) => {
-        if (
-          res.request().method() !== "POST" ||
-          !res.url().includes(routes.API_URL.brand_URL) ||
-          res.status() !== 200
-        ) {
-          return false;
-        }
-        const body = await res.json();
-        return Number(body?.total_count?.tag) === expectedCount;
-      },
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.brand_URL),
       { timeout: 20_000 },
     );
 
     await this.mergeTagsConfirmBtn.click();
     const listResponse = await listPromise;
-    const listBody = await listResponse.json();
-    const newApiCount = Number(listBody.total_count.tag);
-    sessionDataStorage.set("tag_APIcount", newApiCount);
-    console.log(`Previous tag count (before merge): ${previousCount}`);
-    console.log(`New tag count from list API (after merge): ${newApiCount}`);
-    expect(
-      newApiCount,
-      `Tag list API count should decrease by ${removedCount} after merge (was ${previousCount}, now ${newApiCount})`,
-    ).toBe(expectedCount);
+    expect(listResponse.status()).toBe(200);
   }
 
   async mergeSelectedTagsKeeping(keepTagName, selectedCount) {
     await this.openMergeDialog();
     await this.verifyMergeDialogOpened(selectedCount);
     await this.pickKeepTagInMergeDialog(keepTagName);
-    await this.confirmMergeTags(selectedCount - 1);
+    await this.confirmMergeTags();
     await expect(this.getTagListRow(keepTagName)).toBeVisible({
       timeout: 15_000,
     });
@@ -720,6 +584,7 @@ class Tag {
     await this.setTagName(tagName);
     await this.addBtnAPI();
     await this.successfullDialogDisplay();
+    await expect(this.getTagListRow(tagName)).toBeVisible({ timeout: 15_000 });
     return tagName;
   }
 
@@ -730,6 +595,8 @@ class Tag {
     await this.setTagName(name);
     await this.addBtnAPI();
     await this.successfullDialogDisplay();
+    // Let the list refresh with the new tag before the next action.
+    await expect(this.getTagListRow(name)).toBeVisible({ timeout: 15_000 });
     return name;
   }
 

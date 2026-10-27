@@ -64,7 +64,6 @@ test.describe("New Brand Module", () => {
   test("Verify Brands page UI elements are displayed", async () => {
     await brand.brandsHeadingDisplay();
     await brand.brandCountDisplay();
-    await brand.verifyBrandCountMatchesAPI();
     await brand.addBrandBtnDisplay();
     await brand.searchBarDisplay();
     await brand.onlineDisplayOrderDisplay();

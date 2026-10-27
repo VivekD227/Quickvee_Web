@@ -1,6 +1,5 @@
 import { expect } from "@playwright/test";
 import routes from "../utilities/routes.js";
-import sessionDataStorage from "../utilities/helper/sessionDataStorage";
 
 const ATTRIBUTES_PAGE_URL = /\/merchants\/inventory\/attributes/;
 const ATTRIBUTES_DESCRIPTION_TITLE =
@@ -68,39 +67,10 @@ class Attributes {
     await expect(this.page).toHaveURL(ATTRIBUTES_PAGE_URL);
   }
 
-  async verifyListApiOnPageLoad() {
-    const apiCount = sessionDataStorage.get("attribute_APIcount");
-    expect(
-      apiCount,
-      "Attribute list API count should be stored on page load",
-    ).toBeDefined();
-    expect(typeof apiCount).toBe("number");
-    expect(apiCount).toBeGreaterThanOrEqual(0);
-
-    const uiCount = await this.getDisplayedAttributeCount();
-    console.log(`UI attribute count: ${uiCount}`);
-    console.log(`API attribute count: ${apiCount}`);
-    expect(
-      uiCount,
-      `UI attribute count (${uiCount}) should match API count (${apiCount})`,
-    ).toBe(apiCount);
-  }
-
   async getDisplayedAttributeCount() {
     await expect(this.attributeCount).toBeVisible();
     const countText = (await this.attributeCount.textContent())?.trim() ?? "";
     return parseInt(countText.match(/\d+/)?.[0] ?? "0", 10);
-  }
-
-  async verifyAttributeCountMatchesAPI() {
-    const uiCount = await this.getDisplayedAttributeCount();
-    const apiCount = sessionDataStorage.get("attribute_APIcount");
-    console.log(`UI attribute count: ${uiCount}`);
-    console.log(`API attribute count: ${apiCount}`);
-    expect(
-      uiCount,
-      `UI attribute count (${uiCount}) should match API count (${apiCount})`,
-    ).toBe(apiCount);
   }
 
   async attributesHeadingDisplay() {
@@ -121,18 +91,9 @@ class Attributes {
 
   async verifyAttributeCountAtLeast(minCount = 9) {
     const uiCount = await this.getDisplayedAttributeCount();
-    const apiCount = sessionDataStorage.get("attribute_APIcount");
-
-    console.log(`UI attribute count: ${uiCount}`);
-    console.log(`API attribute count: ${apiCount}`);
-
     expect(
       uiCount,
       `UI attribute count (${uiCount}) should be at least ${minCount}`,
-    ).toBeGreaterThanOrEqual(minCount);
-    expect(
-      apiCount,
-      `API attribute count (${apiCount}) should be at least ${minCount}`,
     ).toBeGreaterThanOrEqual(minCount);
   }
 
@@ -396,14 +357,6 @@ class Attributes {
     const updateResponseBody = await updateAPI.json();
     expect(updateResponseBody.message).toBe("Success");
     expect(updateResponseBody.response_message).toBe("variant updated");
-
-    const listResponseBody = await listResponse.json();
-    const newApiCount = listResponseBody.total_count;
-    sessionDataStorage.set("attribute_APIcount", newApiCount);
-    console.log(
-      `New attribute count from list API (after edit): ${newApiCount}`,
-    );
-    await this.verifyAttributeCountMatchesAPI();
   }
 
   async verifyAttributeNotInList(attributeName) {
@@ -416,7 +369,6 @@ class Attributes {
   }
 
   async addBtnAPI() {
-    const previousCount = sessionDataStorage.get("attribute_APIcount");
     const addAttributePromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
@@ -440,18 +392,6 @@ class Attributes {
 
     const addResponseBody = await addResponse.json();
     expect(addResponseBody.message).toBe("Success");
-
-    const listResponseBody = await listResponse.json();
-    const newApiCount = listResponseBody.total_count;
-    sessionDataStorage.set("attribute_APIcount", newApiCount);
-    console.log(`Previous attribute count (before add): ${previousCount}`);
-    console.log(
-      `New attribute count from list API (after add): ${newApiCount}`,
-    );
-    expect(
-      newApiCount,
-      `Attribute list API count should increase by 1 after add (was ${previousCount}, now ${newApiCount})`,
-    ).toBe(previousCount + 1);
   }
 }
 

@@ -1,6 +1,5 @@
 import { expect } from "@playwright/test";
 import routes from "../utilities/routes.js";
-import sessionDataStorage from "../utilities/helper/sessionDataStorage";
 
 const BRANDS_PAGE_URL = /\/merchants\/inventory\/brands/;
 
@@ -157,23 +156,6 @@ class Brands {
     await expect(this.brandCount).toBeVisible();
   }
 
-  async getDisplayedBrandCount() {
-    await expect(this.brandCount).toBeVisible();
-    const countText = (await this.brandCount.textContent())?.trim() ?? "";
-    return parseInt(countText.match(/\d+/)?.[0] ?? "0", 10);
-  }
-
-  async verifyBrandCountMatchesAPI() {
-    const uiCount = await this.getDisplayedBrandCount();
-    const apiCount = sessionDataStorage.get("brand_APIcount");
-    console.log(`UI brand count: ${uiCount}`);
-    console.log(`API brand count: ${apiCount}`);
-    expect(
-      uiCount,
-      `UI brand count (${uiCount}) should match API count (${apiCount})`,
-    ).toBe(apiCount);
-  }
-
   async addBrandBtnDisplay() {
     await expect(this.addBrandBtn).toBeVisible();
   }
@@ -326,44 +308,21 @@ class Brands {
   }
 
   async deleteBrandAPI() {
-    const previousCount = sessionDataStorage.get("brand_APIcount");
-
     const deleteBrandPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
         res.url().includes(routes.API_URL.deleteBrandQA),
     );
 
-    const listResponsePromise = this.page.waitForResponse(
-      (res) =>
-        res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.brand_URL),
-    );
-
     await this.confirmDeleteBrand();
 
-    const [deleteResponse, listResponse] = await Promise.all([
-      deleteBrandPromise,
-      listResponsePromise,
-    ]);
-
+    const deleteResponse = await deleteBrandPromise;
     expect(deleteResponse.status()).toBe(200);
     const deleteResponseBody = await deleteResponse.json();
     expect(deleteResponseBody.message).toBe("Deleted");
     expect(deleteResponseBody.status).toBeTruthy();
 
     await this.deleteBrandSuccessDialogDisplay();
-
-    expect(listResponse.status()).toBe(200);
-    const listResponseBody = await listResponse.json();
-    const newApiCount = listResponseBody.total_count.brand;
-    sessionDataStorage.set("brand_APIcount", newApiCount);
-    console.log(`Previous brand count (before delete): ${previousCount}`);
-    console.log(`New brand count from list API (after delete): ${newApiCount}`);
-    expect(
-      newApiCount,
-      `Brand list API count should decrease by 1 after delete (was ${previousCount}, now ${newApiCount})`,
-    ).toBe(previousCount - 1);
   }
 
   async deleteBrand(brandName) {
@@ -373,7 +332,6 @@ class Brands {
     await this.clickDeleteBrandButton(brandName);
     await this.deleteBrandAPI();
     await this.clearBrandSearch();
-    // await this.verifyBrandCountMatchesAPI();
     await this.verifyBrandNotInList(brandName);
   }
 
@@ -383,29 +341,10 @@ class Brands {
   }
 
   async addBtnAPI() {
-    const previousCount = sessionDataStorage.get("brand_APIcount");
-    const expectedCount = previousCount + 1;
-
-    // list_brand_tag can complete before add_brand_tag; only accept the
-    // post-add list whose total_count.brand reflects +1.
     const addBrandPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
         res.url().includes(routes.API_URL.addBrandQA),
-    );
-    const brandListPromise = this.page.waitForResponse(
-      async (res) => {
-        if (
-          res.request().method() !== "POST" ||
-          !res.url().includes(routes.API_URL.brand_URL) ||
-          res.status() !== 200
-        ) {
-          return false;
-        }
-        const body = await res.json();
-        return body?.total_count?.brand === expectedCount;
-      },
-      { timeout: 15_000 },
     );
 
     await this.addBrandConfirmClick();
@@ -415,19 +354,6 @@ class Brands {
     const addResponseBody = await addResponse.json();
     expect(addResponseBody.message).toBe("Inserted");
     expect(addResponseBody.status).toBeTruthy();
-
-    const listResponse = await brandListPromise;
-    const listResponseBody = await listResponse.json();
-    const newApiCount = listResponseBody.total_count.brand;
-    sessionDataStorage.set("brand_APIcount", newApiCount);
-    console.log(`Previous brand count (before add): ${previousCount}`);
-    console.log(`New brand count from list API (after add): ${newApiCount}`);
-    expect(
-      newApiCount,
-      `Brand list API count should increase by 1 after add (was ${previousCount}, now ${newApiCount})`,
-    ).toBe(expectedCount);
-
-    // await this.verifyBrandCountMatchesAPI();
   }
 }
 

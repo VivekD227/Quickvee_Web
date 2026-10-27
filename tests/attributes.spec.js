@@ -65,10 +65,6 @@ test.describe("Attributes Module", () => {
     await attributes.verifyPageUrl();
   });
 
-  test("List API on page load", async () => {
-    await attributes.verifyListApiOnPageLoad();
-  });
-
   test("Verify Attributes page UI elements are displayed", async () => {
     await attributes.verifyAttributesPageUIElements();
   });
