@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import { Categories } from "../pageObjects/Categories";
 import { LoginPage } from "../pageObjects/LoginPage";
 import { Dashboard } from "../pageObjects/Dashboard";
@@ -52,6 +52,7 @@ test.describe("Category Module", () => {
   let lotteryCategory;
   let onlineCategory;
   let storePage;
+  let initialCount;
 
   test.beforeAll(
     async ({ browser }) => {
@@ -105,6 +106,7 @@ test.describe("Category Module", () => {
     await category.verifyCategoriesPageLoaded();
     await category.verifyCategoriesPageUI();
     await category.verifyCategoryCountMatchesAPI();
+    initialCount = await category.getDisplayedCategoryCount();
   });
 
   test("Verify Quickadd category is present and protected", async () => {
@@ -137,8 +139,24 @@ test.describe("Category Module", () => {
     await category.clearSearch();
   });
 
+  test("Search with no matching category shows empty state", async () => {
+    await category.verifyNoSearchResults(`NoSuchCat${Date.now()}`);
+    await category.clearSearch();
+  });
+
+  test("Clearing search restores the full list matching API count", async () => {
+    await category.verifyClearSearchRestoresList(newCategory);
+    await category.reloadAndCaptureCategoryList();
+    await category.verifyCategoryCountMatchesAPI();
+  });
+
   test("Verify duplicate category name is not allowed", async () => {
     await category.verifyDuplicateNameNotAllowed(newCategory);
+  });
+
+  test("Verify duplicate check is case-insensitive", async () => {
+    await category.verifyDuplicateNameNotAllowed(newCategory.toLowerCase());
+    await category.verifyDuplicateNameNotAllowed(newCategory.toUpperCase());
   });
 
   test("Verify special characters are not allowed in category name", async () => {
@@ -335,5 +353,11 @@ test.describe("Category Module", () => {
 
   test("Deleted category is removed from online store", async () => {
     await category.verifyCategoryOnOnlineStore(storePage, onlineCategory, false);
+  });
+
+  test("Category count returns to initial and matches API after deletes", async () => {
+    await category.reloadAndCaptureCategoryList();
+    await category.verifyCategoryCountMatchesAPI();
+    expect(await category.getDisplayedCategoryCount()).toBe(initialCount);
   });
 });

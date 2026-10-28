@@ -107,7 +107,7 @@ class Categories {
 
     // Validation / toasts. Toasts stack, so check the newest.
     this.nameRequiredError = page.getByText("Category name is required");
-    this.duplicateNameError = page.getByText("The name is Already exist");
+    this.duplicateNameError = page.getByText("The name is Already exist").last();
     // Edit uses a different API, so its duplicate message differs from Add.
     this.duplicateNameOnEditError = page.getByText(
       "Category Title Already Exist!",
@@ -298,6 +298,44 @@ class Categories {
   async verifySearchedCategoryDisplayed(categoryName) {
     await expect(this.getCategoryRow(categoryName)).toBeVisible();
     await expect(this.categoryRows).toHaveCount(1);
+  }
+
+  async verifyNoSearchResults(searchText) {
+    await this.searchCategory(searchText);
+    await expect(this.categoryRows).toHaveCount(0);
+    await expect(
+      this.page.getByText(`No categories match "${searchText}"`, { exact: true }),
+    ).toBeVisible();
+  }
+
+  // The header count always shows the store total, even while a search filters rows.
+  async verifyClearSearchRestoresList(searchText) {
+    const total = await this.getDisplayedCategoryCount();
+    await this.searchCategory(searchText);
+    await expect(this.categoryRows).toHaveCount(1);
+    await this.clearSearch();
+    await expect(this.categoryRows).toHaveCount(total);
+    expect(await this.getDisplayedCategoryCount()).toBe(total);
+  }
+
+  // Reloads the page and stores the fresh category list API count, so later
+  // checks compare against the list after this run's adds/deletes.
+  async reloadAndCaptureCategoryList() {
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes(routes.API_URL.categoryList_URL),
+      ),
+      this.page.reload(),
+    ]);
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(Array.isArray(body.result)).toBeTruthy();
+    sessionDataStorage.set("category_APIcount", body.result.length);
+    await expect(this.categoryCount).toBeVisible({ timeout: 30_000 });
+    await this.selectAlphabeticalMode();
+    return body.result.length;
   }
 
   async openEditDrawer(categoryName) {
@@ -732,6 +770,7 @@ class Categories {
   }
 
   async deleteCategory(categoryName) {
+    const countBefore = await this.getDisplayedCategoryCount();
     await this.clearSearch();
     await this.searchCategory(categoryName);
     await this.verifySearchedCategoryDisplayed(categoryName);
@@ -739,12 +778,8 @@ class Categories {
     await this.deleteCategoryAPI(categoryName);
     await this.clearSearch();
     await this.verifyCategoryNotInList(categoryName);
+    await expect(this.categoryCount).toContainText(`${countBefore - 1} categor`);
   }
 }
 
-module.exports = {
-  Categories,
-  CATEGORIES_PAGE_URL,
-  TOGGLES,
-  DEFAULT_TOGGLE_STATES,
-};
+module.exports = { Categories };
