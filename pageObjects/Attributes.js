@@ -33,7 +33,11 @@ class Attributes {
       .getByRole("button", { name: "Add Attribute" })
       .last();
     this.successfullDialog = page.getByText("Added Successfully");
-    this.duplicateError = page.getByText("Attribute name already exists");
+    // App currently shows the API's raw message ("Varient title already exist."),
+    // both inline and as a toast.
+    this.duplicateError = page
+      .getByText(/Attribute name already exists|Varient title already exist/i)
+      .first();
     this.specialCharacterError = page.getByText(
       "Special characters are not allowed",
     );
@@ -338,22 +342,17 @@ class Attributes {
   }
 
   async saveBtnClick() {
-    const [updateAPI, listResponse] = await Promise.all([
+    // Rename updates the row in place; the app no longer refetches varients_list.
+    const [updateAPI] = await Promise.all([
       this.page.waitForResponse(
         (res) =>
           res.request().method() === "POST" &&
           res.url().includes(routes.API_URL.addAttributeQA),
       ),
-      this.page.waitForResponse(
-        (res) =>
-          res.request().method() === "POST" &&
-          res.url().includes(routes.API_URL.attributeList_URL),
-      ),
       this.page.getByRole("button", { name: "Save" }).click(),
     ]);
 
     expect(updateAPI.status()).toBe(200);
-    expect(listResponse.status()).toBe(200);
     const updateResponseBody = await updateAPI.json();
     expect(updateResponseBody.message).toBe("Success");
     expect(updateResponseBody.response_message).toBe("variant updated");

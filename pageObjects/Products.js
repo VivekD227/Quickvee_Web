@@ -298,6 +298,10 @@ class Products {
       name: "Discard & leave",
       exact: true,
     });
+    this.discardConfirmBtn = page.getByRole("button", {
+      name: "Discard",
+      exact: true,
+    });
     this.keepEditingBtn = page.getByRole("button", {
       name: "Keep editing",
       exact: true,
@@ -549,6 +553,10 @@ class Products {
     );
     this.attributesHeading = page.getByRole("heading", {
       name: "Attributes",
+      exact: true,
+    });
+    this.addVariantsBtn = page.getByRole("button", {
+      name: "Add variants",
       exact: true,
     });
     this.attributesHelper = page.getByText(
@@ -2424,11 +2432,13 @@ class Products {
       deleteBody.status,
       "delete_product should succeed",
     ).toBeTruthy();
-    await this.assertHttp200IfReceived(listPromise, "Products_list");
+    // Check the toast before waiting on the list refetch, which may never come
+    // and would outlast the toast.
     await expect(this.deleteProductDialogTitle).toBeHidden({ timeout: 15_000 });
     await expect(this.deleteProductSuccessToast.first()).toBeVisible({
       timeout: 10_000,
     });
+    await this.assertHttp200IfReceived(listPromise, "Products_list");
     await this.searchListing(name);
     await expect(
       this.productRows.filter({ hasText: name }),
@@ -3885,11 +3895,7 @@ class Products {
     await this.verifyPriceNotRequired();
     await this.verifyProductStillInListing({ name: product.name });
 
-    // Restore the original price so later edit tests see the same product.
-    await this.openEditSingleProduct(product.name);
-    await this.fillPrice(product.price);
-    await this.saveEditedProduct();
-    await this.verifyProductStillInListing(product);
+    await this.restorePriceAndChannels(product);
   }
 
   async verifyEditPriceZeroAllowed(product) {
@@ -3900,11 +3906,85 @@ class Products {
     await expect(this.priceGreaterThanZeroError).toHaveCount(0);
     await this.verifyZeroPriceProductInListing(product.name);
 
-    // Restore the original price so later edit tests see the same product.
+    await this.restorePriceAndChannels(product);
+  }
+
+  // Saving a $0 price turns Delivery and Pickup off on the server, and
+  // restoring the price does not turn them back on.
+  async verifyEditZeroPriceTurnsOffOnlineChannels(product) {
+    await this.openEditSingleProduct(product.name);
+    await this.saveEditedChannels({ delivery: true, pickup: true });
+    await this.verifyListingChannels(product.name, {
+      delivery: true,
+      pickup: true,
+    });
+
+    await this.openEditSingleProduct(product.name);
+    await this.fillPrice("0.00");
+    await expect(this.priceInput).toHaveValue("0.00");
+    await this.saveEditedProduct();
+    await this.verifyZeroPriceProductInListing(product.name);
+    await this.verifyListingChannels(product.name, {
+      delivery: false,
+      pickup: false,
+    });
+
+    await this.openEditSingleProduct(product.name);
+    await this.expectToggleChecked(this.deliveryChannelBtn, false);
+    await this.expectToggleChecked(this.pickupChannelBtn, false);
+    await this.returnToProductsList();
+
+    await this.restorePriceAndChannels(product);
+  }
+
+  // Restore the original price and channels so later edit tests see the same product.
+  async restorePriceAndChannels(product) {
     await this.openEditSingleProduct(product.name);
     await this.fillPrice(product.price);
-    await this.saveEditedProduct();
+    await this.saveEditedChannels({
+      delivery: Boolean(product.delivery),
+      pickup: product.pickup ?? true,
+    });
     await this.verifyProductStillInListing(product);
+    await this.verifyListingChannels(product.name, {
+      delivery: Boolean(product.delivery),
+      pickup: product.pickup ?? true,
+    });
+  }
+
+  async saveEditedChannels({ delivery, pickup }) {
+    await this.verifyEditSingleProductUrl();
+    const isChecked = async (locator) =>
+      (await locator.locator('svg path[d="M5 12l4 4 10-10"]').count()) === 1;
+    const changed =
+      (await isChecked(this.deliveryChannelBtn)) !== delivery ||
+      (await isChecked(this.pickupChannelBtn)) !== pickup;
+    // Channels are saved by a separate show-status call after edit_produt.
+    const statusPromise = changed
+      ? this.page.waitForResponse(
+          (res) =>
+            res.request().method() === "POST" &&
+            res.url().includes(routes.API_URL.productShowStatusUpdate),
+          { timeout: 25_000 },
+        )
+      : null;
+    await this.setToggle(this.deliveryChannelBtn, delivery);
+    await this.setToggle(this.pickupChannelBtn, pickup);
+    await this.saveEditedProduct();
+    if (statusPromise) {
+      const statusResponse = await statusPromise;
+      this.assertHttp200(statusResponse, "product_show_status_update");
+    }
+  }
+
+  async verifyListingChannels(name, { delivery, pickup }) {
+    const row = await this.searchCreatedProduct(name);
+    await expect(
+      row.getByLabel(delivery ? /Delivery on/i : /Delivery off/i),
+    ).toBeVisible();
+    await expect(
+      row.getByLabel(pickup ? /Pickup on/i : /Pickup off/i),
+    ).toBeVisible();
   }
 
   async verifyEditCompareAtLessThanPriceValidation(product) {
@@ -4058,7 +4138,8 @@ class Products {
       .then(() => true)
       .catch(() => false);
     if (!shown) return;
-    await this.discardAndLeaveBtn.click();
+    // "Discard changes" button opens a dialog with "Discard"; leaving the page shows "Discard & leave".
+    await this.discardAndLeaveBtn.or(this.discardConfirmBtn).first().click();
     await expect(this.discardChangesDialogTitle).toBeHidden({
       timeout: 10_000,
     });
@@ -4768,7 +4849,33 @@ class Products {
     });
   }
 
+  // Scoped to this combination's card only. The old "div with checkbox and a
+  // Price $ box" match fell back to the shared list when this row was
+  // expanded (expanded inputs are not named "Price $"), so actions hit
+  // another variant.
   getVariantRow(combination) {
+    return this.getVariantCard(combination);
+  }
+
+  // Inline UPC / Cost / Price boxes only exist while the row is collapsed.
+  async collapseVariantRow(combination) {
+    const inventoryTab = this.getVariantInventoryTab(combination);
+    if (!(await inventoryTab.isVisible().catch(() => false))) return;
+    const header = this.getVariantHeaderRow(combination);
+    const box = await header.boundingBox();
+    await header.click({
+      position: {
+        x: Math.max((box?.width || 40) - 16, 8),
+        y: (box?.height || 24) / 2,
+      },
+    });
+    await expect(inventoryTab).toBeHidden({ timeout: 8_000 });
+  }
+
+  // Outermost div holding this combination's checkbox and no other variant's,
+  // i.e. the row header plus its expanded panel when open.
+  getVariantCard(combination) {
+    const escaped = String(combination).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return this.getVariantsSection()
       .locator("div")
       .filter({
@@ -4777,14 +4884,12 @@ class Products {
           exact: true,
         }),
       })
-      .filter({ has: this.page.getByRole("textbox", { name: "Price $" }) })
-      .last();
-  }
-
-  getVariantCard(combination) {
-    return this.getVariantHeaderRow(combination).locator(
-      "xpath=ancestor::div[contains(@style,'overflow: hidden')][1]",
-    );
+      .filter({
+        hasNot: this.page.getByRole("checkbox", {
+          name: new RegExp(`^Select (?!${escaped}$|all variants$)`),
+        }),
+      })
+      .first();
   }
 
   getVariantHeaderRow(combination) {
@@ -4815,12 +4920,16 @@ class Products {
       .first();
   }
 
-  async expandVariantRow(combination) {
-    const skuTab = this.getVariantCard(combination).getByRole("button", {
-      name: "SKU codes",
+  getVariantInventoryTab(combination) {
+    return this.getVariantCard(combination).getByRole("button", {
+      name: "Inventory",
       exact: true,
     });
-    if (await skuTab.isVisible().catch(() => false)) return;
+  }
+
+  async expandVariantRow(combination) {
+    const inventoryTab = this.getVariantInventoryTab(combination);
+    if (await inventoryTab.isVisible().catch(() => false)) return;
     const header = this.getVariantHeaderRow(combination);
     const box = await header.boundingBox();
     await header.click({
@@ -4829,19 +4938,18 @@ class Products {
         y: (box?.height || 24) / 2,
       },
     });
-    await expect(
-      this.getVariantCard(combination).getByRole("button", {
-        name: "SKU codes",
-        exact: true,
-      }),
-    ).toBeVisible({ timeout: 8_000 });
+    await expect(inventoryTab).toBeVisible({ timeout: 8_000 });
   }
 
+  // Custom code now sits in the expanded row itself; older builds kept it
+  // behind a "SKU codes" tab.
   async openVariantSkuTab(combination) {
     await this.expandVariantRow(combination);
-    await this.getVariantCard(combination)
-      .getByRole("button", { name: "SKU codes", exact: true })
-      .click();
+    const skuTab = this.getVariantCard(combination).getByRole("button", {
+      name: "SKU codes",
+      exact: true,
+    });
+    if (await skuTab.isVisible().catch(() => false)) await skuTab.click();
     await expect(this.getVariantCustomCodeInput(combination)).toBeVisible({
       timeout: 8_000,
     });
@@ -5111,6 +5219,7 @@ class Products {
   }
 
   async fillVariantPrice(combination, price) {
+    await this.collapseVariantRow(combination);
     const input = this.getVariantRow(combination).getByRole("textbox", {
       name: "Price $",
     });
@@ -5120,6 +5229,7 @@ class Products {
   }
 
   async fillVariantCost(combination, cost) {
+    await this.collapseVariantRow(combination);
     const input = this.getVariantRow(combination).getByRole("textbox", {
       name: "Cost $",
     });
@@ -5129,6 +5239,7 @@ class Products {
   }
 
   async generateVariantUpc(combination) {
+    await this.collapseVariantRow(combination);
     const row = this.getVariantRow(combination);
     const upcInput = row.getByRole("textbox", {
       name: /UPC Generate a unique 12-digit UPC/i,
@@ -5137,7 +5248,12 @@ class Products {
       name: "Generate a unique 12-digit UPC",
     });
     await generateBtn.click();
-    if (await this.generateNewUpcBtn.isVisible().catch(() => false)) {
+    // The replace-code prompt renders a moment after the click.
+    const askedToReplace = await this.generateNewUpcBtn
+      .waitFor({ state: "visible", timeout: 1_500 })
+      .then(() => true)
+      .catch(() => false);
+    if (askedToReplace) {
       await this.generateNewUpcBtn.click();
       await expect(this.generateNewUpcBtn).toHaveCount(0);
     }
@@ -5248,17 +5364,37 @@ class Products {
     await expect(this.chooseAttributeBtn).toHaveCount(0);
   }
 
-  async verifyVariantPriceRequiredValidation() {
+  async verifyVariantPriceOptional() {
     await this.verifyAddVariantsProductUrl();
     const names = await this.readVariantCombinationNames();
     expect(names.length).toBeGreaterThan(0);
-    await this.fillProductName(`Auto Var Price ${Date.now()}`);
+    const name = `Auto Var Price ${Date.now()}`;
+    await this.fillProductName(name);
     await this.selectCategory("Quickadd");
+
+    const addPromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addProduct),
+      { timeout: 25_000 },
+    );
     await this.saveProductClick();
-    await expect(this.variantPriceRequiredError.first()).toBeVisible({
+    // Variants have no UPC yet, so the missing-UPC prompt comes up first.
+    await expect(this.page.getByText(/no UPC code/i)).toBeVisible({
       timeout: 10_000,
     });
-    await this.verifyAddVariantsProductUrl();
+    await this.generateAndSaveUpcBtn.click();
+    const addResponse = await addPromise;
+    this.assertHttp200(addResponse, "add_product");
+    await expect(this.variantPriceRequiredError).toHaveCount(0);
+    await expect(this.page).not.toHaveURL(/\/new-products\/add/, {
+      timeout: 15_000,
+    });
+    await this.searchListing(name);
+    await expect(
+      this.getProductRow(name),
+      `Variant product "${name}" should save without a price`,
+    ).toBeVisible({ timeout: 15_000 });
   }
 
   async expectAddVariantProductRejected(errorLocator) {
@@ -5698,8 +5834,10 @@ class Products {
     await this.verifyVariantProductInformationSection();
     await this.verifyPhotosSection();
     await this.verifyDescriptionSection();
-    await expect(this.attributesHeading).toBeVisible();
+    // Edit has no Attributes section; new combinations come from "Add variants".
+    await expect(this.attributesHeading).toHaveCount(0);
     await expect(this.variantsHeading).toBeVisible();
+    await expect(this.addVariantsBtn).toBeVisible();
     await expect(this.variantCheckboxes()).not.toHaveCount(0);
     await expect(this.sellingChannelsHeading).toBeVisible();
     await expect(this.deliveryChannelBtn).toBeEnabled();
@@ -5753,19 +5891,22 @@ class Products {
     await this.verifyProductStillInListing(product);
   }
 
-  async verifyEditVariantPriceEmpty(product) {
+  async verifyEditVariantPriceOptional(product) {
     await this.verifyEditSingleProductUrl();
     const combo = await this.firstVariantCombinationName();
-    const priceBox = this.getVariantRow(combo).getByRole("textbox", {
-      name: "Price $",
-    });
-    await priceBox.fill("");
-    await this.saveChangesBtn.click();
-    await expect(this.variantPriceRequiredError.first()).toBeVisible({
-      timeout: 10_000,
-    });
-    await this.verifyEditSingleProductUrl();
-    await this.verifyProductStillInListing(product);
+    const priceBox = () =>
+      this.getVariantRow(combo).getByRole("textbox", { name: "Price $" });
+    const originalPrice = (await priceBox().inputValue()).trim();
+    await priceBox().fill("");
+    await this.saveEditedProduct();
+    await expect(this.variantPriceRequiredError).toHaveCount(0);
+    await this.verifyProductStillInListing({ name: product.name });
+
+    // Restore the variant price so later edit tests see the same product.
+    await this.openEditSingleProduct(product.name);
+    await priceBox().fill(originalPrice || product.price);
+    await this.saveEditedProduct();
+    await this.verifyProductStillInListing({ name: product.name });
   }
 
   async verifyEditVariantUpcRejectsSpecialCharacters() {

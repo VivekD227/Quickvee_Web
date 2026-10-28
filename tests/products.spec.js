@@ -434,6 +434,10 @@ test.describe("Products Module", () => {
       await products.verifyEditPriceZeroAllowed(createdProduct);
     });
 
+    test("Price 0 save turns off Pickup and Delivery", async () => {
+      await products.verifyEditZeroPriceTurnsOffOnlineChannels(createdProduct);
+    });
+
     test("Available to sell is locked", async () => {
       await products.openEditSingleProduct(createdProduct.name);
       await products.verifyEditQuantityIsLocked();
@@ -803,8 +807,8 @@ test.describe("Products Module", () => {
       await products.verifyCannotAddMoreThanThreeAttributes(variantAttributes);
     });
 
-    test("Variant price is required to save", async () => {
-      await products.verifyVariantPriceRequiredValidation();
+    test("Price is optional: variant product saves without price", async () => {
+      await products.verifyVariantPriceOptional();
     });
 
     test("Add variant product with one combination", async () => {
@@ -933,9 +937,9 @@ test.describe("Products Module", () => {
       await products.verifyEditVariantRequiredCategoriesEmpty(variantProduct);
     });
 
-    test("Required Price empty shows validation error", async () => {
+    test("Price is optional: edit variant saves without price", async () => {
       await products.openEditSingleProduct(variantProduct.name);
-      await products.verifyEditVariantPriceEmpty(variantProduct);
+      await products.verifyEditVariantPriceOptional(variantProduct);
     });
 
     test("Product name does not accept ~ - \\ , /", async () => {

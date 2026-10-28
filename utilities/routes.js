@@ -72,7 +72,7 @@ module.exports = {
     avgItemSaleReportAPI: reportAPI("api/reports/avg_item_sale_report"),
     storeDiscountedReportAPI: reportAPI("api/reports/store_discounted_report"),
     salesByHour: apiCi("Sale_summary_api/sale_by_hour_new"),
-    system_access: apiCi("api/SettingsReact_api/system_access"),
+    system_access: apiNode("ci/api/SettingsReact_api/system_access"),
     featureAnnouncement: apiCi(
       "Feature_announcements_api/show_feature_announcements",
     ),
@@ -83,6 +83,9 @@ module.exports = {
     taxList_URL: "tax_list",
     addProduct: apiCi("Product_api_react/add_product"),
     updateProduct: apiCi("Product_api_react/edit_produt"),
+    productShowStatusUpdate: apiCi(
+      "Product_api_react/product_show_status_update",
+    ),
     getProductDataById: apiNode("ci/Product_api_react/get_productdata_ById"),
     checkUpc: apiCi("Product_api_react/check_upc"),
     deleteProduct: apiCi("Product_api_react/delete_product"),
