@@ -35,6 +35,11 @@ class Dashboard {
 
     this.brands = page.getByText("Brands", { exact: true });
 
+    this.categories = page.getByRole("link", {
+      name: "Categories",
+      exact: true,
+    });
+
     this.attributes = page.getByText("Attributes", { exact: true });
 
     this.vendors = page.getByText("Vendors", { exact: true });
@@ -463,6 +468,30 @@ class Dashboard {
       this.brands.click(),
     ]);
     expect(response.status()).toBe(200);
+  }
+
+  async categoriesClick() {
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes(routes.API_URL.categoryList_URL),
+      ),
+      this.categories.click(),
+    ]);
+    expect(response.status()).toBe(200);
+    const categoryBody = await response.json();
+    expect(categoryBody.status).toBeTruthy();
+    expect(categoryBody.msg).toBe("Category Found Successfully.");
+    expect(Array.isArray(categoryBody.result)).toBeTruthy();
+    sessionDataStorage.set("category_APIcount", categoryBody.result.length);
+    sessionDataStorage.set(
+      "category_APInames",
+      categoryBody.result.map((c) => c.title),
+    );
+    console.log(
+      `Category list API count (on navigation): ${categoryBody.result.length}`,
+    );
   }
 
   async attributesClick() {

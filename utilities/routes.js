@@ -89,6 +89,12 @@ module.exports = {
     getProductDataById: apiNode("ci/Product_api_react/get_productdata_ById"),
     checkUpc: apiCi("Product_api_react/check_upc"),
     deleteProduct: apiCi("Product_api_react/delete_product"),
+    addCategory_URL: apiCi("CategoryReactapi/addnewcolln"),
+    updateCategory_URL: apiCi("CategoryReactapi/updateCategory"),
+    deleteCategory_URL: apiCi("CategoryReactapi/delete_category"),
+    onlineStoreCategories_URL: apiNode(
+      "ci/FindstoreReact/merchant_store_and_category",
+    ),
   },
 
   //   QA_URL: {
@@ -111,5 +117,6 @@ module.exports = {
     products_add_variants: page(
       "/merchants/inventory/new-products/add?type=variants",
     ),
+    categories: page("/merchants/inventory/category"),
   },
 };
