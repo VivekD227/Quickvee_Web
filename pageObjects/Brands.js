@@ -38,7 +38,7 @@ class Brands {
       /50 character|maximum.*50|exceed.*50|too long/i,
     );
     this.updateBrandSuccessDialog = page.getByText("Updated");
-    this.deleteBrandSuccessDialog = page.getByText("Deleted");
+    this.deleteBrandSuccessDialog = page.getByText("Deleted").last();
     this.deleteBrandConfirmBtn = page
       .getByRole("button", { name: /delete brand/i })
       .last();
@@ -72,6 +72,31 @@ class Brands {
     await this.saveBtnClick();
     await this.updateDialogDisplay();
     await this.verifyAddedBrandInListWithActions(newBrandName);
+  }
+
+  async renameBrand(oldName, newName) {
+    await this.clearBrandSearch();
+    await this.searchBrand(oldName);
+    await this.verifySearchedBrandDisplayed(oldName);
+
+    const brandRow = this.getBrandListRow(oldName);
+    await brandRow.getByRole("button", { name: "Rename" }).click();
+    const brandInput = this.page
+      .locator('[data-brand-row="true"]')
+      .getByRole("textbox");
+    await expect(brandInput).toBeVisible();
+    await brandInput.fill(newName);
+
+    await this.saveBtnClick();
+    await this.updateDialogDisplay();
+
+    await this.clearBrandSearch();
+    await this.searchBrand(newName);
+    await this.verifySearchedBrandDisplayed(newName);
+    await this.clearBrandSearch();
+    await this.searchBrand(oldName);
+    await this.verifyBrandNotInList(oldName);
+    await this.clearBrandSearch();
   }
 
   async verifyDuplicateOnEdit(duplicateBrand) {

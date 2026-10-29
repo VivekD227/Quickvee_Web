@@ -33,18 +33,24 @@ class Dashboard {
 
     this.products = page.getByRole("link", { name: "Products", exact: true });
 
-    this.brands = page.getByText("Brands", { exact: true });
+    // Link role so it doesn't also match the "Brands" filter on the Products page.
+    this.brands = page.getByRole("link", { name: "Brands", exact: true });
 
     this.categories = page.getByRole("link", {
       name: "Categories",
       exact: true,
     });
 
-    this.attributes = page.getByText("Attributes", { exact: true });
+    // Link role so it doesn't also match the "Attributes" heading on the variant form.
+    this.attributes = page.getByRole("link", {
+      name: "Attributes",
+      exact: true,
+    });
 
     this.vendors = page.getByText("Vendors", { exact: true });
 
-    this.tags = page.getByText("Tags", { exact: true });
+    // Link role so it doesn't also match the "Tags" filter on the Products page.
+    this.tags = page.getByRole("link", { name: "Tags", exact: true });
 
     // Dashboard page UI
     this.dashboardHeading = page.getByRole("heading", {

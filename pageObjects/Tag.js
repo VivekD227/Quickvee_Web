@@ -38,7 +38,7 @@ class Tag {
     this.updateTagSuccessDialog = page.locator(
       'div:not([data-tag-hdr-updated]):text-is("Updated")',
     );
-    this.deleteTagSuccessDialog = page.getByText("Deleted");
+    this.deleteTagSuccessDialog = page.getByText("Deleted").last();
     this.deleteTagConfirmBtn = page
       .getByRole("button", { name: /delete tag/i })
       .last();
@@ -214,6 +214,30 @@ class Tag {
     await this.saveBtnClick();
     await this.updateDialogDisplay();
     await this.verifyAddedTagInListWithActions(newTagName);
+  }
+
+  async renameTag(oldName, newName) {
+    await this.clearTagSearch();
+    await this.searchTag(oldName);
+    await this.verifySearchedTagDisplayed(oldName);
+
+    await this.getTagListRow(oldName)
+      .getByRole("button", { name: "Rename" })
+      .click();
+    const tagInput = this.getTagRows().getByRole("textbox");
+    await expect(tagInput).toBeVisible();
+    await tagInput.fill(newName);
+
+    await this.saveBtnClick();
+    await this.updateDialogDisplay();
+
+    await this.clearTagSearch();
+    await this.searchTag(newName);
+    await this.verifySearchedTagDisplayed(newName);
+    await this.clearTagSearch();
+    await this.searchTag(oldName);
+    await this.verifyTagNotInList(oldName);
+    await this.clearTagSearch();
   }
 
   async verifyDuplicateOnEdit(duplicateTag) {

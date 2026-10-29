@@ -1270,6 +1270,8 @@ class Products {
     await this.verifyAddSingleProductUrl();
     await this.fillProductName(name);
     await this.selectCategory(category);
+    if (product.brand) await this.selectBrand(product.brand);
+    for (const tag of product.tags || []) await this.selectTag(tag);
     const upc = await this.generateUpc();
     product.upc = upc;
     await this.fillCost(cost);
@@ -1581,6 +1583,333 @@ class Products {
   async pickBrandOptionNotNamed(excluded) {
     await this.openBrandList();
     return this.pickOpenListOptionNotNamed(excluded, this.getBrandSection());
+  }
+
+  brandDropdownOption(brandName) {
+    const escaped = brandName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return this.listOptionButtons(this.getBrandSection()).filter({
+      hasText: new RegExp(`^\\s*${escaped}\\s*$`),
+    });
+  }
+
+  async selectBrand(brandName) {
+    await this.openBrandList();
+    await this.brandInput.fill(brandName);
+    const option = this.brandDropdownOption(brandName);
+    await expect(
+      option.first(),
+      `Brand "${brandName}" should be listed in the product Brand dropdown`,
+    ).toBeVisible({ timeout: 10_000 });
+    await option.first().click();
+    await this.closeOpenList();
+    await expect(this.selectedBrandChip(brandName)).toBeVisible({
+      timeout: 8_000,
+    });
+  }
+
+  async removeBrand(brandName) {
+    await this.closeOpenList();
+    const chip = this.selectedBrandChip(brandName);
+    await expect(chip).toBeVisible({ timeout: 10_000 });
+    await chip.locator("xpath=following-sibling::button[1]").click();
+    await expect(chip).toHaveCount(0);
+    await expect(this.brandInput).toBeVisible();
+    await expect(this.brandInput).toHaveValue("");
+  }
+
+  async verifyBrandInProductDropdown(brandName, shouldBeListed = true) {
+    await this.openBrandList();
+    await this.brandInput.fill(brandName);
+    const option = this.brandDropdownOption(brandName);
+    if (shouldBeListed) {
+      await expect(
+        option.first(),
+        `Brand "${brandName}" should be listed in the product Brand dropdown`,
+      ).toBeVisible({ timeout: 10_000 });
+    } else {
+      // Give the list time to settle so a late option still fails the check.
+      await this.page.waitForTimeout(1_500);
+      await expect(
+        option,
+        `Brand "${brandName}" should not be listed in the product Brand dropdown`,
+      ).toHaveCount(0);
+    }
+    await this.brandInput.fill("");
+    await this.closeOpenList();
+  }
+
+  async changeProductBrand({ name, fromBrand, toBrand }) {
+    await this.openEditSingleProduct(name);
+    await expect(this.productNameInput).toHaveValue(name, { timeout: 15_000 });
+    if (fromBrand) await this.removeBrand(fromBrand);
+    if (toBrand) await this.selectBrand(toBrand);
+    await this.saveEditedProduct();
+  }
+
+  // Brands and Tags filters on the listing share the same menu layout.
+  listingFilterConfig(kind) {
+    const configs = {
+      brand: {
+        button: this.brandsFilter,
+        label: "Brands",
+        menuText: "Filter by product brand",
+        search: "Search brands...",
+      },
+      tag: {
+        button: this.tagsFilter,
+        label: "Tags",
+        menuText: "Filter by product tag",
+        search: "Search tags...",
+      },
+    };
+    return configs[kind];
+  }
+
+  getListingFilterMenu(kind) {
+    return this.page
+      .getByRole("menu")
+      .filter({ hasText: this.listingFilterConfig(kind).menuText });
+  }
+
+  listingFilterOption(kind, name) {
+    return this.getListingFilterMenu(kind).getByRole("option", {
+      name,
+      exact: true,
+    });
+  }
+
+  async openListingFilter(kind, searchText) {
+    const config = this.listingFilterConfig(kind);
+    await config.button.click();
+    const menu = this.getListingFilterMenu(kind);
+    await expect(menu).toBeVisible({ timeout: 10_000 });
+    if (searchText) {
+      await menu.getByRole("textbox", { name: config.search }).fill(searchText);
+    }
+    return menu;
+  }
+
+  async closeListingFilter(kind) {
+    const menu = this.getListingFilterMenu(kind);
+    await menu.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(menu).toBeHidden({ timeout: 10_000 });
+  }
+
+  async verifyInListingFilter(kind, name, shouldBeListed = true) {
+    const { label } = this.listingFilterConfig(kind);
+    await this.returnToProductsList();
+    await this.openListingFilter(kind, name);
+    if (shouldBeListed) {
+      await expect(
+        this.listingFilterOption(kind, name),
+        `"${name}" should be listed in the Products ${label} filter`,
+      ).toBeVisible({ timeout: 10_000 });
+    } else {
+      await this.page.waitForTimeout(1_500);
+      await expect(
+        this.listingFilterOption(kind, name),
+        `"${name}" should not be listed in the Products ${label} filter`,
+      ).toHaveCount(0);
+    }
+    await this.closeListingFilter(kind);
+  }
+
+  async filterListingBy(kind, name) {
+    await this.returnToProductsList();
+    await this.searchListing("");
+    const menu = await this.openListingFilter(kind, name);
+    const option = this.listingFilterOption(kind, name);
+    await option.click();
+    await expect(option).toHaveAttribute("aria-selected", "true");
+    await menu.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(menu).toBeHidden({ timeout: 10_000 });
+    await expect(this.listingFilterConfig(kind).button).toContainText(name);
+    await this.waitForCatalogIdle();
+  }
+
+  async clearListingFilters() {
+    const clearAll = this.filtersBar.getByRole("button", { name: "Clear all" });
+    if (await clearAll.isVisible().catch(() => false)) {
+      await clearAll.click();
+    }
+    await expect(this.brandsFilter).toHaveText(/^\s*Brands\s*$/, {
+      timeout: 10_000,
+    });
+    await expect(this.tagsFilter).toHaveText(/^\s*Tags\s*$/);
+  }
+
+  async verifyListingFilterShowsProducts(kind, name, productNames) {
+    const { label } = this.listingFilterConfig(kind);
+    await this.filterListingBy(kind, name);
+    for (const productName of productNames) {
+      await expect(
+        this.getProductRow(productName),
+        `${label} filter "${name}" should show product "${productName}"`,
+      ).toBeVisible({ timeout: 15_000 });
+    }
+    await expect(
+      this.productRows,
+      `${label} filter "${name}" should show only its ${productNames.length} product(s)`,
+    ).toHaveCount(productNames.length);
+    await this.clearListingFilters();
+  }
+
+  async verifyBrandInListingFilter(brandName, shouldBeListed = true) {
+    await this.verifyInListingFilter("brand", brandName, shouldBeListed);
+  }
+
+  async verifyBrandFilterShowsProducts(brandName, productNames) {
+    await this.verifyListingFilterShowsProducts("brand", brandName, productNames);
+  }
+
+  async verifyTagInListingFilter(tagName, shouldBeListed = true) {
+    await this.verifyInListingFilter("tag", tagName, shouldBeListed);
+  }
+
+  async verifyTagFilterShowsProducts(tagName, productNames) {
+    await this.verifyListingFilterShowsProducts("tag", tagName, productNames);
+  }
+
+  async verifyDuplicateKeepsBrand(source) {
+    await this.openEditSingleProduct(source.name);
+    await this.openDuplicateFromEdit();
+    await expect(
+      this.selectedBrandChip(source.brand),
+      `Duplicate of "${source.name}" should copy brand "${source.brand}"`,
+    ).toBeVisible({ timeout: 15_000 });
+    await this.verifyDuplicateFormCopiesSourceFields(source);
+    await this.returnToProductsList();
+  }
+
+  // Typing an unknown name also offers a 'Create "name"' button; exact match skips it.
+  tagDropdownOption(tagName) {
+    const escaped = tagName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return this.listOptionButtons(this.getTagsSection()).filter({
+      hasText: new RegExp(`^\\s*${escaped}\\s*$`),
+    });
+  }
+
+  async selectTag(tagName) {
+    await this.openTagList();
+    await this.tagsInput.fill(tagName);
+    const option = this.tagDropdownOption(tagName);
+    await expect(
+      option.first(),
+      `Tag "${tagName}" should be listed in the product Tags dropdown`,
+    ).toBeVisible({ timeout: 10_000 });
+    await option.first().click();
+    // Clear before closing: filling the input re-opens the list.
+    if ((await this.tagsInput.inputValue()).trim()) {
+      await this.tagsInput.fill("");
+    }
+    await this.closeOpenList();
+    await expect(this.selectedTagChip(tagName)).toBeVisible({
+      timeout: 8_000,
+    });
+  }
+
+  async removeTag(tagName) {
+    await this.closeOpenList();
+    const chip = this.selectedTagChip(tagName);
+    await expect(chip).toBeVisible({ timeout: 10_000 });
+    await chip.locator("xpath=following-sibling::button[1]").click();
+    await expect(chip).toHaveCount(0);
+  }
+
+  async verifyTagInProductDropdown(tagName, shouldBeListed = true) {
+    await this.openTagList();
+    await this.tagsInput.fill(tagName);
+    const option = this.tagDropdownOption(tagName);
+    if (shouldBeListed) {
+      await expect(
+        option.first(),
+        `Tag "${tagName}" should be listed in the product Tags dropdown`,
+      ).toBeVisible({ timeout: 10_000 });
+    } else {
+      await this.page.waitForTimeout(1_500);
+      await expect(
+        option,
+        `Tag "${tagName}" should not be listed in the product Tags dropdown`,
+      ).toHaveCount(0);
+    }
+    await this.tagsInput.fill("");
+    await this.closeOpenList();
+  }
+
+  async changeProductTags({ name, add = [], remove = [] }) {
+    await this.openEditSingleProduct(name);
+    await expect(this.productNameInput).toHaveValue(name, { timeout: 15_000 });
+    for (const tag of remove) await this.removeTag(tag);
+    for (const tag of add) await this.selectTag(tag);
+    await this.saveEditedProduct();
+  }
+
+  async verifyProductTagsOnEditForm({ name, tags = [], absentTags = [] }) {
+    await this.openEditSingleProduct(name);
+    await expect(this.productNameInput).toHaveValue(name, { timeout: 15_000 });
+    for (const tag of tags) {
+      await expect(
+        this.selectedTagChip(tag),
+        `Product "${name}" should show tag "${tag}" once on the edit form`,
+      ).toHaveCount(1, { timeout: 15_000 });
+    }
+    for (const tag of absentTags) {
+      await expect(
+        this.selectedTagChip(tag),
+        `Product "${name}" should not show tag "${tag}" on the edit form`,
+      ).toHaveCount(0);
+    }
+    if (tags.length === 0) {
+      await expect(
+        this.getTagsSection().locator("xpath=.//span[button]"),
+        `Product "${name}" should have no tags assigned`,
+      ).toHaveCount(0);
+    }
+    await this.returnToProductsList();
+  }
+
+  async verifyDuplicateKeepsTags(source) {
+    await this.openEditSingleProduct(source.name);
+    await this.openDuplicateFromEdit();
+    for (const tag of source.tags) {
+      await expect(
+        this.selectedTagChip(tag),
+        `Duplicate of "${source.name}" should copy tag "${tag}"`,
+      ).toBeVisible({ timeout: 15_000 });
+    }
+    await this.verifyDuplicateFormCopiesSourceFields(source);
+    await this.returnToProductsList();
+  }
+
+  async verifyProductBrandRemovedOnEditForm({ name, removedBrand }) {
+    await this.openEditSingleProduct(name);
+    await expect(this.productNameInput).toHaveValue(name, { timeout: 15_000 });
+    await expect(
+      this.selectedBrandChip(removedBrand),
+      `Product "${name}" should not show deleted brand "${removedBrand}"`,
+    ).toHaveCount(0);
+    await expect(
+      this.brandInput,
+      `Product "${name}" should have no brand assigned after brand delete`,
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(this.brandInput).toHaveValue("");
+    await this.returnToProductsList();
+  }
+
+  async verifyProductBrandOnEditForm({ name, brand, previousBrand }) {
+    await this.openEditSingleProduct(name);
+    await expect(this.productNameInput).toHaveValue(name, { timeout: 15_000 });
+    await expect(
+      this.selectedBrandChip(brand),
+      `Saved product "${name}" should keep brand "${brand}" on the edit form`,
+    ).toBeVisible({ timeout: 15_000 });
+    if (previousBrand) {
+      await expect(
+        this.selectedBrandChip(previousBrand),
+        `Product "${name}" should no longer show old brand "${previousBrand}"`,
+      ).toHaveCount(0);
+    }
+    await this.returnToProductsList();
   }
 
   async verifyOnlyOneBrandCanBeAssigned() {
@@ -5247,10 +5576,13 @@ class Products {
     const generateBtn = row.getByRole("button", {
       name: "Generate a unique 12-digit UPC",
     });
+    const previous = (await upcInput.inputValue()).trim();
+    const hadUpc = /^\d{12}$/.test(previous);
     await generateBtn.click();
-    // The replace-code prompt renders a moment after the click.
+    // The replace-code prompt renders a moment after the click; when the row
+    // already has a UPC it always shows, so wait for it instead of racing it.
     const askedToReplace = await this.generateNewUpcBtn
-      .waitFor({ state: "visible", timeout: 1_500 })
+      .waitFor({ state: "visible", timeout: hadUpc ? 5_000 : 1_500 })
       .then(() => true)
       .catch(() => false);
     if (askedToReplace) {
@@ -5263,6 +5595,14 @@ class Products {
         message: `Generate should populate a 12-digit UPC for ${combination}`,
       })
       .toMatch(/^\d{12}$/);
+    if (hadUpc && askedToReplace) {
+      await expect
+        .poll(async () => (await upcInput.inputValue()).trim(), {
+          timeout: 10_000,
+          message: `Generate should replace the UPC for ${combination}`,
+        })
+        .not.toBe(previous);
+    }
     return (await upcInput.inputValue()).trim();
   }
 
@@ -5670,6 +6010,8 @@ class Products {
     await this.verifyAddVariantsProductUrl();
     await this.fillProductName(name);
     await this.selectCategory(category);
+    if (product.brand) await this.selectBrand(product.brand);
+    for (const tag of product.tags || []) await this.selectTag(tag);
 
     const assigned = [];
     for (let i = 0; i < attributes.length; i++) {
