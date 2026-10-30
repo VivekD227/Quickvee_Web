@@ -25,8 +25,8 @@ module.exports = {
   },
 
   API_URL: {
-    login: apiCi("LoginApiReact/create_session"),
-    chkMerchant: apiCi("LoginApiReact/chk_merchant"),
+    login: apiNode("ci/LoginApiReact/create_session"),
+    chkMerchant: apiNode("ci/LoginApiReact/chk_merchant"),
     preset_URL: apiNode("permission/get_permission_preset_by_id"),
     main_preset_URL: apiNode("permission/get_permission_preset"),
     employeeList_URL: apiCi("Store_setting_react_api/employee_list_v2"),
@@ -51,6 +51,10 @@ module.exports = {
     addVendor_URL: apiNode("Vendor_api_new/create_vendor"),
     updateVendor_URL: apiNode("Vendor_api_new/update_vendor"),
     deleteVendor_URL: apiNode("Vendor_api_new/delete_vendor"),
+    assignProductVendor: apiCi("Product_api_react/assign_product_vendors"),
+    deleteProductVendor: apiCi("Product_api_react/delete_product_vendor"),
+    assignPreferredVendor: apiCi("Product_api_react/assign_preferred_vendor"),
+    saveProductVendorCosts: apiCi("Product_api_react/save_vendor_list"),
     getStoresManagement: apiNode("ci/Store_setting_react_api/getManagerStores"),
     revenueDataAPI: reportAPI("api/reports/revenue_data_api"),
     totalTransaction: reportAPI("api/reports/sales_count_api"),
@@ -73,8 +77,8 @@ module.exports = {
     storeDiscountedReportAPI: reportAPI("api/reports/store_discounted_report"),
     salesByHour: apiCi("Sale_summary_api/sale_by_hour_new"),
     system_access: apiNode("ci/api/SettingsReact_api/system_access"),
-    featureAnnouncement: apiCi(
-      "Feature_announcements_api/show_feature_announcements",
+    featureAnnouncement: apiNode(
+      "ci/Feature_announcements_api/show_feature_announcements",
     ),
     productList_URL: elasticsearch("Product_api_react/Products_list"),
     categoryList_URL: elasticsearch("InventoryReportPk/category_list"),
@@ -92,6 +96,7 @@ module.exports = {
     addCategory_URL: apiCi("CategoryReactapi/addnewcolln"),
     updateCategory_URL: apiCi("CategoryReactapi/updateCategory"),
     deleteCategory_URL: apiCi("CategoryReactapi/delete_category"),
+    addCategoryFromProduct_URL: apiCi("Categoryapi/add_category"),
     onlineStoreCategories_URL: apiNode(
       "ci/FindstoreReact/merchant_store_and_category",
     ),

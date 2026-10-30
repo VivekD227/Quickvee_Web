@@ -166,7 +166,7 @@ test.describe("Brand - Product Integration", () => {
     await brand.renameBrand(newBrand, editedBrand);
   });
 
-  test("Renamed brand reflects on both products", async () => {
+  test("Renamed brand reflects on both products without changing other details", async () => {
     await dashboard.productsClick();
     await products.verifyProductsPageLoaded();
     for (const product of [singleProduct, variantProduct]) {
@@ -174,7 +174,9 @@ test.describe("Brand - Product Integration", () => {
         name: product.name,
         brand: editedBrand,
         previousBrand: newBrand,
+        unchanged: product,
       });
+      await products.verifyProductStillInListing(product);
     }
   });
 
@@ -197,14 +199,16 @@ test.describe("Brand - Product Integration", () => {
     await brand.deleteBrand(editedBrand);
   });
 
-  test("Deleted brand is removed from both products", async () => {
+  test("Deleted brand is removed from both products without changing other details", async () => {
     await dashboard.productsClick();
     await products.verifyProductsPageLoaded();
     for (const product of [singleProduct, variantProduct]) {
       await products.verifyProductBrandRemovedOnEditForm({
         name: product.name,
         removedBrand: editedBrand,
+        unchanged: product,
       });
+      await products.verifyProductStillInListing(product);
     }
   });
 

@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { Products } from "../pageObjects/Products";
+import { Categories } from "../pageObjects/Categories";
 import { LoginPage } from "../pageObjects/LoginPage";
 import { Dashboard } from "../pageObjects/Dashboard";
 import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
@@ -1045,6 +1046,133 @@ test.describe("Products Module", () => {
       test.setTimeout(180_000);
       variantProduct = await products.ensureVariantProduct(variantProduct);
       await products.saveDuplicateVariantAsNewProduct(variantProduct);
+    });
+  });
+
+  test.describe("Create Category from Product Form", () => {
+    let categories;
+    let formCategory;
+    let unsavedCategory;
+    let editFormCategory;
+    let formCategoryProduct;
+
+    test.afterAll(async () => {
+      test.setTimeout(120_000);
+      const created = [formCategory, unsavedCategory, editFormCategory].filter(
+        Boolean,
+      );
+      if (page && created.length) {
+        await categories.cleanupCategories(created);
+      }
+    });
+
+    test("Typing a new category name offers Create option", async () => {
+      categories = new Categories(page);
+      await products.reopenAddSingleProductForm();
+      await products.verifyCreateCategoryOptionShown(
+        categories.generateUniqueCategoryName("FormCat"),
+      );
+    });
+
+    test("Existing category typed in another case is listed, not offered for create", async () => {
+      await products.verifyExistingCategoryNotOfferedForCreate(
+        "quickadd",
+        "Quickadd",
+      );
+      await products.verifyExistingCategoryNotOfferedForCreate(
+        "QUICKADD",
+        "Quickadd",
+      );
+    });
+
+    test("Cancel on Create category drawer adds nothing", async () => {
+      await products.verifyCancelCreateCategoryAddsNothing(
+        categories.generateUniqueCategoryName("FormCancel"),
+      );
+    });
+
+    test("Create category needs a name", async () => {
+      await products.verifyCreateCategoryNameRequired(
+        categories.generateUniqueCategoryName("FormEmpty"),
+      );
+    });
+
+    test("Create category drawer strips special characters", async () => {
+      await products.verifyCreateCategoryStripsSpecialCharacters(
+        categories.generateUniqueCategoryName("FormSpecial"),
+      );
+    });
+
+    test("Create category drawer rejects an existing category name", async () => {
+      await products.verifyCreateCategoryDuplicateRejected(
+        categories.generateUniqueCategoryName("FormDup"),
+        "QUICKADD",
+      );
+    });
+
+    test("Create category from product form and save the product", async () => {
+      formCategory = categories.generateUniqueCategoryName("FormCat");
+      await products.createCategoryFromProductForm(formCategory);
+
+      // The drawer already assigned the category, so the add flow picks none.
+      formCategoryProduct = {
+        name: `Auto Form Category ${Date.now()}`,
+        categories: [],
+        cost: "10.00",
+        price: "20.00",
+      };
+      await products.addSingleProductWithRequiredFieldsAndVerifyMarginProfit(
+        formCategoryProduct,
+      );
+      formCategoryProduct.categories = [formCategory];
+      await products.verifyProductDetailsOnEditForm(formCategoryProduct);
+    });
+
+    test("Category created from product form filters the product and is on Categories page", async () => {
+      await products.verifyCategoryFilterShowsProducts(formCategory, [
+        formCategoryProduct.name,
+      ]);
+      await dashboard.categoriesClick();
+      await categories.verifyCategoriesPageLoaded();
+      await categories.searchCategory(formCategory);
+      await categories.verifySearchedCategoryDisplayed(formCategory);
+      await categories.clearSearch();
+    });
+
+    test("Create category from edit product form and assign it to the product", async () => {
+      await dashboard.productsClick();
+      await products.verifyProductsPageLoaded();
+      await products.openEditSingleProduct(formCategoryProduct.name);
+      await expect(products.productNameInput).toHaveValue(
+        formCategoryProduct.name,
+        { timeout: 15_000 },
+      );
+      editFormCategory = categories.generateUniqueCategoryName("EditFormCat");
+      await products.createCategoryFromProductForm(editFormCategory);
+      await products.saveEditedProduct();
+
+      formCategoryProduct.categories = [formCategory, editFormCategory];
+      await products.verifyProductDetailsOnEditForm(formCategoryProduct);
+      await dashboard.categoriesClick();
+      await categories.verifyCategoriesPageLoaded();
+      await categories.searchCategory(editFormCategory);
+      await categories.verifySearchedCategoryDisplayed(editFormCategory);
+      await categories.clearSearch();
+    });
+
+    test("Category created from product form stays when the product is not saved", async () => {
+      await dashboard.productsClick();
+      await products.verifyProductsPageLoaded();
+      await products.reopenAddSingleProductForm();
+      unsavedCategory = categories.generateUniqueCategoryName("FormUnsaved");
+      await products.createCategoryFromProductForm(unsavedCategory);
+      await products.leaveAddFormWithoutSaving();
+
+      await dashboard.categoriesClick();
+      await categories.verifyCategoriesPageLoaded();
+      await categories.searchCategory(unsavedCategory);
+      await categories.verifySearchedCategoryDisplayed(unsavedCategory);
+      await categories.clearSearch();
     });
   });
 });

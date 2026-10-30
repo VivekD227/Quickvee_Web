@@ -47,7 +47,8 @@ class Dashboard {
       exact: true,
     });
 
-    this.vendors = page.getByText("Vendors", { exact: true });
+    // Link role so it doesn't also match the "Vendors" filter on the Products page.
+    this.vendors = page.getByRole("link", { name: "Vendors", exact: true });
 
     // Link role so it doesn't also match the "Tags" filter on the Products page.
     this.tags = page.getByRole("link", { name: "Tags", exact: true });

@@ -1269,7 +1269,9 @@ class Products {
     } = product;
     await this.verifyAddSingleProductUrl();
     await this.fillProductName(name);
-    await this.selectCategory(category);
+    for (const cat of product.categories || [category]) {
+      await this.selectCategory(cat);
+    }
     if (product.brand) await this.selectBrand(product.brand);
     for (const tag of product.tags || []) await this.selectTag(tag);
     const upc = await this.generateUpc();
@@ -1646,9 +1648,15 @@ class Products {
     await this.saveEditedProduct();
   }
 
-  // Brands and Tags filters on the listing share the same menu layout.
+  // Categories, Brands, Tags and Vendors filters on the listing share the same menu layout.
   listingFilterConfig(kind) {
     const configs = {
+      category: {
+        button: this.categoriesFilter,
+        label: "Categories",
+        menuText: "Select categories to filter products",
+        search: "Search all categories...",
+      },
       brand: {
         button: this.brandsFilter,
         label: "Brands",
@@ -1660,6 +1668,12 @@ class Products {
         label: "Tags",
         menuText: "Filter by product tag",
         search: "Search tags...",
+      },
+      vendor: {
+        button: this.vendorsFilter,
+        label: "Vendors",
+        menuText: "Filter by supplier or distributor",
+        search: "Search vendors...",
       },
     };
     return configs[kind];
@@ -1732,10 +1746,12 @@ class Products {
     if (await clearAll.isVisible().catch(() => false)) {
       await clearAll.click();
     }
-    await expect(this.brandsFilter).toHaveText(/^\s*Brands\s*$/, {
+    await expect(this.categoriesFilter).toHaveText(/^\s*Categories\s*$/, {
       timeout: 10_000,
     });
+    await expect(this.brandsFilter).toHaveText(/^\s*Brands\s*$/);
     await expect(this.tagsFilter).toHaveText(/^\s*Tags\s*$/);
+    await expect(this.vendorsFilter).toHaveText(/^\s*Vendors\s*$/);
   }
 
   async verifyListingFilterShowsProducts(kind, name, productNames) {
@@ -1752,6 +1768,18 @@ class Products {
       `${label} filter "${name}" should show only its ${productNames.length} product(s)`,
     ).toHaveCount(productNames.length);
     await this.clearListingFilters();
+  }
+
+  async verifyCategoryInListingFilter(categoryName, shouldBeListed = true) {
+    await this.verifyInListingFilter("category", categoryName, shouldBeListed);
+  }
+
+  async verifyCategoryFilterShowsProducts(categoryName, productNames) {
+    await this.verifyListingFilterShowsProducts(
+      "category",
+      categoryName,
+      productNames,
+    );
   }
 
   async verifyBrandInListingFilter(brandName, shouldBeListed = true) {
@@ -1777,6 +1805,19 @@ class Products {
       this.selectedBrandChip(source.brand),
       `Duplicate of "${source.name}" should copy brand "${source.brand}"`,
     ).toBeVisible({ timeout: 15_000 });
+    await this.verifyDuplicateFormCopiesSourceFields(source);
+    await this.returnToProductsList();
+  }
+
+  async verifyDuplicateKeepsCategories(source) {
+    await this.openEditSingleProduct(source.name);
+    await this.openDuplicateFromEdit();
+    for (const cat of source.categories) {
+      await expect(
+        this.selectedCategoryChip(cat),
+        `Duplicate of "${source.name}" should copy category "${cat}"`,
+      ).toBeVisible({ timeout: 15_000 });
+    }
     await this.verifyDuplicateFormCopiesSourceFields(source);
     await this.returnToProductsList();
   }
@@ -1844,7 +1885,12 @@ class Products {
     await this.saveEditedProduct();
   }
 
-  async verifyProductTagsOnEditForm({ name, tags = [], absentTags = [] }) {
+  async verifyProductTagsOnEditForm({
+    name,
+    tags = [],
+    absentTags = [],
+    unchanged,
+  }) {
     await this.openEditSingleProduct(name);
     await expect(this.productNameInput).toHaveValue(name, { timeout: 15_000 });
     for (const tag of tags) {
@@ -1865,6 +1911,9 @@ class Products {
         `Product "${name}" should have no tags assigned`,
       ).toHaveCount(0);
     }
+    if (unchanged) {
+      await this.expectProductFieldsUnchanged(unchanged, { ignore: "tags" });
+    }
     await this.returnToProductsList();
   }
 
@@ -1881,7 +1930,7 @@ class Products {
     await this.returnToProductsList();
   }
 
-  async verifyProductBrandRemovedOnEditForm({ name, removedBrand }) {
+  async verifyProductBrandRemovedOnEditForm({ name, removedBrand, unchanged }) {
     await this.openEditSingleProduct(name);
     await expect(this.productNameInput).toHaveValue(name, { timeout: 15_000 });
     await expect(
@@ -1893,10 +1942,13 @@ class Products {
       `Product "${name}" should have no brand assigned after brand delete`,
     ).toBeVisible({ timeout: 15_000 });
     await expect(this.brandInput).toHaveValue("");
+    if (unchanged) {
+      await this.expectProductFieldsUnchanged(unchanged, { ignore: "brand" });
+    }
     await this.returnToProductsList();
   }
 
-  async verifyProductBrandOnEditForm({ name, brand, previousBrand }) {
+  async verifyProductBrandOnEditForm({ name, brand, previousBrand, unchanged }) {
     await this.openEditSingleProduct(name);
     await expect(this.productNameInput).toHaveValue(name, { timeout: 15_000 });
     await expect(
@@ -1909,7 +1961,340 @@ class Products {
         `Product "${name}" should no longer show old brand "${previousBrand}"`,
       ).toHaveCount(0);
     }
+    if (unchanged) {
+      await this.expectProductFieldsUnchanged(unchanged, { ignore: "brand" });
+    }
     await this.returnToProductsList();
+  }
+
+  async verifyProductDetailsOnEditForm(product) {
+    await this.openEditSingleProduct(product.name);
+    await this.expectProductFieldsUnchanged(product);
+    await this.returnToProductsList();
+  }
+
+  // Vendors are assigned on the edit form only. Single products keep them in
+  // the Vendor Information section; variants keep them per variant behind the
+  // row's "Vendors" tab. Add, remove and preferred save on click; cost per item
+  // needs "Save costs".
+  async getProductVendorScope(product) {
+    await expect(this.productNameInput).toHaveValue(product.name, {
+      timeout: 15_000,
+    });
+    if (!product.variantNames?.length) {
+      await expect(this.vendorInfoHeading).toBeVisible({ timeout: 15_000 });
+      return this.formBody;
+    }
+    const combo = product.variantNames[0];
+    await this.expandVariantRow(combo);
+    const card = this.getVariantCard(combo);
+    await card.getByRole("button", { name: "Vendors", exact: true }).click();
+    await expect(card.getByRole("button", { name: "Add vendor" })).toBeVisible({
+      timeout: 10_000,
+    });
+    return card;
+  }
+
+  productVendorRows(scope) {
+    return scope
+      .getByRole("button", { name: "Remove vendor" })
+      .locator("xpath=..");
+  }
+
+  productVendorRow(scope, vendorName) {
+    return this.productVendorRows(scope).filter({
+      has: this.page.getByText(vendorName, { exact: true }),
+    });
+  }
+
+  async waitForVendorApi(url, action, label) {
+    const responsePromise = this.page.waitForResponse(
+      (res) => res.request().method() === "POST" && res.url().includes(url),
+      { timeout: 20_000 },
+    );
+    await action();
+    const response = await responsePromise;
+    this.assertHttp200(response, label);
+    const body = await response.json();
+    expect(body.status, `${label} should succeed`).toBeTruthy();
+    return body;
+  }
+
+  async openVendorPicker(scope, vendorName) {
+    await scope.getByRole("button", { name: "Add vendor" }).click();
+    const search = scope.getByPlaceholder("Search vendors...");
+    await expect(search).toBeVisible({ timeout: 10_000 });
+    await search.fill(vendorName);
+    return scope.getByRole("button", { name: vendorName, exact: true });
+  }
+
+  async assignProductVendor(scope, vendorName) {
+    const option = await this.openVendorPicker(scope, vendorName);
+    await expect(
+      option.first(),
+      `Vendor "${vendorName}" should be listed in the product vendor picker`,
+    ).toBeVisible({ timeout: 10_000 });
+    await this.waitForVendorApi(
+      routes.API_URL.assignProductVendor,
+      () => option.first().click(),
+      "assign_product_vendors",
+    );
+    await expect(this.productVendorRow(scope, vendorName)).toHaveCount(1, {
+      timeout: 10_000,
+    });
+  }
+
+  async removeProductVendor(scope, vendorName) {
+    const row = this.productVendorRow(scope, vendorName);
+    await this.waitForVendorApi(
+      routes.API_URL.deleteProductVendor,
+      () => row.getByRole("button", { name: "Remove vendor" }).click(),
+      "delete_product_vendor",
+    );
+    await expect(row).toHaveCount(0, { timeout: 10_000 });
+  }
+
+  async setPreferredProductVendor(scope, vendorName) {
+    const preferredBtn = this.productVendorRow(scope, vendorName).getByRole(
+      "button",
+      { name: "Preferred" },
+    );
+    await this.waitForVendorApi(
+      routes.API_URL.assignPreferredVendor,
+      () => preferredBtn.click(),
+      "assign_preferred_vendor",
+    );
+    await expect(preferredBtn).toHaveAttribute("title", "Preferred vendor");
+  }
+
+  async setProductVendorCost(scope, vendorName, cost) {
+    const input = this.productVendorRow(scope, vendorName).getByRole("textbox");
+    await input.fill(String(cost));
+    await input.press("Tab");
+    const saveCosts = scope.getByRole("button", { name: "Save costs" });
+    await expect(saveCosts).toBeEnabled({ timeout: 10_000 });
+    await this.waitForVendorApi(
+      routes.API_URL.saveProductVendorCosts,
+      () => saveCosts.click(),
+      "save_vendor_list",
+    );
+    await expect(saveCosts).toBeHidden({ timeout: 10_000 });
+  }
+
+  async changeProductVendors({
+    product,
+    add = [],
+    remove = [],
+    preferred,
+    costs = {},
+  }) {
+    await this.openEditSingleProduct(product.name);
+    const scope = await this.getProductVendorScope(product);
+    for (const vendorName of remove) {
+      await this.removeProductVendor(scope, vendorName);
+    }
+    for (const vendorName of add) {
+      await this.assignProductVendor(scope, vendorName);
+    }
+    if (preferred) await this.setPreferredProductVendor(scope, preferred);
+    for (const [vendorName, cost] of Object.entries(costs)) {
+      await this.setProductVendorCost(scope, vendorName, cost);
+    }
+    await this.returnToProductsList();
+  }
+
+  // vendors: [{ name, cost?, preferred? }]; cost/preferred are checked only when set.
+  async expectProductVendors(scope, product, vendors, absentVendors) {
+    const { name } = product;
+    for (const vendor of vendors) {
+      const row = this.productVendorRow(scope, vendor.name);
+      await expect(
+        row,
+        `Product "${name}" should have vendor "${vendor.name}" once`,
+      ).toHaveCount(1, { timeout: 15_000 });
+      if (vendor.cost !== undefined) {
+        await this.expectInputAmount(
+          row.getByRole("textbox"),
+          vendor.cost,
+          `Vendor "${vendor.name}" on "${name}" should keep cost ${vendor.cost}`,
+        );
+      }
+      if (vendor.preferred !== undefined) {
+        await expect(
+          row.getByRole("button", { name: "Preferred" }),
+          `Vendor "${vendor.name}" on "${name}" preferred should be ${vendor.preferred}`,
+        ).toHaveAttribute(
+          "title",
+          vendor.preferred ? "Preferred vendor" : "Set as preferred",
+        );
+      }
+    }
+    for (const vendorName of absentVendors) {
+      await expect(
+        this.productVendorRow(scope, vendorName),
+        `Product "${name}" should not have vendor "${vendorName}"`,
+      ).toHaveCount(0);
+    }
+    await expect(
+      this.productVendorRows(scope),
+      `Product "${name}" should have only its ${vendors.length} vendor(s)`,
+    ).toHaveCount(vendors.length);
+    if (vendors.length === 0) {
+      await expect(scope.getByText(/No vendors assigned yet/i)).toBeVisible();
+    }
+  }
+
+  async verifyProductVendorsOnEditForm({
+    product,
+    vendors = [],
+    absentVendors = [],
+    unchanged,
+  }) {
+    await this.openEditSingleProduct(product.name);
+    const scope = await this.getProductVendorScope(product);
+    await this.expectProductVendors(scope, product, vendors, absentVendors);
+    if (unchanged) await this.expectProductFieldsUnchanged(unchanged);
+    await this.returnToProductsList();
+  }
+
+  // Leaves the product untouched: the picker is left without choosing.
+  async verifyVendorInProductPicker(product, vendorName, shouldBeListed = true) {
+    await this.openEditSingleProduct(product.name);
+    const scope = await this.getProductVendorScope(product);
+    const option = await this.openVendorPicker(scope, vendorName);
+    if (shouldBeListed) {
+      await expect(
+        option.first(),
+        `Vendor "${vendorName}" should be listed in the product vendor picker`,
+      ).toBeVisible({ timeout: 10_000 });
+    } else {
+      await this.page.waitForTimeout(1_500);
+      await expect(
+        option,
+        `Vendor "${vendorName}" should not be listed in the product vendor picker`,
+      ).toHaveCount(0);
+    }
+    await this.returnToProductsList();
+  }
+
+  async verifyVendorInListingFilter(vendorName, shouldBeListed = true) {
+    await this.verifyInListingFilter("vendor", vendorName, shouldBeListed);
+  }
+
+  async verifyVendorFilterShowsProducts(vendorName, productNames) {
+    await this.verifyListingFilterShowsProducts("vendor", vendorName, productNames);
+  }
+
+  async verifyDuplicateDoesNotCopyVendors(source) {
+    await this.openEditSingleProduct(source.name);
+    await this.openDuplicateFromEdit();
+    await this.verifyDuplicateFormCopiesSourceFields(source);
+    await expect(
+      this.productVendorRows(this.formBody),
+      `Duplicate of "${source.name}" should not copy vendors`,
+    ).toHaveCount(0);
+    await this.returnToProductsList();
+  }
+
+  async expectInputAmount(input, amount, message) {
+    await expect
+      .poll(async () => Number((await input.inputValue()).trim()), {
+        timeout: 10_000,
+        message,
+      })
+      .toBe(Number(amount));
+  }
+
+  // Renaming, merging or deleting a brand/tag must touch only that field, so
+  // the rest of the product on the open edit form still matches what was saved.
+  async expectProductFieldsUnchanged(product, { ignore } = {}) {
+    const { name } = product;
+    await expect(this.productNameInput).toHaveValue(name, { timeout: 15_000 });
+    const cats =
+      Array.isArray(product.categories) && product.categories.length
+        ? product.categories
+        : [product.category || "Quickadd"];
+    for (const cat of cats) {
+      await expect(
+        this.selectedCategoryChip(cat),
+        `Product "${name}" should still have category "${cat}"`,
+      ).toBeVisible({ timeout: 15_000 });
+    }
+    await expect(
+      this.categoryChipRemoveButtons(),
+      `Product "${name}" should have only its ${cats.length} categor(ies)`,
+    ).toHaveCount(cats.length);
+
+    if (ignore !== "brand") {
+      if (product.brand) {
+        await expect(
+          this.selectedBrandChip(product.brand),
+          `Product "${name}" should still have brand "${product.brand}"`,
+        ).toBeVisible();
+      } else {
+        await expect(
+          this.brandInput,
+          `Product "${name}" should still have no brand`,
+        ).toHaveValue("");
+      }
+    }
+    if (ignore !== "tags") {
+      const tags = product.tags || [];
+      for (const tag of tags) {
+        await expect(
+          this.selectedTagChip(tag),
+          `Product "${name}" should still have tag "${tag}"`,
+        ).toHaveCount(1);
+      }
+      await expect(
+        this.getTagsSection().locator("xpath=.//span[button]"),
+        `Product "${name}" should still have only its ${tags.length} tag(s)`,
+      ).toHaveCount(tags.length);
+    }
+
+    if (Array.isArray(product.variantNames) && product.variantNames.length) {
+      expect(
+        await this.readVariantCombinationNames(),
+        `Product "${name}" should keep the same variants`,
+      ).toEqual(product.variantNames);
+      for (const [i, combo] of product.variantNames.entries()) {
+        await this.collapseVariantRow(combo);
+        const row = this.getVariantRow(combo);
+        await this.expectInputAmount(
+          row.getByRole("textbox", { name: "Price $" }),
+          product.price,
+          `Variant "${combo}" of "${name}" should keep price ${product.price}`,
+        );
+        await this.expectInputAmount(
+          row.getByRole("textbox", { name: "Cost $" }),
+          product.cost,
+          `Variant "${combo}" of "${name}" should keep cost ${product.cost}`,
+        );
+        if (product.upcs?.[i]) {
+          await expect(
+            this.getVariantUpcInput(combo),
+            `Variant "${combo}" of "${name}" should keep its UPC`,
+          ).toHaveValue(product.upcs[i]);
+        }
+      }
+    } else {
+      await this.expectInputAmount(
+        this.costInput,
+        product.cost,
+        `Product "${name}" should keep cost ${product.cost}`,
+      );
+      await this.expectInputAmount(
+        this.priceInput,
+        product.price,
+        `Product "${name}" should keep price ${product.price}`,
+      );
+      if (product.upc) {
+        await expect(
+          this.upcInput,
+          `Product "${name}" should keep its UPC`,
+        ).toHaveValue(product.upc);
+      }
+    }
   }
 
   async verifyOnlyOneBrandCanBeAssigned() {
@@ -3207,6 +3592,190 @@ class Products {
       await this.categoriesInput.fill("");
     }
     await expect(chip).toBeVisible();
+  }
+
+  // selectCategory falls back to Enter, so use this to prove the option exists.
+  async verifyCategoryInProductDropdown(categoryName, shouldBeListed = true) {
+    await this.closeOpenList();
+    await this.categoriesInput.click();
+    await this.categoriesInput.fill(categoryName);
+    const option = this.page.getByRole("button", {
+      name: categoryName,
+      exact: true,
+    });
+    if (shouldBeListed) {
+      await expect(
+        option.first(),
+        `Category "${categoryName}" should be listed in the product Categories dropdown`,
+      ).toBeVisible({ timeout: 10_000 });
+    } else {
+      await this.page.waitForTimeout(1_500);
+      await expect(
+        option,
+        `Category "${categoryName}" should not be listed in the product Categories dropdown`,
+      ).toHaveCount(0);
+    }
+    await this.categoriesInput.fill("");
+    await this.closeOpenList();
+  }
+
+  // Typing a name that isn't an existing category offers 'Create "name"', which
+  // opens a Create category drawer. The category is saved by the drawer itself,
+  // not by saving the product.
+  categoryCreateOption() {
+    return this.getCategoriesSection().getByRole("button", {
+      name: /^Create "/,
+    });
+  }
+
+  createCategoryNameInput() {
+    return this.page.getByPlaceholder("Enter category name");
+  }
+
+  createCategoryDrawer() {
+    return this.createCategoryNameInput().locator(
+      "xpath=ancestor::div[.//button[normalize-space()='Create category']][1]",
+    );
+  }
+
+  createCategoryDrawerBtn() {
+    return this.createCategoryDrawer().getByRole("button", {
+      name: "Create category",
+      exact: true,
+    });
+  }
+
+  async typeCategoryName(text) {
+    await this.closeOpenList();
+    await this.categoriesInput.click();
+    await this.categoriesInput.fill(text);
+  }
+
+  async clearCategoryInput() {
+    if ((await this.categoriesInput.inputValue()).trim()) {
+      await this.categoriesInput.fill("");
+    }
+    await this.closeOpenList();
+  }
+
+  async verifyCreateCategoryOptionShown(categoryName) {
+    await this.typeCategoryName(categoryName);
+    await expect(
+      this.categoryCreateOption(),
+      `A new name should be offered as 'Create "${categoryName}"'`,
+    ).toHaveText(`Create "${categoryName}"`, { timeout: 10_000 });
+    await this.clearCategoryInput();
+  }
+
+  async verifyExistingCategoryNotOfferedForCreate(typedName, existingName) {
+    await this.typeCategoryName(typedName);
+    await expect(
+      this.page.getByRole("button", { name: existingName, exact: true }),
+      `Typing "${typedName}" should list existing category "${existingName}"`,
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      this.categoryCreateOption(),
+      `Typing "${typedName}" should not offer to create a duplicate of "${existingName}"`,
+    ).toHaveCount(0);
+    await this.clearCategoryInput();
+  }
+
+  async openCreateCategoryDrawer(categoryName) {
+    await this.typeCategoryName(categoryName);
+    const option = this.categoryCreateOption();
+    await expect(option).toHaveText(`Create "${categoryName}"`, {
+      timeout: 10_000,
+    });
+    await option.click();
+    await expect(this.createCategoryNameInput()).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(
+      this.createCategoryNameInput(),
+      "Create category drawer should prefill the typed name",
+    ).toHaveValue(categoryName);
+  }
+
+  async cancelCreateCategoryDrawer() {
+    await this.createCategoryDrawer()
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    await expect(this.createCategoryNameInput()).toBeHidden({
+      timeout: 10_000,
+    });
+  }
+
+  async verifyCancelCreateCategoryAddsNothing(categoryName) {
+    await this.openCreateCategoryDrawer(categoryName);
+    await this.cancelCreateCategoryDrawer();
+    await expect(this.selectedCategoryChip(categoryName)).toHaveCount(0);
+    await expect(this.categoryChipRemoveButtons()).toHaveCount(0);
+    await this.clearCategoryInput();
+  }
+
+  async verifyCreateCategoryNameRequired(categoryName) {
+    await this.openCreateCategoryDrawer(categoryName);
+    await this.createCategoryNameInput().fill("");
+    await expect(
+      this.createCategoryDrawerBtn(),
+      "Create category should be disabled without a name",
+    ).toBeDisabled();
+    await this.cancelCreateCategoryDrawer();
+    await this.clearCategoryInput();
+  }
+
+  async verifyCreateCategoryStripsSpecialCharacters(categoryName) {
+    await this.openCreateCategoryDrawer(categoryName);
+    await this.createCategoryNameInput().fill(`${categoryName}!@#$%^&*`);
+    await expect(
+      this.createCategoryNameInput(),
+      "Create category name should drop special characters",
+    ).toHaveValue(categoryName);
+    await this.cancelCreateCategoryDrawer();
+    await this.clearCategoryInput();
+  }
+
+  async submitCreateCategoryDrawer() {
+    const responsePromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.addCategoryFromProduct_URL),
+      { timeout: 20_000 },
+    );
+    await this.createCategoryDrawerBtn().click();
+    const response = await responsePromise;
+    this.assertHttp200(response, "add_category");
+    return response.json();
+  }
+
+  async verifyCreateCategoryDuplicateRejected(categoryName, existingName) {
+    await this.openCreateCategoryDrawer(categoryName);
+    await this.createCategoryNameInput().fill(existingName);
+    const body = await this.submitCreateCategoryDrawer();
+    expect(body.message).toBe("Failed");
+    expect(body.update_message).toBe("Category title already exist.");
+    await expect(
+      this.createCategoryNameInput(),
+      "Drawer should stay open when the name already exists",
+    ).toBeVisible();
+    await this.cancelCreateCategoryDrawer();
+    await expect(this.categoryChipRemoveButtons()).toHaveCount(0);
+    await this.clearCategoryInput();
+  }
+
+  async createCategoryFromProductForm(categoryName) {
+    await this.openCreateCategoryDrawer(categoryName);
+    const body = await this.submitCreateCategoryDrawer();
+    expect(body.message).toBe("Success");
+    expect(body.update_message).toBe("Category Created");
+    await expect(this.createCategoryNameInput()).toBeHidden({
+      timeout: 10_000,
+    });
+    await this.closeOpenList();
+    await expect(
+      this.selectedCategoryChip(categoryName),
+      `Created category "${categoryName}" should be assigned to the product`,
+    ).toBeVisible({ timeout: 10_000 });
   }
 
   async saveProductClick() {
@@ -6009,7 +6578,9 @@ class Products {
     } = product;
     await this.verifyAddVariantsProductUrl();
     await this.fillProductName(name);
-    await this.selectCategory(category);
+    for (const cat of product.categories || [category]) {
+      await this.selectCategory(cat);
+    }
     if (product.brand) await this.selectBrand(product.brand);
     for (const tag of product.tags || []) await this.selectTag(tag);
 

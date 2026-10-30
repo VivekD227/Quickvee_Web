@@ -158,7 +158,7 @@ test.describe("Tag - Product Integration", () => {
     await tag.renameTag(newTag, editedTag);
   });
 
-  test("Renamed tag reflects on both products", async () => {
+  test("Renamed tag reflects on both products without changing other details", async () => {
     await dashboard.productsClick();
     await products.verifyProductsPageLoaded();
     for (const product of [singleProduct, variantProduct]) {
@@ -166,7 +166,9 @@ test.describe("Tag - Product Integration", () => {
         name: product.name,
         tags: [editedTag],
         absentTags: [newTag],
+        unchanged: product,
       });
+      await products.verifyProductStillInListing(product);
     }
   });
 
@@ -214,7 +216,7 @@ test.describe("Tag - Product Integration", () => {
     await tag.verifyTagNotInList(specialTag);
   });
 
-  test("Merged tag is replaced on both products", async () => {
+  test("Merged tag is replaced on both products without changing other details", async () => {
     await dashboard.productsClick();
     await products.verifyProductsPageLoaded();
     for (const product of [singleProduct, variantProduct]) {
@@ -222,7 +224,9 @@ test.describe("Tag - Product Integration", () => {
         name: product.name,
         tags: [editedTag],
         absentTags: [specialTag],
+        unchanged: product,
       });
+      await products.verifyProductStillInListing(product);
     }
     await products.verifyTagFilterShowsProducts(editedTag, [
       singleProduct.name,
@@ -237,7 +241,7 @@ test.describe("Tag - Product Integration", () => {
     await tag.deleteTag(editedTag);
   });
 
-  test("Deleted tag is removed from both products", async () => {
+  test("Deleted tag is removed from both products without changing other details", async () => {
     await dashboard.productsClick();
     await products.verifyProductsPageLoaded();
     for (const product of [singleProduct, variantProduct]) {
@@ -245,7 +249,9 @@ test.describe("Tag - Product Integration", () => {
         name: product.name,
         tags: [],
         absentTags: [editedTag],
+        unchanged: product,
       });
+      await products.verifyProductStillInListing(product);
     }
   });
 
