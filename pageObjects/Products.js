@@ -3094,10 +3094,11 @@ class Products {
     await expect(this.rowPickupToggle).toBeVisible({ timeout: 2_000 });
   }
 
+  // delete_product is served from api-ci or from api-node under /ci/.
   isDeleteProductResponse(res) {
     return (
       res.request().method() === "POST" &&
-      res.url().includes(routes.API_URL.deleteProduct)
+      res.url().endsWith("/Product_api_react/delete_product")
     );
   }
 

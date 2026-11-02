@@ -53,6 +53,8 @@ class Dashboard {
     // Link role so it doesn't also match the "Tags" filter on the Products page.
     this.tags = page.getByRole("link", { name: "Tags", exact: true });
 
+    this.lottery = page.getByRole("link", { name: "Lottery", exact: true });
+
     // Dashboard page UI
     this.dashboardHeading = page.getByRole("heading", {
       name: "Merchant Dashboard",
@@ -569,6 +571,27 @@ class Dashboard {
       return;
     }
     expect(responseBody.status).toBe(true);
+  }
+
+  async lotteryClick() {
+    const responsePromise = this.page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        res.url().includes(routes.API_URL.lotteryList_URL),
+      { timeout: 30_000 },
+    );
+    await this.lottery.click();
+    // The sidebar link sometimes doesn't navigate on the first click.
+    await this.page
+      .waitForURL(/\/merchants\/inventory\/lottery/, { timeout: 10_000 })
+      .catch(() => this.page.goto(routes.page_URL.lottery));
+    const response = await responsePromise;
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body.status).toBeTruthy();
+    expect(Array.isArray(body.data), "Lottery list data should be an array").toBeTruthy();
+    sessionDataStorage.set("lottery_APIdata", body.data);
+    console.log(`Lottery list API count (on navigation): ${body.data.length}`);
   }
 }
 

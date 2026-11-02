@@ -100,6 +100,10 @@ module.exports = {
     onlineStoreCategories_URL: apiNode(
       "ci/FindstoreReact/merchant_store_and_category",
     ),
+    lotteryList_URL: apiNode("product/lottery"),
+    // Lottery add/edit save through the product APIs (is_lottery=1); delete
+    // goes through api-node, not the api-ci deleteProduct route.
+    lotteryDelete_URL: apiNode("ci/Product_api_react/delete_product"),
   },
 
   //   QA_URL: {
@@ -123,5 +127,7 @@ module.exports = {
       "/merchants/inventory/new-products/add?type=variants",
     ),
     categories: page("/merchants/inventory/category"),
+    lottery: page("/merchants/inventory/lottery"),
+    lottery_add: page("/merchants/inventory/lottery/add-lottery"),
   },
 };
