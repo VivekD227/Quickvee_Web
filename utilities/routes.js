@@ -104,6 +104,23 @@ module.exports = {
     // Lottery add/edit save through the product APIs (is_lottery=1); delete
     // goes through api-node, not the api-ci deleteProduct route.
     lotteryDelete_URL: apiNode("ci/Product_api_react/delete_product"),
+    poList_URL: apiNode("new_purchase_orders_api/new_purchase_orders_list"),
+    poTabCounts_URL: apiNode(
+      "new_purchase_orders_api/new_purchase_orders_list_count",
+    ),
+    poKpiCounts_URL: apiNode("new_purchase_orders_api/new_purchase_orders_count"),
+    poGenerateNumber_URL: apiNode("new_purchase_orders_api/generate_po_number"),
+    poAdd_URL: apiNode("new_purchase_orders_api/add_new_purchase_order"),
+    poAddAndReceive_URL: apiNode(
+      "new_purchase_orders_api/add_and_receive_new_purchase_order",
+    ),
+    poUpdate_URL: apiNode(
+      "new_purchase_orders_api/update_new_purchase_order_items",
+    ),
+    poReceive_URL: apiNode("new_purchase_orders_api/receive_new_purchase_order"),
+    poVoid_URL: apiNode("new_purchase_orders_api/void_new_purchase_order"),
+    poDelete_URL: apiNode("new_purchase_orders_api/delete_new_purchase_order"),
+    poDetails_URL: apiNode("new_purchase_orders_api/new_purchase_order_details"),
   },
 
   //   QA_URL: {
@@ -129,5 +146,7 @@ module.exports = {
     categories: page("/merchants/inventory/category"),
     lottery: page("/merchants/inventory/lottery"),
     lottery_add: page("/merchants/inventory/lottery/add-lottery"),
+    purchaseOrders: page("/merchants/purchase-order"),
+    purchaseOrder_add: page("/merchants/purchase-order/add"),
   },
 };

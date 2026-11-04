@@ -55,6 +55,13 @@ class Dashboard {
 
     this.lottery = page.getByRole("link", { name: "Lottery", exact: true });
 
+    this.stockControl = page.getByText("Stock Control", { exact: true });
+
+    this.purchaseOrder = page.getByRole("link", {
+      name: "Purchase Order",
+      exact: true,
+    });
+
     // Dashboard page UI
     this.dashboardHeading = page.getByRole("heading", {
       name: "Merchant Dashboard",
@@ -592,6 +599,31 @@ class Dashboard {
     expect(Array.isArray(body.data), "Lottery list data should be an array").toBeTruthy();
     sessionDataStorage.set("lottery_APIdata", body.data);
     console.log(`Lottery list API count (on navigation): ${body.data.length}`);
+  }
+
+  // Exact URL match: new_purchase_orders_list is a prefix of _list_count.
+  async purchaseOrderClick() {
+    const waitFor = (url) =>
+      this.page.waitForResponse(
+        (res) => res.request().method() === "POST" && res.url() === url,
+        { timeout: 30_000 },
+      );
+    const listPromise = waitFor(routes.API_URL.poList_URL);
+    const tabCountsPromise = waitFor(routes.API_URL.poTabCounts_URL);
+    const kpiPromise = waitFor(routes.API_URL.poKpiCounts_URL);
+    if (!(await this.purchaseOrder.isVisible())) await this.stockControl.click();
+    await this.purchaseOrder.click();
+    for (const [key, promise] of [
+      ["po_listAPI", listPromise],
+      ["po_tabCountsAPI", tabCountsPromise],
+      ["po_kpiAPI", kpiPromise],
+    ]) {
+      const response = await promise;
+      expect(response.status(), `${key} should return 200`).toBe(200);
+      const body = await response.json();
+      expect(body.status, `${key} status`).toBeTruthy();
+      sessionDataStorage.set(key, body);
+    }
   }
 }
 
