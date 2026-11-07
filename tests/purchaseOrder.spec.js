@@ -278,9 +278,11 @@ test.describe("Purchase Order Module", () => {
       expect(payload.is_draft).toBe("1");
       await po.verifyStatus(mainPo, "Draft");
       await po.verifyDetailData(mainPo);
+      await expectStock(stock, "Editing a draft must not change stock");
     });
 
     test("Discard dialog Keep PO keeps the draft", async () => {
+      await po.openPo(mainPo);
       await po.discardKeep();
       await po.verifyStatus(mainPo, "Draft");
     });
@@ -422,12 +424,25 @@ test.describe("Purchase Order Module", () => {
   });
 
   test.describe("Cancel, discard and create & receive", () => {
-    test("Cancel PO: Keep PO, then cancel without changing stock", async () => {
+    test("Create PO and edit it without changing stock, then cancel it", async () => {
       const cancelPo = { lines: [{ name: product.name, qty: 2, cost: 4 }] };
       await po.openNewForm();
       await po.fillPoForm(cancelPo);
       await po.saveNewPo(cancelPo, { draft: false });
       await po.verifyStatus(cancelPo, "Active");
+      await expectStock(stock, "Creating a PO from the new form must not change stock");
+
+      // Editing an active PO (nothing received yet) doesn't change stock either.
+      await po.openPo(cancelPo);
+      await po.startEdit();
+      cancelPo.lines[0].qty = 3;
+      await po.setLineQty(product.name, 3, true);
+      await po.saveEdit();
+      await po.verifyStatus(cancelPo, "Active");
+      await po.verifyDetailData(cancelPo);
+      await expectStock(stock, "Editing an active PO must not change stock");
+
+      await po.openPo(cancelPo);
       await po.cancelPoKeep();
       await po.verifyStatus(cancelPo, "Active");
       await po.cancelPo(cancelPo);
@@ -446,6 +461,7 @@ test.describe("Purchase Order Module", () => {
       await po.gotoList();
       await po.verifySearchNoMatch(draftPo.number);
       await po.search("");
+      await expectStock(stock, "Discarding a draft must not change stock");
     });
 
     test("Create & Receive: Go back keeps the form, confirm receives all", async () => {

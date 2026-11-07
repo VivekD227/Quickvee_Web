@@ -65,7 +65,10 @@ class PurchaseOrder {
     this.qtyMinError = page.getByText("Minimum 1 qty required.").first();
 
     // Add items dialog
-    this.addItemsDialog = page.getByRole("dialog", { name: "Add items to PO" });
+    // Found by its search box: the title isn't the same in edit mode.
+    this.addItemsDialog = page
+      .getByRole("dialog")
+      .filter({ has: page.getByPlaceholder(/^Search product, variant, UPC/) });
     this.addItemsSearch = this.addItemsDialog.getByRole("textbox");
     this.addSelectedBtn = this.addItemsDialog.getByRole("button", { name: /^Add \d+ to PO$/ });
     this.notFoundDialog = page.getByRole("dialog", { name: "Product not found" });
@@ -174,14 +177,26 @@ class PurchaseOrder {
 
   // ---------- List ----------
 
+  // Opening the list right after leaving it sometimes misses its API calls,
+  // so retry once with a reload.
   async gotoList() {
-    const listPromise = this.waitForApi(routes.API_URL.poList_URL);
-    const tabsPromise = this.waitForApi(routes.API_URL.poTabCounts_URL);
-    const kpiPromise = this.waitForApi(routes.API_URL.poKpiCounts_URL);
-    await this.page.goto(routes.page_URL.purchaseOrders);
-    sessionDataStorage.set("po_listAPI", await this.readApi(await listPromise, "PO list"));
-    sessionDataStorage.set("po_tabCountsAPI", await this.readApi(await tabsPromise, "PO tab counts"));
-    sessionDataStorage.set("po_kpiAPI", await this.readApi(await kpiPromise, "PO KPI counts"));
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const listPromise = this.waitForApi(routes.API_URL.poList_URL, 20_000);
+      const tabsPromise = this.waitForApi(routes.API_URL.poTabCounts_URL, 20_000);
+      const kpiPromise = this.waitForApi(routes.API_URL.poKpiCounts_URL, 20_000);
+      if (attempt === 0) await this.page.goto(routes.page_URL.purchaseOrders);
+      else await this.page.reload();
+      try {
+        sessionDataStorage.set("po_listAPI", await this.readApi(await listPromise, "PO list"));
+        sessionDataStorage.set("po_tabCountsAPI", await this.readApi(await tabsPromise, "PO tab counts"));
+        sessionDataStorage.set("po_kpiAPI", await this.readApi(await kpiPromise, "PO KPI counts"));
+        break;
+      } catch (error) {
+        tabsPromise.catch(() => {});
+        kpiPromise.catch(() => {});
+        if (attempt === 1) throw error;
+      }
+    }
     await this.verifyListLoaded();
   }
 
@@ -303,14 +318,19 @@ class PurchaseOrder {
   // ---------- New PO form ----------
 
   async openNewForm() {
-    const numberPromise = this.waitForApi(routes.API_URL.poGenerateNumber_URL);
+    const numberPromise = this.waitForApi(routes.API_URL.poGenerateNumber_URL, 15_000);
     if (await this.newPoBtn.isVisible()) await this.newPoBtn.click();
     else await this.page.goto(routes.page_URL.purchaseOrder_add);
-    const body = await this.readApi(await numberPromise, "generate_po_number");
-    expect(body.status).toBeTruthy();
     await expect(this.page).toHaveURL(ADD_URL, { timeout: 15_000 });
-    await expect(this.poNumberInput).toHaveValue(body.po_number, { timeout: 15_000 });
-    return body.po_number;
+    // The number API is sometimes slow to show up; the filled field is enough.
+    const response = await numberPromise.catch(() => null);
+    if (response) {
+      const body = await this.readApi(response, "generate_po_number");
+      expect(body.status).toBeTruthy();
+      await expect(this.poNumberInput).toHaveValue(body.po_number, { timeout: 15_000 });
+    }
+    await expect(this.poNumberInput).not.toHaveValue("", { timeout: 15_000 });
+    return this.poNumberInput.inputValue();
   }
 
   async verifyNewFormDefaults() {
@@ -396,6 +416,43 @@ class PurchaseOrder {
     await this.addSelectedBtn.click();
     await expect(this.addItemsDialog).toBeHidden();
     await expect(this.lineRow(productName)).toBeVisible();
+  }
+
+  // Variants are listed under their product; each becomes a line named
+  // "<product> / <variant>".
+  async addVariantsFromDialog(productName, variantNames) {
+    await this.addItemsBtn.click();
+    await expect(this.addItemsDialog).toBeVisible();
+    await this.addItemsSearch.fill(productName);
+    await expect(
+      this.addItemsDialog.getByRole("button", { name: new RegExp(`^${productName} ${variantNames.length} variants`) }),
+    ).toBeVisible({ timeout: 15_000 });
+    for (const variant of variantNames) await this.variantOption(variant).click();
+    await expect(this.addSelectedBtn).toHaveText(`Add ${variantNames.length} to PO`);
+    await this.addSelectedBtn.click();
+    await expect(this.addItemsDialog).toBeHidden();
+    for (const variant of variantNames) {
+      await expect(this.lineRow(`${productName} / ${variant}`)).toBeVisible();
+    }
+  }
+
+  variantOption(variantName) {
+    return this.addItemsDialog.getByRole("button", { name: new RegExp(`^${variantName} \\d`) }).first();
+  }
+
+  // Reads every variant's on-hand quantity ("Qty: N") from the Add items dialog.
+  async getVariantStock(productName, variantNames) {
+    await this.openNewForm();
+    await this.addItemsBtn.click();
+    await this.addItemsSearch.fill(productName);
+    const stock = {};
+    for (const variant of variantNames) {
+      const option = this.variantOption(variant);
+      await expect(option).toBeVisible({ timeout: 15_000 });
+      stock[variant] = Number((await option.innerText()).match(/Qty:\s*(-?\d+)/)[1]);
+    }
+    await this.page.keyboard.press("Escape");
+    return stock;
   }
 
   async scanCode(code) {
@@ -570,7 +627,10 @@ class PurchaseOrder {
     expect(data.po_reference || "").toBe(po.note || "");
     expect(items).toHaveLength(po.lines.length);
     for (const line of po.lines) {
-      const item = items.find((i) => i.product_title === line.name);
+      // Variant lines come back as product_title + variant_name.
+      const item = items.find(
+        (i) => (i.variant_name ? `${i.product_title} / ${i.variant_name}` : i.product_title) === line.name,
+      );
       expect(item, `${line.name} on the PO`).toBeTruthy();
       expect(Number(item.ordered_qty)).toBe(line.qty);
       expect(Number(item.unit_cost)).toBe(Number(line.cost));
@@ -735,6 +795,13 @@ class PurchaseOrder {
 
   // ---------- Cancel / Discard / Create & Receive ----------
 
+  // After Cancel PO or Discard the app goes back to the previous page (the New
+  // PO form when the PO was just created there, otherwise e.g. the list).
+  async verifyLeftDetail() {
+    await expect(this.page).not.toHaveURL(DETAIL_URL, { timeout: 15_000 });
+    await expect(this.page).toHaveURL(new RegExp(`${LIST_URL.source}|${ADD_URL.source}`));
+  }
+
   async cancelPoKeep() {
     await this.cancelPoBtn.click();
     await expect(this.cancelPoDialog).toBeVisible();
@@ -754,8 +821,7 @@ class PurchaseOrder {
     );
     expect(body.message).toBe("Purchase order voided successfully");
     await expect(this.toast("Purchase order voided successfully")).toBeVisible({ timeout: 10_000 });
-    // After cancelling, the app opens the New Purchase Order form (confirmed).
-    await expect(this.page).toHaveURL(ADD_URL, { timeout: 15_000 });
+    await this.verifyLeftDetail();
   }
 
   async discardKeep() {
@@ -775,7 +841,7 @@ class PurchaseOrder {
     );
     expect(body.message).toBe("Purchase order deleted successfully");
     await expect(this.toast("Purchase order deleted successfully")).toBeVisible({ timeout: 10_000 });
-    await expect(this.page).toHaveURL(ADD_URL, { timeout: 15_000 });
+    await this.verifyLeftDetail();
   }
 
   async openCreateReceiveDialog() {

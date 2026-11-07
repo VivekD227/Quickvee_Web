@@ -1064,7 +1064,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 20_000 },
     );
     await this.saveProductClick();
@@ -1285,7 +1285,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 20_000 },
     );
 
@@ -1347,7 +1347,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 20_000 },
     );
     await this.saveProductClick();
@@ -1384,7 +1384,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 20_000 },
     );
     await this.saveProductClick();
@@ -1458,7 +1458,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 25_000 },
     );
     await this.generateAndSaveUpcBtn.click();
@@ -2565,7 +2565,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 20_000 },
     );
     await this.saveProductClick();
@@ -2663,7 +2663,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 20_000 },
     );
     await this.saveProductClick();
@@ -2722,7 +2722,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 20_000 },
     );
     await this.saveProductClick();
@@ -2797,7 +2797,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 20_000 },
     );
     await this.saveProductClick();
@@ -2883,7 +2883,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 20_000 },
     );
     await this.saveProductClick();
@@ -2931,7 +2931,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 20_000 },
     );
     await this.saveProductClick();
@@ -2978,7 +2978,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 20_000 },
     );
     await this.saveProductClick();
@@ -3092,6 +3092,11 @@ class Products {
     await expect(this.rowOnlineOrderingHeading).toBeVisible({ timeout: 2_000 });
     await expect(this.rowDeliveryToggle).toBeVisible({ timeout: 2_000 });
     await expect(this.rowPickupToggle).toBeVisible({ timeout: 2_000 });
+  }
+
+  // add_product is served from api-ci or from api-node under /ci/.
+  isAddProductUrl(url) {
+    return url.endsWith("/Product_api_react/add_product");
   }
 
   // delete_product is served from api-ci or from api-node under /ci/.
@@ -4051,7 +4056,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 20_000 },
     );
     await this.saveProductClick();
@@ -4100,7 +4105,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 20_000 },
     );
     await this.saveProductClick();
@@ -4186,7 +4191,7 @@ class Products {
       .waitForResponse(
         (res) =>
           res.request().method() === "POST" &&
-          res.url().includes(routes.API_URL.addProduct),
+          this.isAddProductUrl(res.url()),
         { timeout: 5_000 },
       )
       .catch(() => null);
@@ -5438,7 +5443,7 @@ class Products {
       .waitForResponse(
         (res) =>
           res.request().method() === "POST" &&
-          res.url().includes(routes.API_URL.addProduct),
+          this.isAddProductUrl(res.url()),
         { timeout: 5_000 },
       )
       .catch(() => null);
@@ -5595,7 +5600,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 20_000 },
     );
     await this.saveProductClick();
@@ -5656,7 +5661,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 20_000 },
     );
     await this.saveProductClick();
@@ -6285,7 +6290,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 25_000 },
     );
     await this.saveProductClick();
@@ -6312,7 +6317,7 @@ class Products {
       .waitForResponse(
         (res) =>
           res.request().method() === "POST" &&
-          res.url().includes(routes.API_URL.addProduct),
+          this.isAddProductUrl(res.url()),
         { timeout: 5_000 },
       )
       .catch(() => null);
@@ -6523,7 +6528,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 25_000 },
     );
     await this.generateAndSaveUpcBtn.click();
@@ -6637,7 +6642,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 25_000 },
     );
     await this.saveProductClick();
@@ -7090,7 +7095,7 @@ class Products {
     const addPromise = this.page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
-        res.url().includes(routes.API_URL.addProduct),
+        this.isAddProductUrl(res.url()),
       { timeout: 25_000 },
     );
     await this.saveProductClick();
