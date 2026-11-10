@@ -241,8 +241,10 @@ class PurchaseOrder {
     await expect(this.kpiCard("Open value")).toContainText(
       `Across ${Number(kpi.open_po_count)} purchase order`,
     );
-    await expect(this.kpiCard("Units incoming")).toContainText(String(Number(kpi.total_units)));
-    await expect(this.kpiCard("Overdue")).toContainText(String(Number(kpi.due_po_count)));
+    // Large numbers are shown with thousands separators (117,574).
+    const count = (value) => Number(value).toLocaleString("en-US");
+    await expect(this.kpiCard("Units incoming")).toContainText(count(kpi.total_units));
+    await expect(this.kpiCard("Overdue")).toContainText(count(kpi.due_po_count));
   }
 
   getTabCount(status) {
@@ -322,10 +324,18 @@ class PurchaseOrder {
     if (await this.newPoBtn.isVisible()) await this.newPoBtn.click();
     else await this.page.goto(routes.page_URL.purchaseOrder_add);
     await expect(this.page).toHaveURL(ADD_URL, { timeout: 15_000 });
+    // The form sometimes doesn't render; load it once more.
+    if (!(await this.formTitle.isVisible({ timeout: 15_000 }).catch(() => false))) {
+      await this.page.goto(routes.page_URL.purchaseOrder_add);
+    }
     // The number API is sometimes slow to show up; the filled field is enough.
     const response = await numberPromise.catch(() => null);
-    if (response) {
-      const body = await this.readApi(response, "generate_po_number");
+    // The body can be gone when the page was still navigating; the field is
+    // checked below anyway.
+    const body = response
+      ? await this.readApi(response, "generate_po_number").catch(() => null)
+      : null;
+    if (body) {
       expect(body.status).toBeTruthy();
       await expect(this.poNumberInput).toHaveValue(body.po_number, { timeout: 15_000 });
     }
@@ -876,12 +886,199 @@ class PurchaseOrder {
     await expect(this.notifyDialog).toBeHidden();
   }
 
+  // ---------- Multi-store ----------
+  // A store is { name, city, id } where id is the store's merchant_id
+  // (e.g. "VIV271990CA"); every PO API call carries it as merchant_id.
+
+  // List page store filter (left of New Purchase Order). Its label is the
+  // selected store, or "All Stores" when every store is selected.
+  get storeFilterBtn() {
+    return this.newPoBtn.locator("xpath=preceding::button[1]");
+  }
+
+  get storeFilterSearch() {
+    return this.page.getByPlaceholder("Search stores...");
+  }
+
+  storeFilterOption(name) {
+    return this.page.getByText(name, { exact: true }).locator("visible=true").last();
+  }
+
+  async openStoreFilter() {
+    if (!(await this.storeFilterSearch.isVisible())) await this.storeFilterBtn.click();
+    await expect(this.storeFilterSearch).toBeVisible();
+  }
+
+  async closeStoreFilter() {
+    // Escape doesn't close it; its button toggles it.
+    if (await this.storeFilterSearch.isVisible()) await this.storeFilterBtn.click();
+    await expect(this.storeFilterSearch).toBeHidden();
+  }
+
+  // Ticks/unticks one store (or "All Stores") in the list's store filter.
+  // Waits for the list, tab counts and KPI calls it triggers, keeps them like
+  // gotoList does, and returns the merchant_ids the list was asked for.
+  // A selection already loaded in this page is shown again from memory with
+  // no calls; then it returns null.
+  async toggleStoreFilter(name) {
+    await this.openStoreFilter();
+    const listPromise = this.waitForApi(routes.API_URL.poList_URL, 10_000).catch(() => null);
+    const tabsPromise = this.waitForApi(routes.API_URL.poTabCounts_URL, 10_000);
+    const kpiPromise = this.waitForApi(routes.API_URL.poKpiCounts_URL, 10_000);
+    await this.storeFilterOption(name).click();
+    const listResponse = await listPromise;
+    if (!listResponse) {
+      tabsPromise.catch(() => {});
+      kpiPromise.catch(() => {});
+      return null;
+    }
+    sessionDataStorage.set("po_listAPI", await this.readApi(listResponse, "PO list"));
+    sessionDataStorage.set("po_tabCountsAPI", await this.readApi(await tabsPromise, "PO tab counts"));
+    sessionDataStorage.set("po_kpiAPI", await this.readApi(await kpiPromise, "PO KPI counts"));
+    return this.parseFormData(listResponse.request().postData()).merchant_id.split(",").sort();
+  }
+
+  // Sets the filter to exactly these stores (by name), starting from "All
+  // Stores" and unticking the rest. Returns the merchant_ids sent.
+  async filterStores(allNames, wanted) {
+    if ((await this.storeFilterBtn.innerText()).trim() !== "All Stores") {
+      await this.toggleStoreFilter("All Stores");
+      await expect(this.storeFilterBtn).toHaveText("All Stores");
+    }
+    let ids = null;
+    for (const name of allNames.filter((n) => !wanted.includes(n))) {
+      ids = await this.toggleStoreFilter(name);
+    }
+    await this.closeStoreFilter();
+    // Shown from memory: reload (the filter is remembered) for fresh data.
+    if (!ids) await this.gotoList();
+    return ids;
+  }
+
+  // Every row shows "Location: <store>"; checks each one is in `storeNames`.
+  async verifyRowLocations(storeNames) {
+    await expect(this.rows.first()).toBeVisible({ timeout: 15_000 });
+    const locations = await this.page.getByText(/^Location: /).allInnerTexts();
+    expect(locations.length, "rows with a location").toBe(await this.rows.count());
+    for (const text of new Set(locations)) {
+      expect(storeNames, `Row ${text}`).toContain(text.replace("Location: ", ""));
+    }
+    return new Set(locations.map((t) => t.replace("Location: ", "")));
+  }
+
+  // New PO form: required Location ("<store> · <city>, <ST>").
+  get locationBtn() {
+    return this.page.getByRole("button", { name: /^[^·]+ · [^·]+, [A-Z]{2}$/ }).first();
+  }
+
+  get locationSearch() {
+    return this.page.getByPlaceholder("Search stores", { exact: true });
+  }
+
+  locationOption(store) {
+    return this.page.getByRole("button", { name: `${store.name} ${store.city}`, exact: true });
+  }
+
+  get changeLocationDialog() {
+    return this.page.getByRole("dialog").filter({ hasText: "Change location?" });
+  }
+
+  get copyStoresInput() {
+    return this.page.getByRole("textbox", { name: "Search Stores" });
+  }
+
+  async verifyLocation(store) {
+    await expect(this.locationBtn).toHaveText(`${store.name} · ${store.city}`);
+    await expect(this.page.locator("body")).toContainText(
+      new RegExp(`Current\\s*inventory\\s*${store.name}`, "i"),
+    );
+  }
+
+  // Picks a Location. A form with lines asks "Change location?" first:
+  // onLines "change" confirms, "keep" keeps the current location.
+  // Returns the generate_po_number response body (null when kept).
+  // A PO number typed by hand is kept on a switch: pass typedNumber: true.
+  async selectLocation(store, { onLines = "change", typedNumber = false } = {}) {
+    const before = await this.poNumberInput.inputValue();
+    await this.locationBtn.click();
+    await expect(this.locationSearch).toBeVisible();
+    // A call with po_number is the availability check, not a new number.
+    const numberPromise = this.page
+      .waitForResponse((res) => {
+        if (!isPost(res, routes.API_URL.poGenerateNumber_URL)) return false;
+        const data = this.parseFormData(res.request().postData());
+        return data.merchant_id === store.id && !data.po_number;
+      }, { timeout: 15_000 })
+      .catch(() => null);
+    await this.locationOption(store).click();
+    if (await this.changeLocationDialog.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      const button = onLines === "keep" ? "Keep products" : "Change location";
+      await this.changeLocationDialog.getByRole("button", { name: button }).click();
+      await expect(this.changeLocationDialog).toBeHidden();
+      if (onLines === "keep") return null;
+    }
+    const response = await numberPromise;
+    expect(response, `generate_po_number for ${store.name}`).toBeTruthy();
+    const body = await this.readApi(response, "generate_po_number");
+    await expect(this.poNumberInput).toHaveValue(typedNumber ? before : body.po_number, {
+      timeout: 15_000,
+    });
+    await this.verifyLocation(store);
+    return body;
+  }
+
+  // Store names offered by "Copy purchase order to other stores".
+  async openCopyStores() {
+    await this.copyStoresInput.click();
+    const selectAll = this.page.getByText("Select All", { exact: true });
+    await expect(selectAll).toBeVisible();
+    return (await selectAll.locator("xpath=..").locator("> *").allInnerTexts()).map((t) => t.trim());
+  }
+
+  async selectCopyStore(name) {
+    await this.openCopyStores();
+    await this.page
+      .getByText("Select All", { exact: true })
+      .locator("xpath=..")
+      .getByText(name, { exact: true })
+      .click();
+    await this.page.keyboard.press("Escape");
+  }
+
+  // The stores chosen in the copy field (shown between its label and the
+  // product table, or its open option list).
+  async copyStoresText() {
+    const text = (await this.page.locator("body").innerText()).replace(/\s+/g, " ");
+    return (text.match(/Copy purchase order to other stores(.*?)(Select All|# Product)/i)?.[1] || "").trim();
+  }
+
+  // Opens a PO from the list with "All Stores" selected. Opening a PO by URL
+  // uses the header store, so another store's PO is not found that way.
+  async openPoFromList(po, allStoreNames) {
+    await this.gotoList();
+    if ((await this.storeFilterBtn.innerText()).trim() !== "All Stores") {
+      await this.filterStores(allStoreNames, allStoreNames);
+    }
+    await this.selectTab("All");
+    await this.search(po.number);
+    const detailsPromise = this.waitForApi(routes.API_URL.poDetails_URL);
+    await this.row(po.number).click();
+    const response = await detailsPromise;
+    const body = await this.readApi(response, "new_purchase_order_details");
+    sessionDataStorage.set("po_detailsAPI", body);
+    await expect(this.page).toHaveURL(new RegExp(`/purchase-order/${po.id}$`), { timeout: 15_000 });
+    await expect(this.backBtn).toBeVisible({ timeout: 20_000 });
+    return { body, merchantId: this.parseFormData(response.request().postData()).merchant_id };
+  }
+
   // ---------- Stock ----------
 
   // Reads a product's on-hand quantity ("Qty: N" in the Add items dialog) and
-  // cost (the cost a new line starts with) from a fresh New PO form.
-  async getProductStock(productName) {
+  // cost (the cost a new line starts with) from a fresh New PO form, at
+  // `location` when given (default: the header store).
+  async getProductStock(productName, location) {
     await this.openNewForm();
+    if (location) await this.selectLocation(location);
     await this.addItemsBtn.click();
     await this.addItemsSearch.fill(productName);
     const option = this.addItemsDialog
