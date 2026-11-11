@@ -272,10 +272,7 @@ test.describe("Purchase Order — advanced", () => {
   });
 
   test.describe("List", () => {
-    // On hold: filtering by the run's vendor returns no purchase orders, even
-    // an active one. Not a bug as per the product owner; the intended
-    // behaviour is still to be explained, so this test is parked until then.
-    test.fixme("Vendor filter shows only that vendor's purchase orders", async () => {
+    test("Vendor filter shows only that vendor's purchase orders", async () => {
       // An active PO for the run's vendor, cancelled again at the end.
       const vendorPo = { vendor: vendorName, lines: [{ name: single.name, qty: 1, cost: 4 }] };
       await po.openNewForm();

@@ -2916,6 +2916,8 @@ class Products {
       cost = "10.00",
       price = "20.00",
       quantity = "10",
+      reorderPoint,
+      reorderQty,
     } = product;
     await this.verifyAddSingleProductUrl();
     await this.fillProductName(name);
@@ -2927,6 +2929,8 @@ class Products {
     await this.expectToggleChecked(this.trackQuantityOption, true);
     await this.availableToSellInput.fill(String(quantity));
     await expect(this.availableToSellInput).toHaveValue(String(quantity));
+    if (reorderPoint !== undefined) await this.reorderPointInput.fill(String(reorderPoint));
+    if (reorderQty !== undefined) await this.reorderQtyInput.fill(String(reorderQty));
 
     const addPromise = this.page.waitForResponse(
       (res) =>

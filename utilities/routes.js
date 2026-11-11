@@ -51,10 +51,10 @@ module.exports = {
     addVendor_URL: apiNode("Vendor_api_new/create_vendor"),
     updateVendor_URL: apiNode("Vendor_api_new/update_vendor"),
     deleteVendor_URL: apiNode("Vendor_api_new/delete_vendor"),
-    assignProductVendor: apiCi("Product_api_react/assign_product_vendors"),
+    assignProductVendor: apiNode("ci/Product_api_react/assign_product_vendors"),
     deleteProductVendor: apiCi("Product_api_react/delete_product_vendor"),
-    assignPreferredVendor: apiCi("Product_api_react/assign_preferred_vendor"),
-    saveProductVendorCosts: apiCi("Product_api_react/save_vendor_list"),
+    assignPreferredVendor: apiNode("ci/Product_api_react/assign_preferred_vendor"),
+    saveProductVendorCosts: apiNode("ci/Product_api_react/save_vendor_list"),
     getStoresManagement: apiNode("ci/Store_setting_react_api/getManagerStores"),
     revenueDataAPI: reportAPI("api/reports/revenue_data_api"),
     totalTransaction: reportAPI("api/reports/sales_count_api"),
@@ -121,6 +121,7 @@ module.exports = {
     poVoid_URL: apiNode("new_purchase_orders_api/void_new_purchase_order"),
     poDelete_URL: apiNode("new_purchase_orders_api/delete_new_purchase_order"),
     poDetails_URL: apiNode("new_purchase_orders_api/new_purchase_order_details"),
+    poAutoList_URL: apiNode("ci/Purchase_ordersReactApi/auto_po_list"),
   },
 
   //   QA_URL: {

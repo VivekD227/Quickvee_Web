@@ -63,6 +63,8 @@ class PurchaseOrder {
     this.scanInput = page.getByRole("textbox", { name: "Scan UPC or custom code" });
     this.addItemsBtn = page.getByRole("button", { name: "Search or scan to add a product" });
     this.qtyMinError = page.getByText("Minimum 1 qty required.").first();
+    // Shown next to Cancel once a Supplier is chosen.
+    this.autoPoBtn = page.getByRole("button", { name: "Auto PO", exact: true });
 
     // Add items dialog
     // Found by its search box: the title isn't the same in edit mode.
@@ -385,10 +387,23 @@ class PurchaseOrder {
     await expect(input).toHaveValue(expected);
   }
 
+  // A vendor that is preferred on any product is listed as "<name> PREFERRED".
+  supplierOption(vendorName) {
+    const escaped = vendorName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return this.page.getByRole("button", { name: new RegExp(`^${escaped}( PREFERRED)?$`) }).last();
+  }
+
+  // The full vendor list can load after the search is typed and replace the
+  // filtered options, so type the search again until the vendor shows.
   async selectVendor(vendorName) {
     await this.supplierBtn.click();
-    await this.vendorSearch.fill(vendorName);
-    await this.page.getByRole("button", { name: vendorName, exact: true }).last().click();
+    const option = this.supplierOption(vendorName);
+    await expect(async () => {
+      await this.vendorSearch.fill("");
+      await this.vendorSearch.fill(vendorName);
+      await expect(option).toBeVisible({ timeout: 5_000 });
+    }).toPass({ timeout: 30_000 });
+    await option.click();
     await expect(this.supplierBtn).toHaveText(new RegExp(vendorName));
   }
 
@@ -513,6 +528,34 @@ class PurchaseOrder {
         return m ? `${m[1]}|${m[2]}|${m[3]}` : text.slice(0, 0);
       }, { message: "PO form totals" })
       .toBe(`${units}|${total}|${total}`);
+  }
+
+  // Auto PO loads the chosen supplier's preferred products that are at or
+  // below their reorder point (auto_po_list). Returns the API body.
+  async runAutoPo() {
+    const responsePromise = this.waitForApi(routes.API_URL.poAutoList_URL);
+    await this.autoPoBtn.click();
+    return this.readApi(await responsePromise, "auto_po_list");
+  }
+
+  // Product names of the form's lines, top to bottom.
+  async lineNames(candidates) {
+    const found = [];
+    for (const name of candidates) {
+      const row = this.lineRow(name);
+      if ((await row.count()) === 0) continue;
+      const box = await row.first().boundingBox();
+      found.push({ name, y: box?.y ?? 0 });
+    }
+    return found.sort((a, b) => a.y - b.y).map((line) => line.name);
+  }
+
+  // Leaves a new PO form through Cancel, discarding it when it has changes.
+  async discardNewForm() {
+    await this.page.getByRole("button", { name: "Cancel", exact: true }).first().click();
+    const discard = this.unsavedDialog.getByRole("button", { name: "Discard draft" });
+    if (await discard.isVisible({ timeout: 3_000 }).catch(() => false)) await discard.click();
+    await this.verifyListLoaded();
   }
 
   async fillPoForm(po) {
