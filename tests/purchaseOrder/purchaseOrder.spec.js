@@ -1,13 +1,13 @@
 import { test, expect } from "@playwright/test";
-import { PurchaseOrder } from "../pageObjects/PurchaseOrder";
-import { Products } from "../pageObjects/Products";
-import { Vendor } from "../pageObjects/Vendor";
-import { LoginPage } from "../pageObjects/LoginPage";
-import { Dashboard } from "../pageObjects/Dashboard";
-import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
-import merchants from "../api/testData/merchants.json";
-import routes from "../utilities/routes.js";
-import sessionDataStorage from "../utilities/helper/sessionDataStorage";
+import { PurchaseOrder } from "../../pageObjects/PurchaseOrder";
+import { Products } from "../../pageObjects/Products";
+import { Vendor } from "../../pageObjects/Vendor";
+import { LoginPage } from "../../pageObjects/LoginPage";
+import { Dashboard } from "../../pageObjects/Dashboard";
+import { navigateToLoginPage } from "../../utilities/helper/navigationHelper";
+import merchants from "../../api/testData/merchants.json";
+import routes from "../../utilities/routes.js";
+import sessionDataStorage from "../../utilities/helper/sessionDataStorage";
 
 // Sorting, permissions, Print and sending the Notify Vendor email are tested
 // manually. Write flows run only on the Test Automation store with data this

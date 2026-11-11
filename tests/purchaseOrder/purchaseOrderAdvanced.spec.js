@@ -1,14 +1,14 @@
 import { test, expect } from "@playwright/test";
-import { PurchaseOrder } from "../pageObjects/PurchaseOrder";
-import { Products } from "../pageObjects/Products";
-import { Vendor } from "../pageObjects/Vendor";
-import { Lottery } from "../pageObjects/Lottery";
-import { LoginPage } from "../pageObjects/LoginPage";
-import { Dashboard } from "../pageObjects/Dashboard";
-import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
-import merchants from "../api/testData/merchants.json";
-import routes from "../utilities/routes.js";
-import sessionDataStorage from "../utilities/helper/sessionDataStorage";
+import { PurchaseOrder } from "../../pageObjects/PurchaseOrder";
+import { Products } from "../../pageObjects/Products";
+import { Vendor } from "../../pageObjects/Vendor";
+import { Lottery } from "../../pageObjects/Lottery";
+import { LoginPage } from "../../pageObjects/LoginPage";
+import { Dashboard } from "../../pageObjects/Dashboard";
+import { navigateToLoginPage } from "../../utilities/helper/navigationHelper";
+import merchants from "../../api/testData/merchants.json";
+import routes from "../../utilities/routes.js";
+import sessionDataStorage from "../../utilities/helper/sessionDataStorage";
 
 // Multi-line, variant, cancel-after-receive, double-click, KPI, vendor filter
 // and other edge cases for purchase orders. Runs on the Test Automation store

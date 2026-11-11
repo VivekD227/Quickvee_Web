@@ -1,11 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { PurchaseOrder } from "../pageObjects/PurchaseOrder";
-import { Products } from "../pageObjects/Products";
-import { Vendor } from "../pageObjects/Vendor";
-import { LoginPage } from "../pageObjects/LoginPage";
-import { Dashboard } from "../pageObjects/Dashboard";
-import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
-import routes from "../utilities/routes.js";
+import { PurchaseOrder } from "../../pageObjects/PurchaseOrder";
+import { Products } from "../../pageObjects/Products";
+import { Vendor } from "../../pageObjects/Vendor";
+import { LoginPage } from "../../pageObjects/LoginPage";
+import { Dashboard } from "../../pageObjects/Dashboard";
+import { navigateToLoginPage } from "../../utilities/helper/navigationHelper";
+import routes from "../../utilities/routes.js";
 
 // Auto PO for a merchant with more than one store: Auto PO works on the
 // Location's stock, and changing the Location resets the Supplier.

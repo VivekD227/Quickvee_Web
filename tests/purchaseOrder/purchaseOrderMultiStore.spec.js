@@ -1,10 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { PurchaseOrder } from "../pageObjects/PurchaseOrder";
-import { Products } from "../pageObjects/Products";
-import { LoginPage } from "../pageObjects/LoginPage";
-import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
-import routes from "../utilities/routes.js";
-import sessionDataStorage from "../utilities/helper/sessionDataStorage";
+import { PurchaseOrder } from "../../pageObjects/PurchaseOrder";
+import { Products } from "../../pageObjects/Products";
+import { LoginPage } from "../../pageObjects/LoginPage";
+import { navigateToLoginPage } from "../../utilities/helper/navigationHelper";
+import routes from "../../utilities/routes.js";
+import sessionDataStorage from "../../utilities/helper/sessionDataStorage";
 
 // Purchase orders for a merchant with more than one store: the list's store
 // filter, the New PO "Location" and "Copy purchase order to other stores",

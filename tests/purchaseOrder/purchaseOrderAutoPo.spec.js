@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test";
-import { PurchaseOrder } from "../pageObjects/PurchaseOrder";
-import { Products } from "../pageObjects/Products";
-import { Vendor } from "../pageObjects/Vendor";
-import { LoginPage } from "../pageObjects/LoginPage";
-import { Dashboard } from "../pageObjects/Dashboard";
-import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
-import merchants from "../api/testData/merchants.json";
-import routes from "../utilities/routes.js";
+import { PurchaseOrder } from "../../pageObjects/PurchaseOrder";
+import { Products } from "../../pageObjects/Products";
+import { Vendor } from "../../pageObjects/Vendor";
+import { LoginPage } from "../../pageObjects/LoginPage";
+import { Dashboard } from "../../pageObjects/Dashboard";
+import { navigateToLoginPage } from "../../utilities/helper/navigationHelper";
+import merchants from "../../api/testData/merchants.json";
+import routes from "../../utilities/routes.js";
 
 // Auto PO on the New Purchase Order form. Once a Supplier is chosen an
 // "Auto PO" button shows next to Cancel; it adds every product for which that
