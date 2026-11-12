@@ -29,6 +29,7 @@ class InstantPurchaseOrder {
     this.closeBtn = this.dialog.locator("button").first();
     this.costRequired = this.dialog.getByText("Cost Per Item is required");
     this.quantityRequired = this.dialog.getByText("Quantity is required");
+    this.quantityAboveZero = this.dialog.getByText("Quantity must be greater than 0");
     this.descriptionRequired = this.dialog.getByText("Description is required");
     this.successToast = page.getByRole("alert").filter({ hasText: "Updated Successfully" }).last();
   }

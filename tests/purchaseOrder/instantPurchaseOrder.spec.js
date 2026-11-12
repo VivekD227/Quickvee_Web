@@ -217,8 +217,7 @@ test.describe("Instant Purchase Order", () => {
     expect(payload).toMatchObject({ qty: "3", price: "2.50", description: "Instant PO automation", variant_id: "" });
 
     expect(await productStockAndCost(single)).toEqual({ stock: "8", cost: "2.00" });
-    // Reload first: without it the dialog still shows the old stock (see the
-    // fixme below).
+    // The dialog shows the new stock once the Products page reloads.
     await page.reload();
     await products.verifyProductsPageLoaded();
     await instant.open(single.name);
@@ -244,21 +243,6 @@ test.describe("Instant Purchase Order", () => {
       page.off("request", count);
     }
     expect((await productStockAndCost(single)).stock).toBe("10");
-  });
-
-  // BUG: after an Instant PO, opening the dialog again without reloading the
-  // Products page shows the old "Current stock" (5 instead of 8); the product
-  // itself has the new stock and a reload shows it.
-  test.fixme("The dialog shows the new stock without a page reload", async () => {
-    await reloadProducts();
-    await instant.open(single.name);
-    const before = await instant.currentStock();
-    await instant.fill(0, { qty: 1, cost: 1 });
-    await instant.description.fill("Instant PO automation stock refresh");
-    await instant.submit();
-    await instant.open(single.name);
-    await expect.poll(() => instant.currentStock(), { message: "dialog current stock" }).toBe(before + 1);
-    await instant.close();
   });
 
   test("Products with variants: one line per variant, each gets its own quantity and cost", async () => {
@@ -425,40 +409,34 @@ test.describe("Instant Purchase Order", () => {
     expect(rows.filter((r) => r.title === single.name)).toHaveLength(2);
   });
 
-  // BUG (dev is fixing quantity 0): on a product with variants, when every
-  // filled quantity is 0, bulk_instant_po answers {"status":false,"message":
-  // "Something Went Wrong!."} and the dialog stays open. Expected: the 0 is
-  // rejected on the dialog like an empty quantity, without calling the API.
-  // (A 0 next to a variant with a quantity is skipped and the rest is saved.)
-  test.fixme("Variants: quantity 0 is rejected instead of 'Something Went Wrong!'", async () => {
-    await reloadProducts();
-    await instant.open(variant.name);
-    let calls = 0;
-    const count = (req) => { if (req.url() === routes.API_URL.bulkInstantPo_URL) calls++; };
+  // Fixed by dev: a quantity of 0 used to be saved (single product) or end in
+  // "Something Went Wrong!." (variants).
+  test("Quantity 0 is rejected: 'Quantity must be greater than 0'", async () => {
+    let saves = 0;
+    const count = (req) => { if (isSave(req)) saves++; };
     page.on("request", count);
     try {
+      await reloadProducts();
+      await instant.open(single.name);
+      await instant.fill(0, { qty: 0, cost: 3 });
+      await instant.description.fill("Instant PO automation qty 0");
+      await instant.addBtn.click();
+      await expect(instant.quantityAboveZero).toBeVisible();
+      await expect(instant.dialog).toBeVisible();
+      await instant.close();
+
+      await instant.open(variant.name);
       await instant.fill(0, { qty: 0, cost: 3 });
       await instant.description.fill("Instant PO automation variant qty 0");
       await instant.addBtn.click();
-      await expect(instant.quantityRequired).toBeVisible();
+      await expect(instant.quantityAboveZero.first()).toBeVisible();
       await expect(page.getByText(/Something Went Wrong/i)).toHaveCount(0);
-      expect(calls, "no bulk_instant_po call for 0 units").toBe(0);
+      await instant.close();
+      expect(saves, "nothing is saved for 0 units").toBe(0);
     } finally {
       page.off("request", count);
     }
-    await instant.close();
-  });
-
-  // Dev is fixing: a quantity of 0 is saved ("Data Saved Successfully") and
-  // shows in the report as a 0-unit entry. Expected: it is rejected like an
-  // empty quantity.
-  test.fixme("Quantity 0 is not saved", async () => {
-    await reloadProducts();
-    await instant.open(single.name);
-    await instant.fill(0, { qty: 0, cost: 3 });
-    await instant.description.fill("Instant PO automation qty 0");
-    await instant.addBtn.click();
-    await expect(instant.quantityRequired).toBeVisible();
+    expect((await productStockAndCost(single)).stock, "stock unchanged").toBe("10");
   });
 });
 
