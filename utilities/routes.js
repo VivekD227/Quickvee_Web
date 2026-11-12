@@ -122,6 +122,9 @@ module.exports = {
     poDelete_URL: apiNode("new_purchase_orders_api/delete_new_purchase_order"),
     poDetails_URL: apiNode("new_purchase_orders_api/new_purchase_order_details"),
     poAutoList_URL: apiNode("ci/Purchase_ordersReactApi/auto_po_list"),
+    saveInstantPo_URL: apiNode("ci/Product_api_react/save_instant_po"),
+    bulkInstantPo_URL: apiNode("ci/Product_api_react/bulk_instant_po"),
+    instantPoReport_URL: apiNode("ci/InventoryReportPk/instant_po_activity_report"),
   },
 
   //   QA_URL: {
@@ -149,5 +152,6 @@ module.exports = {
     lottery_add: page("/merchants/inventory/lottery/add-lottery"),
     purchaseOrders: page("/merchants/purchase-order"),
     purchaseOrder_add: page("/merchants/purchase-order/add"),
+    instantPoReport: page("/merchants/store-reporting/inventory-report/instant-activity"),
   },
 };
