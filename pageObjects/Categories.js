@@ -1,5 +1,7 @@
 import { expect } from "@playwright/test";
 import routes from "../utilities/routes.js";
+import { LoginPage } from "./LoginPage";
+import { navigateToLoginPage } from "../utilities/helper/navigationHelper";
 const sessionDataStorage = require("../utilities/helper/sessionDataStorage");
 
 const CATEGORIES_PAGE_URL = /\/merchants\/inventory\/category/;
@@ -338,6 +340,19 @@ class Categories {
     return body.result.length;
   }
 
+  // Reload the Categories page and wait for the list (no API capture: a list
+  // call still in flight from before the reload would lose its body).
+  async reloadList() {
+    // Some pages never fire "load"; the count below is the real readiness check.
+    await this.page.reload({ waitUntil: "domcontentloaded" });
+    await expect(this.categoryCount).toBeVisible({ timeout: 30_000 });
+    // The header reads "0 categories" until the list loads (Quickadd always exists).
+    await expect
+      .poll(() => this.getDisplayedCategoryCount(), { timeout: 30_000 })
+      .toBeGreaterThan(0);
+    await this.selectAlphabeticalMode();
+  }
+
   async openEditDrawer(categoryName) {
     await this.getCategoryRow(categoryName)
       .getByRole("button", { name: "Edit" })
@@ -360,7 +375,10 @@ class Categories {
     return updateResponse.json();
   }
 
-  async editCategoryName(oldName, newName) {
+  // reload: in the test browser the list can show the new name only after a
+  // reload (not seen manually, not a bug as per user); pass reload: false to
+  // check the list as it is.
+  async editCategoryName(oldName, newName, { reload = true } = {}) {
     await this.openEditDrawer(oldName);
     await this.setCategoryName(newName);
 
@@ -370,6 +388,7 @@ class Categories {
 
     await expect(this.updateSuccessToast).toBeVisible();
     await expect(this.drawer).toBeHidden();
+    if (reload) await this.reloadList();
     await this.verifyCategoryInList(newName);
     await this.verifyCategoryNotInList(oldName);
   }
@@ -770,7 +789,6 @@ class Categories {
   }
 
   async deleteCategory(categoryName) {
-    const countBefore = await this.getDisplayedCategoryCount();
     await this.clearSearch();
     await this.searchCategory(categoryName);
     await this.verifySearchedCategoryDisplayed(categoryName);
@@ -778,7 +796,26 @@ class Categories {
     await this.deleteCategoryAPI(categoryName);
     await this.clearSearch();
     await this.verifyCategoryNotInList(categoryName);
-    await expect(this.categoryCount).toContainText(`${countBefore - 1} categor`);
+    // The header count isn't checked here: after reloads a long-lived test
+    // session can show an old count. Specs check the list and the API count
+    // with a fresh login instead (Categories.openFresh).
+  }
+
+  // A long-lived test session can get an old category list after a reload
+  // (deleted categories come back, renames show late); a fresh login shows
+  // what a user sees. Opens Categories in a new logged-in context; close it
+  // with context.close().
+  static async openFresh(browser, { storename, username, password }) {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    page.setDefaultNavigationTimeout(60_000);
+    await navigateToLoginPage(page);
+    await new LoginPage(page).login(storename, username, password);
+    await page.waitForURL(/\/merchants\/dashboard/, { timeout: 60_000, waitUntil: "commit" });
+    await page.goto(routes.page_URL.categories, { waitUntil: "domcontentloaded" });
+    const categories = new Categories(page);
+    await categories.reloadList();
+    return { context, page, categories };
   }
 }
 

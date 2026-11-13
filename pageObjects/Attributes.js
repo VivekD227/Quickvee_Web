@@ -358,6 +358,49 @@ class Attributes {
     expect(updateResponseBody.response_message).toBe("variant updated");
   }
 
+  async addNewAttribute(attributeName) {
+    await this.addAttributeBtnClick();
+    await this.setAttributeName(attributeName);
+    await this.addBtnAPI();
+    // The previous add's toast can still be on screen.
+    await expect(this.successfullDialog.last()).toBeVisible();
+    await this.searchAttribute(attributeName);
+    await this.verifyAddedAttributeInListWithActions(attributeName);
+    await this.clearAttributeSearch();
+  }
+
+  async renameAttribute(oldName, newName) {
+    const editingRow = await this.startEditForAttribute(oldName);
+    const input = editingRow.getByRole("textbox");
+    await input.fill(newName);
+    await this.saveBtnClick();
+    await this.updateDialogDisplay();
+    await this.clearAttributeSearch();
+    await this.searchAttribute(newName);
+    await this.verifyAddedAttributeInListWithActions(newName);
+    await this.clearAttributeSearch();
+    await this.searchAttribute(oldName);
+    await this.verifyAttributeNotInList(oldName);
+    await this.clearAttributeSearch();
+  }
+
+  // Attributes can only be renamed; there is no Delete or Merge, even when a
+  // product uses the attribute.
+  async verifyAttributeRowHasOnlyRename(attributeName) {
+    await this.searchAttribute(attributeName);
+    const row = this.getAttributeListRow(attributeName);
+    await expect(row).toBeVisible();
+    await row.hover();
+    await expect(row.getByRole("button", { name: "Rename" })).toBeVisible();
+    await expect(
+      row.getByRole("button", { name: /delete|remove|merge/i }),
+    ).toHaveCount(0);
+    await expect(row.locator("[title='Delete'], [title='Merge']")).toHaveCount(
+      0,
+    );
+    await this.clearAttributeSearch();
+  }
+
   async verifyAttributeNotInList(attributeName) {
     await expect(this.getAttributeListRow(attributeName)).toHaveCount(0);
   }

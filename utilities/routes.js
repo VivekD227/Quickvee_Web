@@ -6,7 +6,9 @@ const {
   elasticsearchBaseUrl,
 } = require("./baseUrl");
 
-const apiCi = (path) => `${apiCiBaseUrl}/${path}`;
+// The old api-ci endpoints are now served by api-node under /ci/ (the app no
+// longer calls api-ci at all).
+const apiCi = (path) => `${apiNodeBaseUrl}/ci/${path}`;
 const apiNode = (path) => `${apiNodeBaseUrl}/${path}`;
 const page = (path) => `${webBaseUrl}${path}`;
 const reportAPI = (path) => `${reportBaseUrl}/${path}`;

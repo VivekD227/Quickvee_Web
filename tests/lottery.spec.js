@@ -157,9 +157,9 @@ test.describe("Lottery Module", () => {
       await lottery.cancelForm();
     });
 
-    // Known bug: the form sends a spaces-only name to add_product (which rejects
-    // it) and shows no error. Remove test.fail once fixed.
-    test.fail("Lottery name with only spaces is treated as empty", async () => {
+    // Was a known bug (spaces-only name sent to add_product with no error);
+    // fixed in the app as of 12 Nov 2026.
+    test("Lottery name with only spaces is treated as empty", async () => {
       await lottery.openAddForm();
       await lottery.fillLotteryForm({
         name: "   ",
