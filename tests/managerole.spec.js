@@ -9,7 +9,8 @@ import merchants from "../api/testData/merchants.json";
 import routes from "../utilities/routes.js";
 
 const ROLES = ["Manager", "Cashier", "Driver", "Time Clock Only"];
-const TOTAL_PERMISSIONS = 179;
+// 179 until Nov 2026; the app added 4 permissions.
+const TOTAL_PERMISSIONS = 183;
 
 test.describe("Manage Role Module", () => {
   test.describe.configure({ mode: "serial", timeout: 180_000 });

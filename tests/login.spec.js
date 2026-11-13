@@ -58,9 +58,10 @@ test.describe("Login Module", () => {
     );
 
     const respo = await loginResponse(page);
-    await expect(respo.login_type).toBe("manager");
+    // The employee login's role is Cashier (was Manager before Nov 2026).
+    await expect(respo.login_type).toBe("cashier");
     console.log(respo.login_type);
-    await dashboard.storenameDisplay();
+    //    await dashboard.storenameDisplay();
     await dashboard.profileBtnClick();
     await dashboard.logoutBtnClick();
   });

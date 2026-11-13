@@ -281,12 +281,27 @@ test.describe("Purchase Order — advanced", () => {
       try {
         await po.gotoList();
         await po.selectTab("All");
-        const listPromise = po.waitForApi(routes.API_URL.poList_URL, 15_000);
+        // The list remembers its last search (an earlier test searched a PO
+        // number), and that search would narrow the vendor's list: clear it.
+        await po.search("");
+        // Wait for the list call that carries the vendor filter: other list calls
+        // (page load, tab) can land first and have every vendor's POs.
+        const listPromise = page.waitForResponse(
+          (res) =>
+            res.request().method() === "POST" &&
+            res.url() === routes.API_URL.poList_URL &&
+            po.parseFormData(res.request().postData()).search_by_vendor,
+          { timeout: 15_000 },
+        );
         await po.vendorFilterBtn.click();
         const search = page.getByRole("textbox", { name: /Search vendors/i });
         if (await search.isVisible().catch(() => false)) await search.fill(vendorName);
         await page.getByRole("button", { name: vendorName, exact: true }).last().click();
-        const body = await po.readApi(await listPromise, "PO list (vendor filter)");
+        const listResponse = await listPromise;
+        const filter = po.parseFormData(listResponse.request().postData());
+        // A search left from an earlier test would narrow the vendor's list.
+        expect(filter.search_by, `list request ${JSON.stringify(filter)}`).toBe("");
+        const body = await po.readApi(listResponse, "PO list (vendor filter)");
         const numbers = body.data.map((d) => d.po_number);
         expect(numbers, "Active PO of the vendor").toContain(vendorPo.number);
         for (const d of body.data) expect(d.vendor_name).toBe(vendorName);

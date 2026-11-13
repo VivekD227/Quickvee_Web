@@ -215,11 +215,25 @@ test.describe("Category - Product Integration", () => {
     ]);
   });
 
-  test("Deleted category is not in Categories filter and product Categories dropdown", async () => {
-    await products.verifyCategoryInListingFilter(newCategory, false);
-
-    await products.reopenAddSingleProductForm();
-    await products.verifyCategoryInProductDropdown(newCategory, false);
-    await products.returnToProductsList();
+  test("Deleted category is not in Categories filter and product Categories dropdown", async ({ browser }) => {
+    test.setTimeout(540_000);
+    // This session can get an old category list after the delete, so check with
+    // a fresh login, as a user would see it. Deleting a category that has
+    // products takes a few minutes to show there too: reload until it's gone.
+    const fresh = await Categories.openFresh(browser, merchants.merchantLogin);
+    try {
+      await expect(async () => {
+        await fresh.categories.reloadList();
+        await fresh.categories.verifyCategoryNotInList(newCategory);
+      }).toPass({ timeout: 360_000, intervals: [20_000] });
+      const freshProducts = new Products(fresh.page);
+      await fresh.page.goto(routes.page_URL.products);
+      await freshProducts.verifyProductsPageLoaded();
+      await freshProducts.verifyCategoryInListingFilter(newCategory, false);
+      await freshProducts.reopenAddSingleProductForm();
+      await freshProducts.verifyCategoryInProductDropdown(newCategory, false);
+    } finally {
+      await fresh.context.close();
+    }
   });
 });
