@@ -1284,6 +1284,20 @@ cases += [
         "Shared desc",
         "One description for parent; copy states single & variants share description",
     ),
+    tc(
+        "PRD-129A",
+        "Create Variants",
+        "Variant row shows attribute names under the variant name",
+        "P1",
+        "UI",
+        "Saved attributes exist (Size, Color)",
+        "1. Open variant create\n2. Size: S,M; Color: Red,Blue\n3. Look under each variant name in Variants",
+        "Size=S,M; Color=Red,Blue",
+        "Each row shows the name (e.g. S/Red) and under it 'Size: S · Color: Red': one "
+        "'Attribute: value' per attribute, in attribute order, values in bold",
+        "Automated: tests/products.spec.js (Add Variant Product: 1 variant, cartesian "
+        "combinations, add with one/two attributes)",
+    ),
 ]
 
 # --- Edit ---
@@ -1389,6 +1403,19 @@ cases += [
         "Inactive variant not sellable; sibling variants unaffected",
     ),
     tc(
+        "PRD-146C",
+        "Edit Product",
+        "Edit variant rows show attribute names",
+        "P1",
+        "UI",
+        "Variant product saved with Size and Color",
+        "1. Edit variant product\n2. Look under each variant name in Variants",
+        "Size=S,M; Color=Red,Blue",
+        "Every saved variant shows 'Attribute: value' under its name (e.g. 'Size: S · Color: Red'), "
+        "matching the attributes it was created with",
+        "Automated: tests/products.spec.js (Edit variant product form UI)",
+    ),
+    tc(
         "PRD-147",
         "Edit Product",
         "Toggle Active off/on",
@@ -1409,6 +1436,19 @@ cases += [
         "1. Clear Name or Price or Categories\n2. Save",
         "Cleared required",
         "Validation errors; changes not saved",
+    ),
+    tc(
+        "PRD-148A",
+        "Duplicate Product",
+        "Duplicate variant rows show the same attribute names",
+        "P1",
+        "UI",
+        "Variant product saved with Size and Color",
+        "1. Edit variant product; note attribute line of each variant\n"
+        "2. More actions → Duplicate Product\n3. Compare attribute line of each variant",
+        "Size=S,M; Color=Red,Blue",
+        "Copy has the same variants and each shows the same 'Attribute: value' line as the source",
+        "Automated: tests/products.spec.js (Duplicate copies variant combinations from the source)",
     ),
 ]
 

@@ -5809,6 +5809,59 @@ class Products {
       .locator("xpath=ancestor::div[contains(@style,'cursor: pointer')][1]");
   }
 
+  // Line under the variant name, e.g. "Size: S · Color: Red". Shown on the
+  // Add, Edit and Duplicate forms.
+  getVariantAttributesLabel(combination) {
+    return this.getVariantHeaderRow(combination).locator(
+      "[data-npf-variant-attrs]",
+    );
+  }
+
+  async readVariantAttributeLabels() {
+    const labels = {};
+    for (const combo of await this.readVariantCombinationNames()) {
+      labels[combo] = (
+        await this.getVariantAttributesLabel(combo).innerText()
+      )
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+    return labels;
+  }
+
+  // Combination names are the values joined by "/" in attribute order, so
+  // "S/Red" with ["Size", "Color"] must read "Size: S · Color: Red". Without
+  // attribute names (product made by an earlier run), only the
+  // "<Attribute>: <value>" shape is checked.
+  async verifyVariantAttributeLabels(attributeNames = []) {
+    const names = await this.readVariantCombinationNames();
+    expect(names.length, "Variant rows should be shown").toBeGreaterThan(0);
+    const escape = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    for (const combo of names) {
+      const values = combo.split("/");
+      const label = this.getVariantAttributesLabel(combo);
+      await expect(
+        label,
+        `Variant ${combo} should show its attribute names`,
+      ).toBeVisible();
+      if (attributeNames.length) {
+        expect(
+          values.length,
+          `Variant ${combo} should have one value per attribute`,
+        ).toBe(attributeNames.length);
+        await expect(label).toHaveText(
+          values.map((v, i) => `${attributeNames[i]}: ${v}`).join(" · "),
+        );
+      } else {
+        await expect(label).toHaveText(
+          new RegExp(
+            `^${values.map((v) => `[^:·]+:\\s*${escape(v)}`).join("\\s*·\\s*")}$`,
+          ),
+        );
+      }
+    }
+  }
+
   getVariantUpcInput(combination) {
     const header = this.getVariantHeaderRow(combination);
     const card = this.getVariantCard(combination);
@@ -6045,16 +6098,26 @@ class Products {
     const excluded = (Array.isArray(exclude) ? exclude : [exclude]).filter(
       Boolean,
     );
+    // The list only shows the first few attributes without scrolling, so an
+    // attribute further down (e.g. one just created) is found via the search box.
+    const search = this.page.getByPlaceholder("Search attributes...");
     for (const name of preferred) {
       if (excluded.includes(name)) continue;
       const option = this.getAttributesSection().getByRole("button", {
         name,
         exact: true,
       });
-      const visible = await option
-        .waitFor({ state: "visible", timeout: 3_000 })
-        .then(() => true)
-        .catch(() => false);
+      const isShown = (timeout) =>
+        option
+          .waitFor({ state: "visible", timeout })
+          .then(() => true)
+          .catch(() => false);
+      let visible = await isShown(1_500);
+      if (!visible && (await search.isVisible().catch(() => false))) {
+        await search.fill(name);
+        visible = await isShown(3_000);
+        if (!visible) await search.fill("");
+      }
       if (!visible) continue;
       await option.click();
       await this.closeOpenList();
@@ -6206,6 +6269,7 @@ class Products {
     await this.expectVariantCombinationCount(1);
     const names = await this.readVariantCombinationNames();
     expect(names).toEqual(["V1"]);
+    await this.verifyVariantAttributeLabels([attribute]);
     await expect(this.getVariantRow("V1").getByRole("textbox", { name: "Price $" })).toBeVisible();
     await expect(this.getVariantRow("V1").getByRole("textbox", { name: "Cost $" })).toBeVisible();
     await expect(
@@ -6256,6 +6320,7 @@ class Products {
         ).toBeTruthy();
       }
     }
+    await this.verifyVariantAttributeLabels([firstAttribute, secondAttribute]);
     return secondAttribute;
   }
 
@@ -6608,6 +6673,12 @@ class Products {
           : ["Size", "Color", "Flavor", "Flavour"],
         exclude: assigned,
       });
+      if (attributes[i].attribute) {
+        expect(
+          attrName,
+          `Attribute "${attributes[i].attribute}" should be picked, not a fallback`,
+        ).toBe(attributes[i].attribute);
+      }
       assigned.push(attrName);
       const values = attributes[i].values || ["V1"];
       for (const value of values) {
@@ -6624,6 +6695,7 @@ class Products {
       1,
     );
     await this.expectVariantCombinationCount(expectedCount);
+    await this.verifyVariantAttributeLabels(assigned);
     const priced = await this.fillAllVariantPrices(price, cost);
     product.variantNames = priced.names;
     product.upcs = priced.upcs;
@@ -6692,6 +6764,8 @@ class Products {
         cost: "10.00",
         price: "20.00",
         ...(product || {}),
+        // Fallback product from an earlier run: its attributes are unknown.
+        attributes: undefined,
         name: (await row.locator("[data-prod-title]").innerText()).trim(),
       };
     }
@@ -6706,6 +6780,11 @@ class Products {
     await this.reopenAddVariantsProductForm();
     await this.addVariantProductWithRequiredFields(created);
     return created;
+  }
+
+  attributeNamesOf(product) {
+    const attrs = product?.attributes || [];
+    return attrs.every((a) => a?.attribute) ? attrs.map((a) => a.attribute) : [];
   }
 
   async firstVariantCombinationName() {
@@ -6762,6 +6841,7 @@ class Products {
     await expect(this.variantsHeading).toBeVisible();
     await expect(this.addVariantsBtn).toBeVisible();
     await expect(this.variantCheckboxes()).not.toHaveCount(0);
+    await this.verifyVariantAttributeLabels(this.attributeNamesOf(product));
     await expect(this.sellingChannelsHeading).toBeVisible();
     await expect(this.deliveryChannelBtn).toBeEnabled();
     await expect(this.pickupChannelBtn).toBeEnabled();
@@ -6948,6 +7028,7 @@ class Products {
     const names = await this.readVariantCombinationNames();
     product.variantNames = names;
     if (!names.length) return;
+    product.variantAttributeLabels = await this.readVariantAttributeLabels();
     const upc = (await this.getVariantUpcInput(names[0]).inputValue()).trim();
     if (upc) product.upc = upc;
     const price = (
@@ -7016,6 +7097,13 @@ class Products {
     if (Array.isArray(source.variantNames) && source.variantNames.length) {
       expect(names.sort()).toEqual([...source.variantNames].sort());
     }
+    await this.verifyVariantAttributeLabels(this.attributeNamesOf(source));
+    if (source.variantAttributeLabels) {
+      expect(
+        await this.readVariantAttributeLabels(),
+        "Duplicate should show the same attribute names as the source",
+      ).toEqual(source.variantAttributeLabels);
+    }
     if (source.price) {
       const price = (
         await this.getVariantRow(names[0])
@@ -7027,6 +7115,101 @@ class Products {
     await expect(
       this.selectedCategoryChip(source.category || "Quickadd"),
     ).toBeVisible();
+  }
+
+  // --- Attribute ↔ product integration ---
+
+  async verifyProductAttributesOnEditForm({
+    name,
+    attributes,
+    previousAttributes = [],
+    unchanged,
+  }) {
+    await this.openEditSingleProduct(name);
+    await expect(this.productNameInput).toHaveValue(name, { timeout: 15_000 });
+    await this.verifyVariantAttributeLabels(attributes);
+    const labels = Object.values(await this.readVariantAttributeLabels());
+    for (const old of previousAttributes) {
+      expect(
+        labels.some((l) => l.split(" · ").some((p) => p.startsWith(`${old}:`))),
+        `Product "${name}" should no longer show old attribute "${old}"`,
+      ).toBeFalsy();
+    }
+    if (unchanged) await this.expectProductFieldsUnchanged(unchanged);
+    await this.returnToProductsList();
+  }
+
+  async verifyDuplicateKeepsAttributes(source, attributes) {
+    await this.openDuplicateVariantFromSource(source);
+    await this.verifyVariantAttributeLabels(attributes);
+    expect(
+      await this.readVariantAttributeLabels(),
+      `Duplicate of "${source.name}" should show the same attribute names`,
+    ).toEqual(source.variantAttributeLabels);
+    expect(await this.readVariantCombinationNames()).toEqual(
+      source.variantNames,
+    );
+    await this.returnToProductsList();
+  }
+
+  // "Add variants" on the edit form adds a "New variant" card that asks for
+  // one value per attribute, each field labelled with the attribute name.
+  async verifyAddVariantAsksForAttributes(product, attributes) {
+    await this.openEditSingleProduct(product.name);
+    await this.addVariantsBtn.click();
+    await expect(
+      this.getVariantsSection()
+        .getByText("New variant", { exact: true })
+        .first(),
+    ).toBeVisible({ timeout: 10_000 });
+    for (const attr of attributes) {
+      const escaped = attr.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      await expect(
+        this.getVariantsSection()
+          .getByText(new RegExp(`^${escaped}\\s*\\*?$`))
+          .first(),
+        `New variant card should ask for a value of "${attr}"`,
+      ).toBeVisible();
+    }
+    await this.returnToProductsList();
+  }
+
+  async verifyAttributeInPicker(name, shouldExist) {
+    await this.reopenAddVariantsProductForm();
+    await this.closeOpenList();
+    await this.chooseAttributeBtn.last().click();
+    const search = this.page.getByPlaceholder("Search attributes...");
+    await expect(search).toBeVisible({ timeout: 10_000 });
+    await search.fill(name);
+    const option = this.getAttributesSection().getByRole("button", {
+      name,
+      exact: true,
+    });
+    if (shouldExist) {
+      await expect(
+        option,
+        `Attribute "${name}" should be in the attribute picker`,
+      ).toBeVisible({ timeout: 8_000 });
+    } else {
+      // Give the filtered list a moment before asserting it is absent.
+      await this.page.waitForTimeout(1_000);
+      await expect(
+        option,
+        `Attribute "${name}" should not be in the attribute picker`,
+      ).toHaveCount(0);
+    }
+    await search.fill("");
+    await this.closeOpenList();
+    await this.returnToProductsList();
+  }
+
+  async verifyNoAttributesListingFilter() {
+    await this.returnToProductsList();
+    await expect(this.brandsFilter).toBeVisible();
+    await expect(
+      this.page.getByRole("button", { name: /^Attributes?$/i }),
+      "Products listing has no Attributes filter",
+    ).toHaveCount(0);
   }
 
   async verifyDuplicateVariantDoesNotChangeOriginal(source) {
