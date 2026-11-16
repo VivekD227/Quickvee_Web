@@ -122,6 +122,7 @@ module.exports = {
     poReceive_URL: apiNode("new_purchase_orders_api/receive_new_purchase_order"),
     poVoid_URL: apiNode("new_purchase_orders_api/void_new_purchase_order"),
     poDelete_URL: apiNode("new_purchase_orders_api/delete_new_purchase_order"),
+    stocktakeSave_URL: apiCi("Stocktake_react_api/create_update_stocktake"),
     poDetails_URL: apiNode("new_purchase_orders_api/new_purchase_order_details"),
     poAutoList_URL: apiNode("ci/Purchase_ordersReactApi/auto_po_list"),
     saveInstantPo_URL: apiNode("ci/Product_api_react/save_instant_po"),

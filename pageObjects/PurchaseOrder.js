@@ -91,6 +91,11 @@ class PurchaseOrder {
     this.receiveNote = this.receiveDialog.getByPlaceholder(/e\.g\. 6 boxes accepted/);
     this.receiveSubmitBtn = this.receiveDialog.getByRole("button", { name: /^Receive (\d+ units?|units)$/ });
     this.cancelPoDialog = page.getByRole("dialog").filter({ hasText: "Cancel purchase order?" });
+    // A PO with received units asks what to do with them when it's cancelled.
+    this.keepStockOption = this.cancelPoDialog.getByRole("radio", { name: /^Keep received stock/ });
+    this.removeStockOption = this.cancelPoDialog.getByRole("radio", { name: /^Remove received stock/ });
+    this.deletePoBtn = page.getByRole("button", { name: "Delete", exact: true });
+    this.deletePoDialog = page.getByRole("dialog").filter({ hasText: "Delete purchase order?" });
     this.discardDialog = page.getByRole("dialog").filter({ hasText: "Discard draft?" });
     // Shown when leaving a new PO form that has unsaved changes.
     this.unsavedDialog = page.getByRole("dialog").filter({ hasText: "Discard this draft?" });
@@ -233,6 +238,16 @@ class PurchaseOrder {
     }
   }
 
+  // Tab counts and KPIs from the last gotoList(), as numbers.
+  listCounts() {
+    const counts = sessionDataStorage.get("po_tabCountsAPI").total_count;
+    const kpi = sessionDataStorage.get("po_kpiAPI").data;
+    const tabs = Object.fromEntries(
+      Object.entries(TAB_COUNT_KEYS).map(([status, key]) => [status, Number(counts[key])]),
+    );
+    return { ...tabs, open: Number(kpi.open_po_count), units: Number(kpi.total_units) };
+  }
+
   kpiCard(label) {
     return this.page.getByText(label, { exact: true }).locator("xpath=..");
   }
@@ -341,7 +356,17 @@ class PurchaseOrder {
       expect(body.status).toBeTruthy();
       await expect(this.poNumberInput).toHaveValue(body.po_number, { timeout: 15_000 });
     }
-    await expect(this.poNumberInput).not.toHaveValue("", { timeout: 15_000 });
+    // On a slow server (QA) the form can stay half-loaded with an empty,
+    // disabled number: load it once more.
+    const filled = await expect(this.poNumberInput)
+      .not.toHaveValue("", { timeout: 15_000 })
+      .then(() => true, () => false);
+    if (!filled) {
+      await this.page.goto(routes.page_URL.purchaseOrder_add);
+      await expect(this.formTitle).toBeVisible({ timeout: 20_000 });
+      await expect(this.poNumberInput).not.toHaveValue("", { timeout: 20_000 });
+    }
+    await expect(this.poNumberInput).toBeEnabled();
     return this.poNumberInput.inputValue();
   }
 
@@ -873,7 +898,78 @@ class PurchaseOrder {
       "void_new_purchase_order",
     );
     expect(body.message).toBe("Purchase order voided successfully");
+    await expect(this.cancelPoDialog).toBeHidden({ timeout: 30_000 });
     await expect(this.toast("Purchase order voided successfully")).toBeVisible({ timeout: 10_000 });
+    await this.verifyLeftDetail();
+  }
+
+  // Opens Cancel PO on a received or partial PO and checks the received stock
+  // choice (Keep is the default).
+  async openCancelReceivedDialog(po) {
+    const received = po.lines.reduce((sum, l) => sum + (l.received || 0), 0);
+    await this.cancelPoBtn.click();
+    await expect(this.cancelPoDialog).toContainText(
+      `Cancelling ${po.number} will mark this order as cancelled and it can no longer be received against.`,
+    );
+    await expect(this.keepStockOption).toBeChecked();
+    await expect(this.removeStockOption).not.toBeChecked();
+    await expect(this.cancelPoDialog).toContainText(
+      `The ${received} received units stay in stock. Stock does not change.`,
+    );
+    await expect(this.cancelPoDialog).toContainText(
+      `The ${received} received units are taken back out of stock and inventory cost layers. If some were already sold, stock goes below 0.`,
+    );
+    return received;
+  }
+
+  async cancelReceivedPo(po, { removeStock }) {
+    const received = await this.openCancelReceivedDialog(po);
+    if (removeStock) {
+      await this.removeStockOption.check();
+      await expect(this.keepStockOption).not.toBeChecked();
+    }
+    const { payload, body } = await this.submitAndCapture(
+      this.cancelPoDialog.getByRole("button", { name: "Cancel PO" }),
+      routes.API_URL.poVoid_URL,
+      "void_new_purchase_order",
+    );
+    expect(payload.po_id).toBe(po.id);
+    expect(payload.reverse_stock).toBe(removeStock ? "1" : "0");
+    expect(body).toMatchObject({
+      status: true,
+      message: "Purchase order voided successfully",
+      stock_reversed: removeStock,
+      units_removed: String(removeStock ? received : 0),
+    });
+    // On a slow server the dialog stays on "Cancelling..." for a while after
+    // the API answers; the toast shows once it closes.
+    await expect(this.cancelPoDialog).toBeHidden({ timeout: 30_000 });
+    await expect(this.toast("Purchase order voided successfully")).toBeVisible({ timeout: 10_000 });
+    await this.verifyLeftDetail();
+  }
+
+  async deletePoKeep() {
+    await this.deletePoBtn.click();
+    await expect(this.deletePoDialog).toBeVisible();
+    await this.deletePoDialog.getByRole("button", { name: "Keep PO" }).click();
+    await expect(this.deletePoDialog).toBeHidden();
+  }
+
+  // Delete is offered on a cancelled PO.
+  async deletePo(po) {
+    await this.deletePoBtn.click();
+    await expect(this.deletePoDialog).toContainText(
+      `This will permanently delete ${po.number} from your purchase orders. Stock is not changed.`,
+    );
+    const { payload, body } = await this.submitAndCapture(
+      this.deletePoDialog.getByRole("button", { name: "Delete PO" }),
+      routes.API_URL.poDelete_URL,
+      "delete_new_purchase_order",
+    );
+    expect(payload.po_id).toBe(po.id);
+    expect(body.message).toBe("Purchase order deleted successfully");
+    await expect(this.deletePoDialog).toBeHidden({ timeout: 30_000 });
+    await expect(this.toast("Purchase order deleted successfully")).toBeVisible({ timeout: 10_000 });
     await this.verifyLeftDetail();
   }
 

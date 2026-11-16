@@ -3808,6 +3808,27 @@ class Products {
     await expect(this.newProductTitle).toBeVisible();
   }
 
+  // Product edit page → More actions → Stocktake: sets the on-hand quantity.
+  async stocktakeFromEdit(newQty, note = "") {
+    await this.page.getByRole("button", { name: "More actions" }).click();
+    await this.page.getByRole("button", { name: /^Stocktake/ }).click();
+    const dialog = this.page.getByRole("dialog", { name: "Stocktake" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("textbox", { name: "Enter quantity" }).fill(String(newQty));
+    if (note) await dialog.getByRole("textbox", { name: "Optional note" }).fill(note);
+    const responsePromise = this.page.waitForResponse(
+      (res) => res.request().method() === "POST" && res.url() === routes.API_URL.stocktakeSave_URL,
+      { timeout: 20_000 },
+    );
+    await dialog.getByRole("button", { name: "Update stock" }).click();
+    const response = await responsePromise;
+    expect(response.status(), "create_update_stocktake should return HTTP 200").toBe(200);
+    const body = await response.json();
+    expect(body.message).toBe("Stocktake created successfully.");
+    await expect(dialog).toBeHidden();
+    await expect(this.availableToSellInput).toHaveValue(String(newQty));
+  }
+
   async returnToProductsList() {
     const pathname = new URL(this.page.url()).pathname.replace(/\/$/, "");
     const alreadyOnList = pathname.endsWith(
