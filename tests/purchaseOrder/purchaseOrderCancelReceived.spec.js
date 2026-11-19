@@ -6,15 +6,12 @@ import { Dashboard } from "../../pageObjects/Dashboard";
 import { navigateToLoginPage } from "../../utilities/helper/navigationHelper";
 import merchants from "../../api/testData/merchants.json";
 import routes from "../../utilities/routes.js";
-import { envName } from "../../utilities/baseUrl.js";
 
 // Cancelling a received or partially received PO, with the choice to keep or
-// remove the received stock, and deleting a cancelled PO. Only on QA for now
-// (QV_ENV=qa); remove the skip once it is live. Uses two products each run
-// creates (deleted in afterAll; the cancelled POs stay).
+// remove the received stock, and deleting a cancelled PO. Uses two products
+// each run creates (deleted in afterAll; the cancelled POs stay).
 
 test.describe("Purchase Order — cancel received and delete", () => {
-  test.skip(envName !== "qa", "Cancel of received POs is only on QA for now");
   test.describe.configure({ mode: "serial", timeout: 180_000 });
 
   let context;

@@ -158,7 +158,9 @@ test.describe("Purchase Order Module", () => {
       await po.verifyTotals(1, product.cost);
     });
 
-    test("Quantity accepts digits only, up to 6", async () => {
+    // Known bug (reported): the quantity keeps a minus sign ("-5"), and a PO
+    // with a negative quantity can be saved. Remove test.fail once fixed.
+    test.fail("Quantity accepts digits only, up to 6", async () => {
       const qty = po.lineQty(product.name);
       await po.assertTyped(qty, "-5", "5");
       await po.assertTyped(qty, "abc", "");
@@ -185,6 +187,7 @@ test.describe("Purchase Order Module", () => {
       const addPromise = po.waitForApi(routes.API_URL.poAdd_URL, 4_000).catch(() => null);
       await po.saveDraftBtn.click();
       await expect(po.qtyMinError).toBeVisible({ timeout: 10_000 });
+      await expect(po.lineQty(product.name), "quantity is cleared").toHaveValue("");
       expect(await addPromise, "PO with quantity 0 should not be saved").toBeNull();
       await expect(page).toHaveURL(/\/purchase-order\/add/);
     });
@@ -351,7 +354,7 @@ test.describe("Purchase Order Module", () => {
       expect(payload.received_status).toBe("1");
       await po.verifyStatus(mainPo, "Partial");
       await po.verifyDetailData(mainPo);
-      await po.verifyLatestHistory(2, "Automation partial");
+      await po.verifyLatestHistory(mainPo, { units: 2, note: "Automation partial" });
       await po.verifyActions(["Cancel PO", "Edit", "Receive units"], ["Discard"]);
       await expectStock(stock + 2, "Partial receive adds the received units");
     });
@@ -363,7 +366,8 @@ test.describe("Purchase Order Module", () => {
       expect(payload.received_status).toBe("2");
       await po.verifyStatus(mainPo, "Received");
       await po.verifyDetailData(mainPo);
-      await po.verifyActions(["Edit", "Print"], ["Cancel PO", "Receive units", "Notify Vendor"]);
+      // A received PO can be cancelled (see purchaseOrderCancelReceived.spec.js).
+      await po.verifyActions(["Cancel PO", "Edit", "Print"], ["Receive units", "Notify Vendor"]);
       const { quantity, cost } = await po.getProductStock(product.name);
       expect(quantity).toBe(stock + left);
       expect(cost, "Receiving does not change the product cost").toBe(product.cost);

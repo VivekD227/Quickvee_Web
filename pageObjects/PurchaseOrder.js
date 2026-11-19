@@ -62,7 +62,8 @@ class PurchaseOrder {
     this.noProductsYet = page.getByText(/No products yet/);
     this.scanInput = page.getByRole("textbox", { name: "Scan UPC or custom code" });
     this.addItemsBtn = page.getByRole("button", { name: "Search or scan to add a product" });
-    this.qtyMinError = page.getByText("Minimum 1 qty required.").first();
+    // Toast shown when saving with a quantity of 0 (the field is then cleared).
+    this.qtyMinError = page.getByRole("alert").filter({ hasText: "Quantity cannot be 0." }).first();
     // Shown next to Cancel once a Supplier is chosen.
     this.autoPoBtn = page.getByRole("button", { name: "Auto PO", exact: true });
 
@@ -92,8 +93,8 @@ class PurchaseOrder {
     this.receiveSubmitBtn = this.receiveDialog.getByRole("button", { name: /^Receive (\d+ units?|units)$/ });
     this.cancelPoDialog = page.getByRole("dialog").filter({ hasText: "Cancel purchase order?" });
     // A PO with received units asks what to do with them when it's cancelled.
-    this.keepStockOption = this.cancelPoDialog.getByRole("radio", { name: /^Keep received stock/ });
-    this.removeStockOption = this.cancelPoDialog.getByRole("radio", { name: /^Remove received stock/ });
+    this.keepStockOption = this.cancelPoDialog.getByRole("radio", { name: /^Keep received quantity/ });
+    this.removeStockOption = this.cancelPoDialog.getByRole("radio", { name: /^Remove received quantity/ });
     this.deletePoBtn = page.getByRole("button", { name: "Delete", exact: true });
     this.deletePoDialog = page.getByRole("dialog").filter({ hasText: "Delete purchase order?" });
     this.discardDialog = page.getByRole("dialog").filter({ hasText: "Discard draft?" });
@@ -860,15 +861,25 @@ class PurchaseOrder {
     return payload;
   }
 
-  async verifyLatestHistory(units, note = "") {
-    const entry = this.page.getByText(new RegExp(`^${units} units? received · `)).first();
-    await expect(entry).toBeVisible({ timeout: 15_000 });
+  // History entry for a receive, e.g.
+  //   Received stock for purchase order "PO0001" (1 line, 2 units)
+  //   Nov 16, 2026, 3:31 AM · by Test Automation
+  //   <note>   [Units received: 2] [Lines: 1]
+  async verifyLatestHistory(po, { units, lines = 1, note = "" }) {
+    const number = po.number.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const title = this.page
+      .getByText(
+        new RegExp(`^Received stock for purchase order "${number}" \\(${lines} lines?, ${units} units?\\)$`),
+      )
+      .first();
+    await expect(title).toBeVisible({ timeout: 15_000 });
+    const entry = title.locator("xpath=ancestor::*[contains(., 'Units received')][1]");
     // The date comes from the server, so don't compare it with this machine's
     // clock (which may be changed for testing).
-    await expect(entry).toHaveText(
-      new RegExp(`^${units} units? received · [A-Z][a-z]{2} \\d{1,2}, \\d{4} · by .+`),
-    );
-    if (note) await expect(entry.locator("xpath=..")).toContainText(note);
+    await expect(entry).toContainText(/[A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2} [AP]M · by .+/);
+    await expect(entry).toContainText(`Units received: ${units}`);
+    await expect(entry).toContainText(`Lines: ${lines}`);
+    if (note) await expect(entry).toContainText(note);
   }
 
   // ---------- Cancel / Discard / Create & Receive ----------
@@ -913,11 +924,10 @@ class PurchaseOrder {
     );
     await expect(this.keepStockOption).toBeChecked();
     await expect(this.removeStockOption).not.toBeChecked();
+    await expect(this.cancelPoDialog).toContainText(`The ${received} received units stay as is`);
+    await expect(this.cancelPoDialog).toContainText("Quantity does not change.");
     await expect(this.cancelPoDialog).toContainText(
-      `The ${received} received units stay in stock. Stock does not change.`,
-    );
-    await expect(this.cancelPoDialog).toContainText(
-      `The ${received} received units are taken back out of stock and inventory cost layers. If some were already sold, stock goes below 0.`,
+      `The ${received} received units are taken back out of quantity and inventory cost layers. If some were already sold, quantity can go below 0.`,
     );
     return received;
   }

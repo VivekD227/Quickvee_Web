@@ -180,7 +180,7 @@ test.describe("Purchase Order — advanced", () => {
       await po.openPo(multiPo);
       await po.receive(multiPo, { [lineV1]: 2 });
       await po.verifyStatus(multiPo, "Partial");
-      await expect(page.getByText(/Affected lines:\s*1/).first()).toBeVisible();
+      await po.verifyLatestHistory(multiPo, { units: 2, lines: 1 });
       const variantStock = await po.getVariantStock(variant.name, variant.variantNames);
       expect(variantStock).toEqual({ V1: 2, V2: 0 });
       expect((await po.getProductStock(single.name)).quantity).toBe(0);
@@ -195,7 +195,8 @@ test.describe("Purchase Order — advanced", () => {
 
     test("Cancelling a partial PO keeps the received stock", async () => {
       await po.openPo(multiPo);
-      await po.cancelPo(multiPo);
+      // Cancelling a partial PO asks whether to keep the received stock.
+      await po.cancelReceivedPo(multiPo, { removeStock: false });
       await po.openPo(multiPo);
       await po.verifyStatus(multiPo, "Cancelled");
       await po.verifyActions([], ["Receive units", "Cancel PO", "Edit"]);
