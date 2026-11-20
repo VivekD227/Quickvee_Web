@@ -128,6 +128,8 @@ module.exports = {
     saveInstantPo_URL: apiNode("ci/Product_api_react/save_instant_po"),
     bulkInstantPo_URL: apiNode("ci/Product_api_react/bulk_instant_po"),
     instantPoReport_URL: apiNode("ci/InventoryReportPk/instant_po_activity_report"),
+    stocktakeReport_URL: apiNode("ci/InventoryReportPk/stocktake_list"),
+    stocktakeAppList_URL: apiNode("StocktakeNewUI/stocktake_list"),
   },
 
   //   QA_URL: {
@@ -156,5 +158,7 @@ module.exports = {
     purchaseOrders: page("/merchants/purchase-order"),
     purchaseOrder_add: page("/merchants/purchase-order/add"),
     instantPoReport: page("/merchants/store-reporting/inventory-report/instant-activity"),
+    stocktakeHistoryReport: page("/merchants/store-reporting/inventory-report/stocktake-history-report"),
+    stocktakeApp: page("/merchants/stocktake-app"),
   },
 };
