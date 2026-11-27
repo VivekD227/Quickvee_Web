@@ -58,6 +58,7 @@ module.exports = {
     assignPreferredVendor: apiNode("ci/Product_api_react/assign_preferred_vendor"),
     saveProductVendorCosts: apiNode("ci/Product_api_react/save_vendor_list"),
     getStoresManagement: apiNode("ci/Store_setting_react_api/getManagerStores"),
+    dashboardAPI: reportAPI("api/reports/dashboard"),
     revenueDataAPI: reportAPI("api/reports/revenue_data_api"),
     totalTransaction: reportAPI("api/reports/sales_count_api"),
     customerCountAPI: reportAPI("api/reports/customer_count_api"),

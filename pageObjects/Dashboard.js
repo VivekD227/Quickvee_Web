@@ -259,8 +259,8 @@ class Dashboard {
     await expect(this.inventory).toBeVisible();
     await expect(this.employee).toBeVisible();
     await expect(this.navLoyalty).toBeVisible();
-    await expect(this.navPurchaseOrder).toBeVisible();
-    await expect(this.navStocktake).toBeVisible();
+    // Purchase Order and Stocktake now sit under the collapsed Stock Control group.
+    await expect(this.stockControl).toBeVisible();
     await expect(this.navTaxes).toBeVisible();
     await expect(this.navImportData).toBeVisible();
   }
