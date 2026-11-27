@@ -11,6 +11,11 @@ async function waitForReportApi(page, apiUrl) {
   return response.json();
 }
 
+/** The dashboard loads all its data (KPIs, trend, top products, recent orders) from one call. */
+export async function dashboardData(page) {
+  return waitForReportApi(page, route.API_URL.dashboardAPI);
+}
+
 export async function revenueAPI(page) {
   return waitForReportApi(page, route.API_URL.revenueDataAPI);
 }
